@@ -1,0 +1,19 @@
+﻿Setup run: 2026-05-15T11:01:28.2791839+02:00
+Workspace: C:\Users\Pruebatd\Projects\tquot
+
+Step 1 - git init (if .git missing):
+.git exists: False
+git init: FAILED - git not found in PATH (CommandNotFoundException)
+
+Step 2 - npm install:
+FAILED - npm not found in PATH (CommandNotFoundException)
+
+Step 3 - npm run build:
+FAILED - npm not found in PATH (CommandNotFoundException)
+
+Notes:
+- PATH refreshed from Machine + User environment variables; git and npm still unavailable.
+- node.exe available via Cursor helper: C:\Users\Pruebatd\AppData\Local\Programs\cursor\resources\app\resources\helpers\node.exe (v22.22.0) but npm.cmd not present alongside it.
+- No Node.js installation found under Program Files or common user package managers in quick search.
+
+Overall: FAILURE - prerequisites (Git, Node.js/npm) must be installed and on PATH before these steps can succeed.

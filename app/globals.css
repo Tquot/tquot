@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+:root {
+  --tquot-bg: #03080f;
+  --tquot-teal: #00c9a7;
+  --tquot-orange: #ff6b35;
+  --tquot-gold: #f5c518;
+  --tquot-muted: #8b9cb3;
+  --tquot-border: rgba(0, 201, 167, 0.12);
+}
+
+@theme inline {
+  --color-tquot-bg: var(--tquot-bg);
+  --color-tquot-teal: var(--tquot-teal);
+  --color-tquot-orange: var(--tquot-orange);
+  --color-tquot-gold: var(--tquot-gold);
+  --color-tquot-muted: var(--tquot-muted);
+  --font-sans: var(--font-jakarta);
+  --font-display: var(--font-outfit);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--tquot-bg);
+  color: #e8eef7;
+  font-family: var(--font-jakarta), system-ui, sans-serif;
+}
+
+::selection {
+  background: rgba(0, 201, 167, 0.35);
+  color: #fff;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.mesh-bg {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 201, 167, 0.18), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(255, 107, 53, 0.08), transparent),
+    radial-gradient(ellipse 50% 30% at 0% 50%, rgba(245, 197, 24, 0.06), transparent);
+}
+
+.grid-overlay {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, black, transparent);
+}
+
+.card-glow {
+  transition:
+    border-color 0.3s ease,
+    box-shadow 0.3s ease,
+    transform 0.3s ease;
+}
+
+.card-glow:hover {
+  border-color: rgba(0, 201, 167, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(0, 201, 167, 0.1),
+    0 24px 48px -12px rgba(0, 201, 167, 0.15);
+  transform: translateY(-2px);
+}
+
+.cta-shine {
+  background-size: 200% auto;
+  animation: shimmer 4s linear infinite;
+}
