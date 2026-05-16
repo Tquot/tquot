@@ -1,9 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { logoutAction } from "./actions";
-import { readLocale, writeLocale } from "./locale";
+import { useDashboardLanguage } from "./dashboard-language-provider";
 import { type Locale, translations } from "./translations";
 
 const STAT_VALUES = ["0", "0", "1", "0"] as const;
@@ -22,18 +21,7 @@ function getGreeting(locale: Locale) {
 }
 
 export function LanguageToggle({ email }: LanguageToggleProps) {
-  const [locale, setLocale] = useState<Locale>("es");
-
-  useEffect(() => {
-    setLocale(readLocale());
-  }, []);
-
-  function selectLanguage(next: Locale) {
-    setLocale(next);
-    writeLocale(next);
-  }
-
-  const t = translations[locale];
+  const { locale, setLocale, t } = useDashboardLanguage();
   const stats = [
     { id: "today", label: t.statsToday, value: STAT_VALUES[0] },
     { id: "month", label: t.statsMonth, value: STAT_VALUES[1] },
@@ -69,7 +57,7 @@ export function LanguageToggle({ email }: LanguageToggleProps) {
                 <button
                   key={code}
                   type="button"
-                  onClick={() => selectLanguage(code)}
+                  onClick={() => setLocale(code)}
                   className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide transition-colors ${
                     locale === code
                       ? "bg-[#00C9A7] text-[#03080F]"

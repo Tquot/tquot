@@ -4,6 +4,8 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { useDashboardLanguage } from "../dashboard-language-provider";
+import type { Locale } from "../translations";
 
 type StepStatus = "pending" | "active" | "done";
 type Source = "INV-PROPIO" | "CORPORATIVO" | "WEB";
@@ -129,6 +131,7 @@ function getLineFinancials(item: QuoteLineItem) {
 }
 
 export function QuoteEngine() {
+  const { locale, setLocale, t } = useDashboardLanguage();
   const [request, setRequest] = useState(
     "Necesito un viaje para 2 adultos a Ribadesella, 3 noches, hotel con encanto, vuelos desde Madrid y una experiencia local.",
   );
@@ -374,20 +377,38 @@ export function QuoteEngine() {
           href="/dashboard"
           className="mb-8 inline-flex items-center text-sm text-[#8B9CB3] transition-colors hover:text-[#00C9A7]"
         >
-          ← Back to dashboard
+          ← {t.backToDashboard}
         </Link>
 
-        <section className="mb-8">
-          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-[#00C9A7]">
-            TQuot AI Engine
-          </p>
-          <h1 className="mt-3 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Nueva cotización inteligente
-          </h1>
-          <p className="mt-3 max-w-2xl text-[#8B9CB3]">
-            Pega una solicitud de cliente y visualiza cómo TQuot analiza,
-            busca, aplica márgenes y compila una propuesta lista para PDF.
-          </p>
+        <section className="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-[#00C9A7]">
+              TQuot AI Engine
+            </p>
+            <h1 className="mt-3 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+              {t.newQuote}
+            </h1>
+            <p className="mt-3 max-w-2xl text-[#8B9CB3]">
+              Pega una solicitud de cliente y visualiza cómo TQuot analiza,
+              busca, aplica márgenes y compila una propuesta lista para PDF.
+            </p>
+          </div>
+          <div className="flex w-fit rounded-full border border-white/10 bg-white/[0.04] p-0.5">
+            {(["es", "en"] as Locale[]).map((code) => (
+              <button
+                key={code}
+                type="button"
+                onClick={() => setLocale(code)}
+                className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide transition-colors ${
+                  locale === code
+                    ? "bg-[#00C9A7] text-[#03080F]"
+                    : "text-[#8B9CB3] hover:text-white"
+                }`}
+              >
+                {code}
+              </button>
+            ))}
+          </div>
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
@@ -396,7 +417,7 @@ export function QuoteEngine() {
               htmlFor="client-request"
               className="mb-3 block text-sm font-medium text-[#E8EEF7]"
             >
-              Solicitud del cliente
+              {t.clientRequestLabel}
             </label>
             <textarea
               id="client-request"
@@ -413,7 +434,7 @@ export function QuoteEngine() {
               disabled={!request.trim() || isRunning}
               className="mt-6 w-full rounded-xl bg-[#00C9A7] px-8 py-3 text-sm font-semibold text-[#03080F] shadow-[0_0_32px_-8px_rgba(0,201,167,0.5)] transition-all hover:bg-[#00E5BB] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isRunning ? "Procesando..." : "Generar cotización"}
+              {isRunning ? "Procesando..." : t.generateQuote}
             </button>
           </div>
 
