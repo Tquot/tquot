@@ -96,26 +96,49 @@ function looksLikeFlightRequest(text: string) {
   );
 }
 
+function extractBareFlightRoute(text: string) {
+  const match = text.match(/\bvuelos?\s+([\p{L}\p{M}\s.'-]+)/iu);
+  if (!match?.[1]) {
+    return { origin: "", destination: "" };
+  }
+
+  const routeText = cleanPlaceName(match[1]);
+  const parts = routeText.split(/\s+/).filter(Boolean);
+
+  if (parts.length < 2) {
+    return { origin: "", destination: routeText };
+  }
+
+  return {
+    origin: parts[0],
+    destination: parts.slice(1).join(" "),
+  };
+}
+
 function extractRequest(text: string): ExtractedRequest | null {
+  const bareFlightRoute = extractBareFlightRoute(text);
   const origin = matchKeyword(text, [
     /\bfrom\s+([\p{L}\p{M}\s.'-]+?)\s+\bto\b/iu,
     /\bde\s+([\p{L}\p{M}\s.'-]+?)\s+\ba\b/iu,
     /\borigin(?:e)?[:\s]+([\p{L}\p{M}\s.'-]+)/iu,
     /\borigen[:\s]+([\p{L}\p{M}\s.'-]+)/iu,
-  ]);
+  ]) || bareFlightRoute.origin;
 
   const destination = matchKeyword(text, [
     /\bhoteles?\s+en\s+([\p{L}\p{M}\s.'-]+)/iu,
+    /\bhoteles?\s+([\p{L}\p{M}\s.'-]+)/iu,
+    /\bhotel\s+([\p{L}\p{M}\s.'-]+)/iu,
     /\bviaje\s+a\s+([\p{L}\p{M}\s.'-]+)/iu,
     /\bvuelo\s+a\s+([\p{L}\p{M}\s.'-]+)/iu,
     /\bvuelos?\s+a\s+([\p{L}\p{M}\s.'-]+)/iu,
+    /\b([\p{L}\p{M}\s.'-]+?)\s+\d+\s+noches?\b/iu,
     /\bpara\s+([\p{L}\p{M}\s.'-]+)/iu,
     /\ben\s+([\p{L}\p{M}\s.'-]+)/iu,
     /\ba\s+([\p{L}\p{M}\s.'-]+)/iu,
     /\bto\s+([\p{L}\p{M}\s.'-]+)/iu,
     /\bdestination[:\s]+([\p{L}\p{M}\s.'-]+)/iu,
     /\bdestino[:\s]+([\p{L}\p{M}\s.'-]+)/iu,
-  ]);
+  ]) || bareFlightRoute.destination;
 
   if (!destination) {
     return null;
