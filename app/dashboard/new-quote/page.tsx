@@ -26,11 +26,12 @@ type HotelOption = {
 };
 
 type ExtractedRequest = {
-  origin: string;
+  origin?: string;
   destination: string;
   checkIn: string;
   checkOut: string;
   adults: number;
+  includeFlights: boolean;
 };
 
 type SearchResults = {
@@ -39,11 +40,12 @@ type SearchResults = {
 };
 
 const DEFAULT_SEARCH: ExtractedRequest = {
-  origin: "MAD",
-  destination: "BCN",
+  origin: undefined,
+  destination: "Ribadesella",
   checkIn: new Date().toISOString().slice(0, 10),
   checkOut: addDays(new Date(), 3),
   adults: 2,
+  includeFlights: false,
 };
 
 function addDays(date: Date, days: number) {
@@ -72,29 +74,61 @@ function matchKeyword(text: string, patterns: RegExp[]) {
   for (const pattern of patterns) {
     const match = text.match(pattern);
     if (match?.[1]) {
-      return match[1].trim().replace(/[,.]$/, "");
+      return cleanPlaceName(match[1]);
     }
   }
 
   return "";
 }
 
+function cleanPlaceName(value: string) {
+  return value
+    .replace(/\s+/g, " ")
+    .replace(
+      /\s+(?:del|desde|hasta|para|con|sin|en|check|entrada|salida|adultos|adulto|personas|persona|pax|hotel|hoteles|vuelo|vuelos|flight|flights|from|to|on|for|with|adults|people|travellers|travelers)\b.*$/i,
+      "",
+    )
+    .replace(/[,.]$/, "")
+    .trim();
+}
+
+function looksLikeFlightRequest(text: string) {
+  return /\b(?:vuelo|vuelos|flight|flights|volar|fly|airport|aeropuerto|from\s+.+\s+to|de\s+.+\s+a)\b/i.test(
+    text,
+  );
+}
+
 function extractRequest(text: string): ExtractedRequest {
-  const origin =
-    matchKeyword(text, [
-      /\bfrom\s+([a-zA-Z]{3}|[a-zA-Z\s]+?)\s+\bto\b/i,
-      /\bde\s+([a-zA-Z]{3}|[a-zA-Z\s]+?)\s+\ba\b/i,
-      /\borigin(?:e)?[:\s]+([a-zA-Z]{3}|[a-zA-Z\s]+)/i,
-      /\borigen[:\s]+([a-zA-Z]{3}|[a-zA-Z\s]+)/i,
-    ]) || DEFAULT_SEARCH.origin;
+  const origin = matchKeyword(text, [
+    /\bfrom\s+([\p{L}\s.'-]+?)\s+\bto\b/iu,
+    /\bde\s+([\p{L}\s.'-]+?)\s+\ba\b/iu,
+    /\borigin(?:e)?[:\s]+([\p{L}\s.'-]+)/iu,
+    /\borigen[:\s]+([\p{L}\s.'-]+)/iu,
+  ]);
+
+  const hotelDestination = matchKeyword(text, [
+    /\bhoteles?\s+en\s+([\p{L}\s.'-]+)/iu,
+    /\balojamiento\s+en\s+([\p{L}\s.'-]+)/iu,
+    /\bestancia\s+en\s+([\p{L}\s.'-]+)/iu,
+    /\bhabitaciones?\s+en\s+([\p{L}\s.'-]+)/iu,
+    /\bviaje\s+a\s+([\p{L}\s.'-]+)/iu,
+    /\bviajar\s+a\s+([\p{L}\s.'-]+)/iu,
+    /\bhotel\s+in\s+([\p{L}\s.'-]+)/iu,
+    /\bhotels?\s+in\s+([\p{L}\s.'-]+)/iu,
+    /\bstay\s+in\s+([\p{L}\s.'-]+)/iu,
+    /\btrip\s+to\s+([\p{L}\s.'-]+)/iu,
+  ]);
+
+  const routeDestination = matchKeyword(text, [
+    /\bto\s+([\p{L}\s.'-]+?)(?:\s+(?:from|on|for|with|check|adults|people|travellers|travelers)|[,.]|$)/iu,
+    /\ba\s+([\p{L}\s.'-]+?)(?:\s+(?:del|al|con|para|adultos|personas|pax)|[,.]|$)/iu,
+    /\bdestination[:\s]+([\p{L}\s.'-]+)/iu,
+    /\bdestino[:\s]+([\p{L}\s.'-]+)/iu,
+  ]);
 
   const destination =
-    matchKeyword(text, [
-      /\bto\s+([a-zA-Z]{3}|[a-zA-Z\s]+?)(?:\s+(?:from|on|for|with|del|from|check|adults|adultos)|[,.]|$)/i,
-      /\ba\s+([a-zA-Z]{3}|[a-zA-Z\s]+?)(?:\s+(?:del|al|con|para|adultos|personas)|[,.]|$)/i,
-      /\bdestination[:\s]+([a-zA-Z]{3}|[a-zA-Z\s]+)/i,
-      /\bdestino[:\s]+([a-zA-Z]{3}|[a-zA-Z\s]+)/i,
-    ]) || DEFAULT_SEARCH.destination;
+    hotelDestination || routeDestination || DEFAULT_SEARCH.destination;
+  const includeFlights = Boolean(origin && routeDestination && looksLikeFlightRequest(text));
 
   const dates = Array.from(
     text.matchAll(/\b(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{4})\b/g),
@@ -109,11 +143,12 @@ function extractRequest(text: string): ExtractedRequest {
   const checkOut = dates[1] || addDays(new Date(checkIn), 3);
 
   return {
-    origin,
+    origin: origin || undefined,
     destination,
     checkIn,
     checkOut,
     adults: Number.isInteger(adults) && adults > 0 ? adults : DEFAULT_SEARCH.adults,
+    includeFlights,
   };
 }
 
@@ -151,13 +186,17 @@ export default function NewQuotePage() {
     setExtracted(parsed);
 
     try {
+      const flightPromise = parsed.includeFlights
+        ? fetchJson<{ flights: FlightOption[] }>("/api/search-flights", {
+            origin: parsed.origin,
+            destination: parsed.destination,
+            date: parsed.checkIn,
+            adults: parsed.adults,
+          })
+        : Promise.resolve({ flights: [] });
+
       const [flightData, hotelData] = await Promise.all([
-        fetchJson<{ flights: FlightOption[] }>("/api/search-flights", {
-          origin: parsed.origin,
-          destination: parsed.destination,
-          date: parsed.checkIn,
-          adults: parsed.adults,
-        }),
+        flightPromise,
         fetchJson<{ hotels: HotelOption[] }>("/api/search-hotels", {
           destination: parsed.destination,
           checkIn: parsed.checkIn,
@@ -247,61 +286,67 @@ export default function NewQuotePage() {
 
         {extracted && !isLoading ? (
           <section className="mt-8 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 text-sm text-[#8B9CB3]">
-            <span className="text-white">Detected:</span> {extracted.origin} →{" "}
+            <span className="text-white">Detected:</span>{" "}
+            {extracted.includeFlights && extracted.origin
+              ? `${extracted.origin} → `
+              : ""}
             {extracted.destination}, {extracted.checkIn} to {extracted.checkOut},{" "}
             {extracted.adults} adults
+            {!extracted.includeFlights ? " · hotels only" : ""}
           </section>
         ) : null}
 
         {results ? (
           <section className="mt-10 space-y-8">
-            <ResultSection title="Flights">
-              {results.flights.length > 0 ? (
-                results.flights.map((flight, index) => (
-                  <ResultCard key={`${flight.airline}-${index}`}>
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        <p className="font-semibold text-white">
-                          {flight.airline}
-                        </p>
-                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-xs text-[#8B9CB3]">
-                          {flight.flightNumber}
-                        </span>
+            {extracted?.includeFlights ? (
+              <ResultSection title="Flights">
+                {results.flights.length > 0 ? (
+                  results.flights.map((flight, index) => (
+                    <ResultCard key={`${flight.airline}-${index}`}>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                          <p className="font-semibold text-white">
+                            {flight.airline}
+                          </p>
+                          <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-xs text-[#8B9CB3]">
+                            {flight.flightNumber}
+                          </span>
+                        </div>
+                        <div className="mt-3 grid gap-2 text-sm text-[#8B9CB3] sm:grid-cols-2">
+                          <p>
+                            <span className="text-white">Depart:</span>{" "}
+                            {flight.departureTime}
+                          </p>
+                          <p>
+                            <span className="text-white">Arrive:</span>{" "}
+                            {flight.arrivalTime}
+                          </p>
+                          <p>
+                            <span className="text-white">Duration:</span>{" "}
+                            {flight.duration}
+                          </p>
+                          <p>
+                            <span className="text-white">Stops:</span>{" "}
+                            {flight.stops}
+                          </p>
+                        </div>
+                        {String(flight.stops) !== "0" ? (
+                          <p className="mt-2 text-sm text-[#8B9CB3]">
+                            <span className="text-white">Stopover:</span>{" "}
+                            {flight.stopoverLocation}
+                          </p>
+                        ) : null}
                       </div>
-                      <div className="mt-3 grid gap-2 text-sm text-[#8B9CB3] sm:grid-cols-2">
-                        <p>
-                          <span className="text-white">Depart:</span>{" "}
-                          {flight.departureTime}
-                        </p>
-                        <p>
-                          <span className="text-white">Arrive:</span>{" "}
-                          {flight.arrivalTime}
-                        </p>
-                        <p>
-                          <span className="text-white">Duration:</span>{" "}
-                          {flight.duration}
-                        </p>
-                        <p>
-                          <span className="text-white">Stops:</span>{" "}
-                          {flight.stops}
-                        </p>
-                      </div>
-                      {String(flight.stops) !== "0" ? (
-                        <p className="mt-2 text-sm text-[#8B9CB3]">
-                          <span className="text-white">Stopover:</span>{" "}
-                          {flight.stopoverLocation}
-                        </p>
-                      ) : null}
-                    </div>
-                    <p className="text-lg font-bold text-[#00C9A7]">
-                      {flight.price}
-                    </p>
-                  </ResultCard>
-                ))
-              ) : (
-                <EmptyState>No flights found.</EmptyState>
-              )}
-            </ResultSection>
+                      <p className="text-lg font-bold text-[#00C9A7]">
+                        {flight.price}
+                      </p>
+                    </ResultCard>
+                  ))
+                ) : (
+                  <EmptyState>No flights found.</EmptyState>
+                )}
+              </ResultSection>
+            ) : null}
 
             <ResultSection title="Hotels">
               {results.hotels.length > 0 ? (
