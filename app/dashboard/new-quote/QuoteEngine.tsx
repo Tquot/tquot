@@ -1,5 +1,7 @@
 "use client";
 
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -88,6 +90,12 @@ const sourceStyles: Record<Source, string> = {
   WEB: "border-purple-400/30 bg-purple-400/10 text-purple-300",
 };
 
+const sourcePdfColors: Record<Source, [number, number, number]> = {
+  "INV-PROPIO": [0, 201, 167],
+  CORPORATIVO: [245, 197, 24],
+  WEB: [168, 85, 247],
+};
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("es-ES", {
     style: "currency",
@@ -102,6 +110,22 @@ function getStepStatus(index: number, activeStep: number, isRunning: boolean) {
   if (index === activeStep && isRunning) return "active";
   if (activeStep >= PROCESS_STEPS.length) return "done";
   return "pending";
+}
+
+function createQuoteReference() {
+  const date = new Date();
+  const stamp = date
+    .toISOString()
+    .slice(0, 10)
+    .replaceAll("-", "");
+  return `TQ-${stamp}-${Math.floor(1000 + Math.random() * 9000)}`;
+}
+
+function getLineFinancials(item: QuoteLineItem) {
+  const marginAmount = item.netCost * (item.marginPercent / 100);
+  const clientPrice = item.netCost + marginAmount;
+
+  return { marginAmount, clientPrice };
 }
 
 export function QuoteEngine() {
@@ -150,6 +174,192 @@ export function QuoteEngine() {
     setActiveStep(PROCESS_STEPS.length);
     setIsRunning(false);
     setIsComplete(true);
+  }
+
+  function generateAgentPDF() {
+    const doc = new jsPDF();
+    const quoteReference = createQuoteReference();
+
+    doc.setFillColor(3, 8, 15);
+    doc.rect(0, 0, 210, 297, "F");
+
+    doc.setFillColor(0, 201, 167);
+    doc.roundedRect(14, 14, 34, 18, 3, 3, "F");
+    doc.setTextColor(3, 8, 15);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("LOGO", 25, 26);
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(16);
+    doc.text("COTIZACION INTERNA - CONFIDENCIAL", 14, 48);
+    doc.setFontSize(10);
+    doc.setTextColor(139, 156, 179);
+    doc.text(`Referencia: ${quoteReference}`, 14, 56);
+    doc.text(`Generado: ${new Date().toLocaleString("es-ES")}`, 14, 62);
+
+    autoTable(doc, {
+      startY: 74,
+      head: [["Linea", "Fuente", "Neto", "Margen", "Cliente"]],
+      body: lineItems.map((item) => {
+        const { clientPrice } = getLineFinancials(item);
+        return [
+          `${item.name}\n${item.description}`,
+          `[${item.source}]`,
+          formatCurrency(item.netCost),
+          `${item.marginPercent}%`,
+          formatCurrency(clientPrice),
+        ];
+      }),
+      theme: "grid",
+      styles: {
+        fillColor: [9, 18, 32],
+        textColor: [232, 238, 247],
+        lineColor: [37, 50, 66],
+        fontSize: 9,
+        cellPadding: 3,
+      },
+      headStyles: {
+        fillColor: [0, 201, 167],
+        textColor: [3, 8, 15],
+        fontStyle: "bold",
+      },
+      alternateRowStyles: {
+        fillColor: [12, 24, 39],
+      },
+      didParseCell: (data) => {
+        if (data.section === "body" && data.column.index === 1) {
+          const source = lineItems[data.row.index]?.source;
+          if (source) {
+            data.cell.styles.textColor = sourcePdfColors[source];
+            data.cell.styles.fontStyle = "bold";
+          }
+        }
+      },
+    });
+
+    const finalY = (doc as jsPDF & { lastAutoTable?: { finalY: number } })
+      .lastAutoTable?.finalY ?? 140;
+
+    doc.setFillColor(9, 18, 32);
+    doc.roundedRect(14, finalY + 10, 182, 30, 3, 3, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("Totales internos", 20, finalY + 20);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(232, 238, 247);
+    doc.text(`Net cost: ${formatCurrency(totals.netCost)}`, 20, finalY + 29);
+    doc.text(
+      `Agency margin: ${formatCurrency(totals.agencyMargin)}`,
+      76,
+      finalY + 29,
+    );
+    doc.setTextColor(0, 201, 167);
+    doc.setFont("helvetica", "bold");
+    doc.text(
+      `Client price: ${formatCurrency(totals.clientPrice)}`,
+      140,
+      finalY + 29,
+    );
+
+    doc.setTextColor(245, 197, 24);
+    doc.setFontSize(11);
+    doc.text("Notas para agente", 14, finalY + 55);
+    doc.setTextColor(139, 156, 179);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(
+      [
+        "- Revisar disponibilidad final antes de enviar al cliente.",
+        "- Validar condiciones de cancelacion con cada proveedor.",
+        "- Confirmar margen minimo antes de cerrar reserva.",
+      ],
+      14,
+      finalY + 63,
+    );
+
+    doc.save(`${quoteReference}-agente.pdf`);
+  }
+
+  function generateClientPDF() {
+    const doc = new jsPDF();
+    const quoteReference = createQuoteReference();
+
+    doc.setFillColor(255, 255, 255);
+    doc.rect(0, 0, 210, 297, "F");
+
+    doc.setFillColor(3, 8, 15);
+    doc.roundedRect(14, 14, 34, 18, 3, 3, "F");
+    doc.setTextColor(0, 201, 167);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("LOGO", 25, 26);
+
+    doc.setTextColor(3, 8, 15);
+    doc.setFontSize(22);
+    doc.text("PROPUESTA DE VIAJE", 14, 48);
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Referencia: ${quoteReference}`, 14, 56);
+    doc.text(`Fecha: ${new Date().toLocaleDateString("es-ES")}`, 14, 62);
+
+    autoTable(doc, {
+      startY: 76,
+      head: [["Servicio", "Descripcion", "Precio cliente"]],
+      body: lineItems.map((item) => {
+        const { clientPrice } = getLineFinancials(item);
+        return [item.name, item.description, formatCurrency(clientPrice)];
+      }),
+      theme: "striped",
+      styles: {
+        textColor: [15, 23, 42],
+        fontSize: 9,
+        cellPadding: 3,
+        lineColor: [226, 232, 240],
+      },
+      headStyles: {
+        fillColor: [3, 8, 15],
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252],
+      },
+      columnStyles: {
+        2: {
+          halign: "right",
+          textColor: [0, 145, 122],
+          fontStyle: "bold",
+        },
+      },
+    });
+
+    const finalY = (doc as jsPDF & { lastAutoTable?: { finalY: number } })
+      .lastAutoTable?.finalY ?? 130;
+
+    doc.setFillColor(240, 253, 250);
+    doc.roundedRect(120, finalY + 12, 76, 24, 3, 3, "F");
+    doc.setTextColor(3, 8, 15);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text("Precio total cliente", 126, finalY + 22);
+    doc.setTextColor(0, 145, 122);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text(formatCurrency(totals.clientPrice), 126, finalY + 32);
+
+    doc.setTextColor(100, 116, 139);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text(
+      "Propuesta no vinculante. Precios sujetos a disponibilidad y pueden variar hasta confirmacion de reserva.",
+      14,
+      282,
+      { maxWidth: 182 },
+    );
+
+    doc.save(`${quoteReference}-cliente.pdf`);
   }
 
   return (
@@ -262,12 +472,14 @@ export function QuoteEngine() {
               <div className="flex gap-3">
                 <button
                   type="button"
+                  onClick={generateAgentPDF}
                   className="rounded-xl border border-[#00C9A7]/30 bg-[#00C9A7]/10 px-5 py-2.5 text-sm font-semibold text-[#00C9A7] transition-colors hover:bg-[#00C9A7]/15"
                 >
                   PDF Agente
                 </button>
                 <button
                   type="button"
+                  onClick={generateClientPDF}
                   className="rounded-xl bg-[#00C9A7] px-5 py-2.5 text-sm font-semibold text-[#03080F] transition-colors hover:bg-[#00E5BB]"
                 >
                   PDF Cliente
