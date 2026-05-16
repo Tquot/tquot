@@ -11,10 +11,12 @@ import {
 import { readLocale, writeLocale } from "./locale";
 import { type Locale, translations } from "./translations";
 
+type DashboardTranslation = (typeof translations)[Locale];
+
 type DashboardLanguageContextValue = {
   locale: Locale;
   setLocale: (locale: Locale) => void;
-  t: (typeof translations)["es"];
+  t: DashboardTranslation;
 };
 
 const DashboardLanguageContext =

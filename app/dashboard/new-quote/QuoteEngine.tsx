@@ -141,6 +141,20 @@ function drawAgencyHeader(
   const logoX = 14;
   const logoY = 14;
   const logoSize = 24;
+  const agencyName = profile.agencyName || "Travel Agency";
+
+  function drawTextBrand() {
+    doc.setFillColor(isDark ? 0 : 3, isDark ? 201 : 8, isDark ? 167 : 15);
+    doc.roundedRect(logoX, logoY, logoSize, logoSize, 3, 3, "F");
+    doc.setTextColor(isDark ? 3 : 0, isDark ? 8 : 201, isDark ? 15 : 167);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text("TQuot", logoX + 5, logoY + 10);
+    doc.setFontSize(5);
+    doc.text(agencyName.slice(0, 16), logoX + 3, logoY + 18, {
+      maxWidth: logoSize - 6,
+    });
+  }
 
   if (profile.logoBase64) {
     try {
@@ -149,37 +163,22 @@ function drawAgencyHeader(
       try {
         doc.addImage(profile.logoBase64, "JPEG", logoX, logoY, logoSize, logoSize);
       } catch {
-        doc.setFillColor(isDark ? 0 : 3, isDark ? 201 : 8, isDark ? 167 : 15);
-        doc.roundedRect(logoX, logoY, logoSize, logoSize, 3, 3, "F");
-        doc.setTextColor(isDark ? 3 : 0, isDark ? 8 : 201, isDark ? 15 : 167);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(8);
-        doc.text("LOGO", logoX + 7, logoY + 14);
+        drawTextBrand();
       }
     }
   } else {
-    doc.setFillColor(isDark ? 0 : 3, isDark ? 201 : 8, isDark ? 167 : 15);
-    doc.roundedRect(logoX, logoY, logoSize, logoSize, 3, 3, "F");
-    doc.setTextColor(isDark ? 3 : 0, isDark ? 8 : 201, isDark ? 15 : 167);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.text("LOGO", logoX + 7, logoY + 14);
+    drawTextBrand();
   }
 
   doc.setTextColor(isDark ? 255 : 3, isDark ? 255 : 8, isDark ? 255 : 15);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.text(profile.agencyName || "Travel Agency", 44, 20);
+  doc.text(agencyName, 44, 20);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
   doc.setTextColor(isDark ? 139 : 100, isDark ? 156 : 116, isDark ? 179 : 139);
-  const contactLines = [
-    profile.email,
-    profile.phone,
-    profile.address,
-    profile.website,
-  ].filter(Boolean);
+  const contactLines = [profile.email, profile.phone].filter(Boolean);
   doc.text(contactLines.slice(0, 3), 44, 27);
   doc.text(`Ref: ${quoteReference}`, 150, 20);
 }
