@@ -39,13 +39,10 @@ type SearchResults = {
   hotels: HotelOption[];
 };
 
-const DEFAULT_SEARCH: ExtractedRequest = {
-  origin: undefined,
-  destination: "Ribadesella",
+const DEFAULT_SEARCH = {
   checkIn: new Date().toISOString().slice(0, 10),
   checkOut: addDays(new Date(), 3),
   adults: 2,
-  includeFlights: false,
 };
 
 function addDays(date: Date, days: number) {
@@ -85,9 +82,10 @@ function cleanPlaceName(value: string) {
   return value
     .replace(/\s+/g, " ")
     .replace(
-      /\s+(?:del|desde|hasta|para|con|sin|en|check|entrada|salida|adultos|adulto|personas|persona|pax|hotel|hoteles|vuelo|vuelos|flight|flights|from|to|on|for|with|adults|people|travellers|travelers)\b.*$/i,
+      /\s+(?:del|al|desde|hasta|para|con|sin|check|entrada|salida|adultos|adulto|personas|persona|pax|noches?|nights?|hotel|hoteles|vuelo|vuelos|flight|flights|from|to|on|for|with|adults|people|travellers|travelers)\b.*$/iu,
       "",
     )
+    .replace(/\s+\d{1,4}.*$/u, "")
     .replace(/[,.]$/, "")
     .trim();
 }
@@ -98,37 +96,32 @@ function looksLikeFlightRequest(text: string) {
   );
 }
 
-function extractRequest(text: string): ExtractedRequest {
+function extractRequest(text: string): ExtractedRequest | null {
   const origin = matchKeyword(text, [
-    /\bfrom\s+([\p{L}\s.'-]+?)\s+\bto\b/iu,
-    /\bde\s+([\p{L}\s.'-]+?)\s+\ba\b/iu,
-    /\borigin(?:e)?[:\s]+([\p{L}\s.'-]+)/iu,
-    /\borigen[:\s]+([\p{L}\s.'-]+)/iu,
+    /\bfrom\s+([\p{L}\p{M}\s.'-]+?)\s+\bto\b/iu,
+    /\bde\s+([\p{L}\p{M}\s.'-]+?)\s+\ba\b/iu,
+    /\borigin(?:e)?[:\s]+([\p{L}\p{M}\s.'-]+)/iu,
+    /\borigen[:\s]+([\p{L}\p{M}\s.'-]+)/iu,
   ]);
 
-  const hotelDestination = matchKeyword(text, [
-    /\bhoteles?\s+en\s+([\p{L}\s.'-]+)/iu,
-    /\balojamiento\s+en\s+([\p{L}\s.'-]+)/iu,
-    /\bestancia\s+en\s+([\p{L}\s.'-]+)/iu,
-    /\bhabitaciones?\s+en\s+([\p{L}\s.'-]+)/iu,
-    /\bviaje\s+a\s+([\p{L}\s.'-]+)/iu,
-    /\bviajar\s+a\s+([\p{L}\s.'-]+)/iu,
-    /\bhotel\s+in\s+([\p{L}\s.'-]+)/iu,
-    /\bhotels?\s+in\s+([\p{L}\s.'-]+)/iu,
-    /\bstay\s+in\s+([\p{L}\s.'-]+)/iu,
-    /\btrip\s+to\s+([\p{L}\s.'-]+)/iu,
+  const destination = matchKeyword(text, [
+    /\bhoteles?\s+en\s+([\p{L}\p{M}\s.'-]+)/iu,
+    /\bviaje\s+a\s+([\p{L}\p{M}\s.'-]+)/iu,
+    /\bvuelo\s+a\s+([\p{L}\p{M}\s.'-]+)/iu,
+    /\bvuelos?\s+a\s+([\p{L}\p{M}\s.'-]+)/iu,
+    /\bpara\s+([\p{L}\p{M}\s.'-]+)/iu,
+    /\ben\s+([\p{L}\p{M}\s.'-]+)/iu,
+    /\ba\s+([\p{L}\p{M}\s.'-]+)/iu,
+    /\bto\s+([\p{L}\p{M}\s.'-]+)/iu,
+    /\bdestination[:\s]+([\p{L}\p{M}\s.'-]+)/iu,
+    /\bdestino[:\s]+([\p{L}\p{M}\s.'-]+)/iu,
   ]);
 
-  const routeDestination = matchKeyword(text, [
-    /\bto\s+([\p{L}\s.'-]+?)(?:\s+(?:from|on|for|with|check|adults|people|travellers|travelers)|[,.]|$)/iu,
-    /\ba\s+([\p{L}\s.'-]+?)(?:\s+(?:del|al|con|para|adultos|personas|pax)|[,.]|$)/iu,
-    /\bdestination[:\s]+([\p{L}\s.'-]+)/iu,
-    /\bdestino[:\s]+([\p{L}\s.'-]+)/iu,
-  ]);
+  if (!destination) {
+    return null;
+  }
 
-  const destination =
-    hotelDestination || routeDestination || DEFAULT_SEARCH.destination;
-  const includeFlights = Boolean(origin && routeDestination && looksLikeFlightRequest(text));
+  const includeFlights = Boolean(origin && looksLikeFlightRequest(text));
 
   const dates = Array.from(
     text.matchAll(/\b(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{4})\b/g),
@@ -183,6 +176,15 @@ export default function NewQuotePage() {
     setIsLoading(true);
 
     const parsed = extractRequest(request);
+    if (!parsed) {
+      setExtracted(null);
+      setIsLoading(false);
+      setError(
+        'Please specify the destination more clearly, for example "hoteles en Ribadesella", "viaje a Valladolid" or "vuelo de Madrid a Tokyo".',
+      );
+      return;
+    }
+
     setExtracted(parsed);
 
     try {
