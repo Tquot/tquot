@@ -4,6 +4,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { readAgencyProfile } from "../agency/agency-profile";
 import { useDashboardLanguage } from "../dashboard-language-provider";
 import type { Locale } from "../translations";
 
@@ -130,6 +131,59 @@ function getLineFinancials(item: QuoteLineItem) {
   return { marginAmount, clientPrice };
 }
 
+function drawAgencyHeader(
+  doc: jsPDF,
+  variant: "dark" | "light",
+  quoteReference: string,
+) {
+  const profile = readAgencyProfile();
+  const isDark = variant === "dark";
+  const logoX = 14;
+  const logoY = 14;
+  const logoSize = 24;
+
+  if (profile.logoBase64) {
+    try {
+      doc.addImage(profile.logoBase64, "PNG", logoX, logoY, logoSize, logoSize);
+    } catch {
+      try {
+        doc.addImage(profile.logoBase64, "JPEG", logoX, logoY, logoSize, logoSize);
+      } catch {
+        doc.setFillColor(isDark ? 0 : 3, isDark ? 201 : 8, isDark ? 167 : 15);
+        doc.roundedRect(logoX, logoY, logoSize, logoSize, 3, 3, "F");
+        doc.setTextColor(isDark ? 3 : 0, isDark ? 8 : 201, isDark ? 15 : 167);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.text("LOGO", logoX + 7, logoY + 14);
+      }
+    }
+  } else {
+    doc.setFillColor(isDark ? 0 : 3, isDark ? 201 : 8, isDark ? 167 : 15);
+    doc.roundedRect(logoX, logoY, logoSize, logoSize, 3, 3, "F");
+    doc.setTextColor(isDark ? 3 : 0, isDark ? 8 : 201, isDark ? 15 : 167);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.text("LOGO", logoX + 7, logoY + 14);
+  }
+
+  doc.setTextColor(isDark ? 255 : 3, isDark ? 255 : 8, isDark ? 255 : 15);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(12);
+  doc.text(profile.agencyName || "Travel Agency", 44, 20);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(isDark ? 139 : 100, isDark ? 156 : 116, isDark ? 179 : 139);
+  const contactLines = [
+    profile.email,
+    profile.phone,
+    profile.address,
+    profile.website,
+  ].filter(Boolean);
+  doc.text(contactLines.slice(0, 3), 44, 27);
+  doc.text(`Ref: ${quoteReference}`, 150, 20);
+}
+
 export function QuoteEngine() {
   const { locale, setLocale, t } = useDashboardLanguage();
   const [request, setRequest] = useState(
@@ -186,23 +240,18 @@ export function QuoteEngine() {
     doc.setFillColor(3, 8, 15);
     doc.rect(0, 0, 210, 297, "F");
 
-    doc.setFillColor(0, 201, 167);
-    doc.roundedRect(14, 14, 34, 18, 3, 3, "F");
-    doc.setTextColor(3, 8, 15);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text("LOGO", 25, 26);
+    drawAgencyHeader(doc, "dark", quoteReference);
 
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(16);
-    doc.text("COTIZACION INTERNA - CONFIDENCIAL", 14, 48);
+    doc.text("COTIZACION INTERNA - CONFIDENCIAL", 14, 54);
     doc.setFontSize(10);
     doc.setTextColor(139, 156, 179);
-    doc.text(`Referencia: ${quoteReference}`, 14, 56);
-    doc.text(`Generado: ${new Date().toLocaleString("es-ES")}`, 14, 62);
+    doc.text(`Referencia: ${quoteReference}`, 14, 62);
+    doc.text(`Generado: ${new Date().toLocaleString("es-ES")}`, 14, 68);
 
     autoTable(doc, {
-      startY: 74,
+      startY: 80,
       head: [["Linea", "Fuente", "Neto", "Margen", "Cliente"]],
       body: lineItems.map((item) => {
         const { clientPrice } = getLineFinancials(item);
@@ -292,23 +341,18 @@ export function QuoteEngine() {
     doc.setFillColor(255, 255, 255);
     doc.rect(0, 0, 210, 297, "F");
 
-    doc.setFillColor(3, 8, 15);
-    doc.roundedRect(14, 14, 34, 18, 3, 3, "F");
-    doc.setTextColor(0, 201, 167);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.text("LOGO", 25, 26);
+    drawAgencyHeader(doc, "light", quoteReference);
 
     doc.setTextColor(3, 8, 15);
     doc.setFontSize(22);
-    doc.text("PROPUESTA DE VIAJE", 14, 48);
+    doc.text("PROPUESTA DE VIAJE", 14, 54);
     doc.setFontSize(10);
     doc.setTextColor(100, 116, 139);
-    doc.text(`Referencia: ${quoteReference}`, 14, 56);
-    doc.text(`Fecha: ${new Date().toLocaleDateString("es-ES")}`, 14, 62);
+    doc.text(`Referencia: ${quoteReference}`, 14, 62);
+    doc.text(`Fecha: ${new Date().toLocaleDateString("es-ES")}`, 14, 68);
 
     autoTable(doc, {
-      startY: 76,
+      startY: 82,
       head: [["Servicio", "Descripcion", "Precio cliente"]],
       body: lineItems.map((item) => {
         const { clientPrice } = getLineFinancials(item);

@@ -48,6 +48,12 @@ export function LanguageToggle({ email }: LanguageToggleProps) {
           </Link>
 
           <div className="flex items-center gap-3 sm:gap-4">
+            <Link
+              href="/dashboard/agency"
+              className="hidden rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-[#E8EEF7] transition-colors hover:border-[#00C9A7]/40 hover:bg-[#00C9A7]/10 hover:text-[#00C9A7] sm:inline-flex"
+            >
+              {t.agency}
+            </Link>
             <span className="hidden max-w-[200px] truncate text-sm text-[#8B9CB3] sm:block">
               {email}
             </span>
@@ -105,12 +111,20 @@ export function LanguageToggle({ email }: LanguageToggleProps) {
         </section>
 
         <section className="mb-14 flex justify-center">
-          <Link
-            href="/dashboard/new-quote"
-            className="rounded-2xl bg-[#00C9A7] px-12 py-5 text-lg font-semibold text-[#03080F] shadow-[0_0_48px_-8px_rgba(0,201,167,0.55)] transition-all hover:scale-[1.02] hover:bg-[#00E5BB] hover:shadow-[0_0_56px_-8px_rgba(0,201,167,0.7)]"
-          >
-            {t.newQuote}
-          </Link>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Link
+              href="/dashboard/new-quote"
+              className="rounded-2xl bg-[#00C9A7] px-12 py-5 text-center text-lg font-semibold text-[#03080F] shadow-[0_0_48px_-8px_rgba(0,201,167,0.55)] transition-all hover:scale-[1.02] hover:bg-[#00E5BB] hover:shadow-[0_0_56px_-8px_rgba(0,201,167,0.7)]"
+            >
+              {t.newQuote}
+            </Link>
+            <Link
+              href="/dashboard/agency"
+              className="rounded-2xl border border-white/10 bg-white/[0.04] px-12 py-5 text-center text-lg font-semibold text-[#E8EEF7] transition-all hover:border-[#00C9A7]/40 hover:bg-[#00C9A7]/10 hover:text-[#00C9A7]"
+            >
+              {t.agency}
+            </Link>
+          </div>
         </section>
 
         <section>
