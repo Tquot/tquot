@@ -11,31 +11,47 @@ type SearchFlightsRequest = {
   adults?: unknown;
 };
 
-type FlightOption = {
+export type FlightOption = {
   price: string;
   airline: string;
+  flightNumber: string;
+  departureTime: string;
+  arrivalTime: string;
   duration: string;
   stops: number | string;
+  stopoverLocation: string;
 };
 
 const MOCK_FLIGHTS: FlightOption[] = [
   {
-    price: "€189",
+    price: "EUR 189",
     airline: "Iberia",
+    flightNumber: "IB 3171",
+    departureTime: "09:15",
+    arrivalTime: "11:30",
     duration: "2h 15m",
     stops: 0,
+    stopoverLocation: "Direct",
   },
   {
-    price: "€214",
+    price: "EUR 214",
     airline: "Vueling",
+    flightNumber: "VY 7824",
+    departureTime: "13:40",
+    arrivalTime: "16:15",
     duration: "2h 35m",
     stops: 0,
+    stopoverLocation: "Direct",
   },
   {
-    price: "€249",
+    price: "EUR 249",
     airline: "Air Europa",
+    flightNumber: "UX 1048",
+    departureTime: "18:10",
+    arrivalTime: "21:30",
     duration: "3h 20m",
     stops: 1,
+    stopoverLocation: "Madrid",
   },
 ];
 
@@ -43,9 +59,27 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
+function getStringValue(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim()) {
+      return value;
+    }
+
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return String(value);
+    }
+  }
+
+  return "Unknown";
+}
+
 function formatDuration(minutes: unknown) {
   if (typeof minutes !== "number" || !Number.isFinite(minutes)) {
-    return "Unknown";
+    return getStringValue(minutes);
   }
 
   const hours = Math.floor(minutes / 60);
@@ -58,6 +92,22 @@ function formatDuration(minutes: unknown) {
   return `${hours}h ${remainingMinutes}m`;
 }
 
+function formatTime(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) {
+    return "Unknown";
+  }
+
+  const date = new Date(value);
+  if (!Number.isNaN(date.getTime())) {
+    return date.toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  return value;
+}
+
 function getPrice(itinerary: Record<string, unknown>) {
   const price = itinerary.price;
 
@@ -65,93 +115,143 @@ function getPrice(itinerary: Record<string, unknown>) {
     return String(price);
   }
 
-  if (price && typeof price === "object") {
-    const priceObject = price as Record<string, unknown>;
-    return String(
-      priceObject.formatted ??
-        priceObject.amount ??
-        priceObject.raw ??
-        priceObject.value ??
-        "Unknown",
-    );
-  }
-
-  return "Unknown";
+  const priceObject = asRecord(price);
+  return getStringValue(
+    priceObject.formatted,
+    priceObject.amount,
+    priceObject.raw,
+    priceObject.value,
+  );
 }
 
 function getFirstLeg(itinerary: Record<string, unknown>) {
   const legs = itinerary.legs;
   return Array.isArray(legs) && legs[0] && typeof legs[0] === "object"
-    ? (legs[0] as Record<string, unknown>)
+    ? asRecord(legs[0])
     : {};
 }
 
 function getAirline(leg: Record<string, unknown>) {
-  const carriers = leg.carriers;
+  const carriers = asRecord(leg.carriers);
+  const marketing = carriers.marketing;
 
-  if (carriers && typeof carriers === "object") {
-    const carriersObject = carriers as Record<string, unknown>;
-    const marketing = carriersObject.marketing;
+  if (Array.isArray(marketing) && marketing[0]) {
+    const firstCarrier = asRecord(marketing[0]);
+    return getStringValue(firstCarrier.name, firstCarrier.alternateId);
+  }
 
-    if (
-      Array.isArray(marketing) &&
-      marketing[0] &&
-      typeof marketing[0] === "object"
-    ) {
-      const firstCarrier = marketing[0] as Record<string, unknown>;
-      return String(firstCarrier.name ?? firstCarrier.alternateId ?? "Unknown");
-    }
+  const operating = carriers.operating;
+  if (Array.isArray(operating) && operating[0]) {
+    const firstCarrier = asRecord(operating[0]);
+    return getStringValue(firstCarrier.name, firstCarrier.alternateId);
   }
 
   return "Unknown";
 }
 
+function getSegments(leg: Record<string, unknown>) {
+  return Array.isArray(leg.segments)
+    ? leg.segments.map(asRecord)
+    : [];
+}
+
+function getFlightNumber(leg: Record<string, unknown>) {
+  const segments = getSegments(leg);
+  const firstSegment = segments[0] ?? {};
+  const marketingCarrier = asRecord(firstSegment.marketingCarrier);
+  const carrierCode = getStringValue(
+    marketingCarrier.alternateId,
+    marketingCarrier.id,
+    firstSegment.marketingCarrierCode,
+  );
+  const flightNumber = getStringValue(
+    firstSegment.flightNumber,
+    firstSegment.marketingFlightNumber,
+  );
+
+  if (carrierCode === "Unknown") {
+    return flightNumber;
+  }
+
+  if (flightNumber === "Unknown") {
+    return carrierCode;
+  }
+
+  return `${carrierCode} ${flightNumber}`;
+}
+
+function getStopoverLocation(leg: Record<string, unknown>) {
+  const segments = getSegments(leg);
+
+  if (segments.length <= 1) {
+    return "Direct";
+  }
+
+  const stopovers = segments.slice(0, -1).map((segment) => {
+    const destination = asRecord(segment.destination);
+    return getStringValue(
+      destination.city,
+      destination.name,
+      destination.displayCode,
+      segment.destinationDisplayCode,
+    );
+  });
+
+  return stopovers.filter((stopover) => stopover !== "Unknown").join(", ") || "Unknown";
+}
+
 function normalizeFlightOptions(payload: unknown): FlightOption[] {
-  const response = payload as Record<string, unknown>;
-  const data = response.data as Record<string, unknown> | undefined;
+  const response = asRecord(payload);
+  const data = asRecord(response.data);
   const itineraries =
-    (Array.isArray(data?.itineraries) && data?.itineraries) ||
+    (Array.isArray(data.itineraries) && data.itineraries) ||
     (Array.isArray(response.itineraries) && response.itineraries) ||
     [];
 
-  return itineraries
-    .slice(0, 3)
-    .map((itinerary): FlightOption => {
-      const itineraryObject = itinerary as Record<string, unknown>;
-      const leg = getFirstLeg(itineraryObject);
+  return itineraries.slice(0, 3).map((itinerary): FlightOption => {
+    const itineraryObject = asRecord(itinerary);
+    const leg = getFirstLeg(itineraryObject);
 
-      return {
-        price: getPrice(itineraryObject),
-        airline: getAirline(leg),
-        duration: formatDuration(leg.durationInMinutes),
-        stops:
-          typeof leg.stopCount === "number" || typeof leg.stopCount === "string"
-            ? leg.stopCount
-            : "Unknown",
-      };
-    });
+    return {
+      price: getPrice(itineraryObject),
+      airline: getAirline(leg),
+      flightNumber: getFlightNumber(leg),
+      departureTime: formatTime(leg.departure),
+      arrivalTime: formatTime(leg.arrival),
+      duration: formatDuration(leg.durationInMinutes),
+      stops:
+        typeof leg.stopCount === "number" || typeof leg.stopCount === "string"
+          ? leg.stopCount
+          : "Unknown",
+      stopoverLocation: getStopoverLocation(leg),
+    };
+  });
 }
 
-function fallbackFlights(message: string, status = 200) {
-  return NextResponse.json(
-    {
-      flights: MOCK_FLIGHTS,
-      fallback: true,
-      error: message,
-    },
-    { status },
+function getErrorMessage(payload: unknown, fallback: string) {
+  const response = asRecord(payload);
+  const data = asRecord(response.data);
+
+  return getStringValue(
+    response.message,
+    response.error,
+    response.errors,
+    data.message,
+    data.error,
+    fallback,
   );
+}
+
+function fallbackFlights(message: string) {
+  return NextResponse.json({
+    flights: MOCK_FLIGHTS,
+    fallback: true,
+    error: message,
+  });
 }
 
 export async function POST(request: Request) {
   const rapidApiKey = process.env.RAPIDAPI_KEY;
-
-  if (!rapidApiKey) {
-    return NextResponse.json(
-      { error: "Missing RAPIDAPI_KEY environment variable." },
-      { status: 500 },
-    );
-  }
 
   let body: SearchFlightsRequest;
 
@@ -184,6 +284,11 @@ export async function POST(request: Request) {
       { error: "adults must be a positive integer." },
       { status: 400 },
     );
+  }
+
+  if (!rapidApiKey) {
+    console.error("[search-flights] Missing RAPIDAPI_KEY; returning fallback.");
+    return fallbackFlights("Missing RAPIDAPI_KEY environment variable.");
   }
 
   const searchParams = new URLSearchParams({
@@ -224,11 +329,7 @@ export async function POST(request: Request) {
     }
 
     if (!response.ok) {
-      const message =
-        typeof payload === "object" && payload !== null && "message" in payload
-          ? String((payload as { message: unknown }).message)
-          : responseText || "Failed to search flights.";
-
+      const message = getErrorMessage(payload, responseText || "Failed to search flights.");
       console.error("[search-flights] RapidAPI error", {
         status: response.status,
         message,

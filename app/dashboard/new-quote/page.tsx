@@ -6,8 +6,12 @@ import { useState } from "react";
 type FlightOption = {
   price: string;
   airline: string;
+  flightNumber: string;
+  departureTime: string;
+  arrivalTime: string;
   duration: string;
   stops: number | string;
+  stopoverLocation: string;
 };
 
 type HotelOption = {
@@ -15,6 +19,7 @@ type HotelOption = {
   pricePerNight: string;
   stars: number | string;
   rating: number | string;
+  address: string;
 };
 
 type ExtractedRequest = {
@@ -251,13 +256,39 @@ export default function NewQuotePage() {
               {results.flights.length > 0 ? (
                 results.flights.map((flight, index) => (
                   <ResultCard key={`${flight.airline}-${index}`}>
-                    <div>
-                      <p className="font-semibold text-white">
-                        {flight.airline}
-                      </p>
-                      <p className="mt-1 text-sm text-[#8B9CB3]">
-                        {flight.duration} · {flight.stops} stops
-                      </p>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <p className="font-semibold text-white">
+                          {flight.airline}
+                        </p>
+                        <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-xs text-[#8B9CB3]">
+                          {flight.flightNumber}
+                        </span>
+                      </div>
+                      <div className="mt-3 grid gap-2 text-sm text-[#8B9CB3] sm:grid-cols-2">
+                        <p>
+                          <span className="text-white">Depart:</span>{" "}
+                          {flight.departureTime}
+                        </p>
+                        <p>
+                          <span className="text-white">Arrive:</span>{" "}
+                          {flight.arrivalTime}
+                        </p>
+                        <p>
+                          <span className="text-white">Duration:</span>{" "}
+                          {flight.duration}
+                        </p>
+                        <p>
+                          <span className="text-white">Stops:</span>{" "}
+                          {flight.stops}
+                        </p>
+                      </div>
+                      {String(flight.stops) !== "0" ? (
+                        <p className="mt-2 text-sm text-[#8B9CB3]">
+                          <span className="text-white">Stopover:</span>{" "}
+                          {flight.stopoverLocation}
+                        </p>
+                      ) : null}
                     </div>
                     <p className="text-lg font-bold text-[#00C9A7]">
                       {flight.price}
@@ -273,10 +304,13 @@ export default function NewQuotePage() {
               {results.hotels.length > 0 ? (
                 results.hotels.map((hotel, index) => (
                   <ResultCard key={`${hotel.name}-${index}`}>
-                    <div>
+                    <div className="min-w-0">
                       <p className="font-semibold text-white">{hotel.name}</p>
                       <p className="mt-1 text-sm text-[#8B9CB3]">
                         {hotel.stars} stars · Rating {hotel.rating}
+                      </p>
+                      <p className="mt-2 text-sm text-[#8B9CB3]">
+                        {hotel.address}
                       </p>
                     </div>
                     <p className="text-lg font-bold text-[#00C9A7]">
@@ -321,7 +355,7 @@ function ResultSection({
 
 function ResultCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 backdrop-blur-sm">
+    <div className="flex flex-col justify-between gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 backdrop-blur-sm sm:flex-row sm:items-start">
       {children}
     </div>
   );
