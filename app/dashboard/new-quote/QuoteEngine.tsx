@@ -3,7 +3,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { readAgencyProfile } from "../agency/agency-profile";
 import { useDashboardLanguage } from "../dashboard-language-provider";
@@ -186,10 +186,31 @@ function parsePrice(value: string | number | undefined) {
   return Number(match[0].replace(",", "."));
 }
 
-function parseRequest(text: string): ParsedRequest {
+function extractBareFlightRoute(text: string) {
+  const match = text.match(/\bvuelos?\s+([\p{L}\p{M}\s.'-]+)/iu);
+  if (!match?.[1]) {
+    return { origin: "", destination: "" };
+  }
+
+  const routeText = cleanPlaceName(match[1]);
+  const parts = routeText.split(/\s+/).filter(Boolean);
+
+  if (parts.length < 2) {
+    return { origin: "", destination: routeText };
+  }
+
+  return {
+    origin: parts[0],
+    destination: parts.slice(1).join(" "),
+  };
+}
+
+function parseRequest(text: string): ParsedRequest | null {
   const today = new Date();
+  const sourceText = text.trim();
+  const bareFlightRoute = extractBareFlightRoute(sourceText);
   const destination =
-    matchKeyword(text, [
+    matchKeyword(sourceText, [
       /\bhoteles?\s+en\s+([\p{L}\p{M}\s.'-]+)/iu,
       /\bhoteles?\s+([\p{L}\p{M}\s.'-]+)/iu,
       /\bhotel\s+([\p{L}\p{M}\s.'-]+)/iu,
@@ -200,36 +221,40 @@ function parseRequest(text: string): ParsedRequest {
       /\bpara\s+([\p{L}\p{M}\s.'-]+)/iu,
       /\ben\s+([\p{L}\p{M}\s.'-]+)/iu,
       /\ba\s+([\p{L}\p{M}\s.'-]+)/iu,
-    ]) || "destino";
+    ]) || bareFlightRoute.destination;
 
-  const origin = matchKeyword(text, [
+  if (!destination) {
+    return null;
+  }
+
+  const origin = matchKeyword(sourceText, [
     /\bdesde\s+([\p{L}\p{M}\s.'-]+?)\s+\b(?:a|hasta)\b/iu,
     /\bde\s+([\p{L}\p{M}\s.'-]+?)\s+\ba\b/iu,
     /\bfrom\s+([\p{L}\p{M}\s.'-]+?)\s+\bto\b/iu,
-  ]);
+  ]) || bareFlightRoute.origin;
 
   const dates = Array.from(
-    text.matchAll(/\b(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{4})\b/g),
+    sourceText.matchAll(/\b(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{4})\b/g),
     (match) => match[1],
   );
-  const adultsMatch = text.match(
+  const adultsMatch = sourceText.match(
     /\b(\d+)\s*(?:adults?|adultos?|people|personas?|pax|travellers?|viajeros?)\b/i,
   );
   const includeFlights = /\b(?:vuelo|vuelos|flight|flights|volar|desde|from)\b/i.test(
-    text,
+    sourceText,
   );
   const requestedCategories: InventoryCategory[] = [];
 
-  if (/\b(?:hotel|hoteles|alojamiento|habitaci[oó]n)\b/i.test(text)) {
+  if (/\b(?:hotel|hoteles|alojamiento|habitaci[oó]n)\b/i.test(sourceText)) {
     requestedCategories.push("hotels");
   }
-  if (/\b(?:experiencia|experiencias|tour|actividad|actividades|gu[ií]a)\b/i.test(text)) {
+  if (/\b(?:experiencia|experiencias|tour|actividad|actividades|gu[ií]a)\b/i.test(sourceText)) {
     requestedCategories.push("experiences");
   }
-  if (/\b(?:traslado|transfer|proveedor|supplier)\b/i.test(text)) {
+  if (/\b(?:traslado|transfer|proveedor|supplier)\b/i.test(sourceText)) {
     requestedCategories.push("suppliers");
   }
-  if (/\b(?:tour operador|operador|paquete)\b/i.test(text)) {
+  if (/\b(?:tour operador|operador|paquete)\b/i.test(sourceText)) {
     requestedCategories.push("tour_operators");
   }
 
@@ -382,6 +407,7 @@ function drawAgencyHeader(
 
 export function QuoteEngine() {
   const { locale, setLocale, t } = useDashboardLanguage();
+  const requestInputRef = useRef<HTMLTextAreaElement>(null);
   const [request, setRequest] = useState(
     "Necesito un viaje para 2 adultos a Ribadesella, 3 noches, hotel con encanto, vuelos desde Madrid y una experiencia local.",
   );
@@ -498,6 +524,8 @@ export function QuoteEngine() {
   }
 
   async function runQuoteEngine() {
+    const latestRequest = requestInputRef.current?.value ?? request;
+    setRequest(latestRequest);
     setIsRunning(true);
     setIsComplete(false);
     setLineItems([]);
@@ -505,7 +533,22 @@ export function QuoteEngine() {
     setHotelOptions([]);
     setStepChips(defaultStepChips);
     setActiveStep(0);
-    const parsed = parseRequest(request);
+    const parsed = parseRequest(latestRequest);
+    if (!parsed) {
+      setStepChips((current) =>
+        current.map((chips, index) =>
+          index === 0
+            ? [
+                "Destination not detected",
+                "Please specify: hoteles en Ribadesella / viaje a Valladolid / vuelo de Madrid a Tokyo",
+              ]
+            : chips,
+        ),
+      );
+      setIsRunning(false);
+      setActiveStep(0);
+      return;
+    }
     const quoteItems: QuoteLineItem[] = [];
 
     setStepChips((current) =>
@@ -870,6 +913,7 @@ export function QuoteEngine() {
             </label>
             <textarea
               id="client-request"
+              ref={requestInputRef}
               value={request}
               onChange={(event) => setRequest(event.target.value)}
               rows={10}
