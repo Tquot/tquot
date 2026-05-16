@@ -4,6 +4,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { readAgencyProfile } from "../agency/agency-profile";
 import { useDashboardLanguage } from "../dashboard-language-provider";
 import type { Locale } from "../translations";
@@ -23,6 +24,45 @@ type QuoteLineItem = {
   source: Source;
   netCost: number;
   marginPercent: number;
+};
+
+type InventoryCategory =
+  | "hotels"
+  | "experiences"
+  | "suppliers"
+  | "tour_operators";
+
+type InventoryItem = {
+  id: string;
+  category: InventoryCategory;
+  name: string;
+  data: Record<string, string>;
+};
+
+type FlightOption = {
+  price: string;
+  airline: string;
+  flightNumber: string;
+  duration: string;
+  stops: number | string;
+};
+
+type HotelOption = {
+  name: string;
+  pricePerNight: string;
+  stars: number | string;
+  rating: number | string;
+  roomType: string;
+};
+
+type ParsedRequest = {
+  destination: string;
+  origin?: string;
+  checkIn: string;
+  checkOut: string;
+  adults: number;
+  includeFlights: boolean;
+  requestedCategories: InventoryCategory[];
 };
 
 const PROCESS_STEPS: ProcessStep[] = [
@@ -87,6 +127,8 @@ const DEFAULT_ITEMS: QuoteLineItem[] = [
   },
 ];
 
+const defaultStepChips = PROCESS_STEPS.map((step) => step.chips);
+
 const sourceStyles: Record<Source, string> = {
   "INV-PROPIO": "border-[#00C9A7]/30 bg-[#00C9A7]/10 text-[#00C9A7]",
   CORPORATIVO: "border-[#F5C518]/30 bg-[#F5C518]/10 text-[#F5C518]",
@@ -129,6 +171,174 @@ function getLineFinancials(item: QuoteLineItem) {
   const clientPrice = item.netCost + marginAmount;
 
   return { marginAmount, clientPrice };
+}
+
+function addDays(date: Date, days: number) {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate.toISOString().slice(0, 10);
+}
+
+function cleanPlaceName(value: string) {
+  return value
+    .replace(/\s+/g, " ")
+    .replace(
+      /\s+(?:del|al|desde|hasta|para|con|sin|check|entrada|salida|adultos|adulto|personas|persona|pax|noches?|nights?|hotel|hoteles|vuelo|vuelos|flight|flights|from|to|on|for|with|adults|people|travellers|travelers)\b.*$/iu,
+      "",
+    )
+    .replace(/\s+\d{1,4}.*$/u, "")
+    .replace(/[,.]$/, "")
+    .trim();
+}
+
+function matchKeyword(text: string, patterns: RegExp[]) {
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) return cleanPlaceName(match[1]);
+  }
+
+  return "";
+}
+
+function parsePrice(value: string | number | undefined) {
+  if (typeof value === "number") return value;
+  if (!value) return 0;
+
+  const match = value.match(/\d+(?:[.,]\d+)?/);
+  if (!match) return 0;
+
+  return Number(match[0].replace(",", "."));
+}
+
+function parseRequest(text: string): ParsedRequest {
+  const today = new Date();
+  const destination =
+    matchKeyword(text, [
+      /\bhoteles?\s+en\s+([\p{L}\p{M}\s.'-]+)/iu,
+      /\bhoteles?\s+([\p{L}\p{M}\s.'-]+)/iu,
+      /\bhotel\s+([\p{L}\p{M}\s.'-]+)/iu,
+      /\bviaje\s+a\s+([\p{L}\p{M}\s.'-]+)/iu,
+      /\bvuelo\s+a\s+([\p{L}\p{M}\s.'-]+)/iu,
+      /\bvuelos?\s+a\s+([\p{L}\p{M}\s.'-]+)/iu,
+      /\b([\p{L}\p{M}\s.'-]+?)\s+\d+\s+noches?\b/iu,
+      /\bpara\s+([\p{L}\p{M}\s.'-]+)/iu,
+      /\ben\s+([\p{L}\p{M}\s.'-]+)/iu,
+      /\ba\s+([\p{L}\p{M}\s.'-]+)/iu,
+    ]) || "destino";
+
+  const origin = matchKeyword(text, [
+    /\bdesde\s+([\p{L}\p{M}\s.'-]+?)\s+\b(?:a|hasta)\b/iu,
+    /\bde\s+([\p{L}\p{M}\s.'-]+?)\s+\ba\b/iu,
+    /\bfrom\s+([\p{L}\p{M}\s.'-]+?)\s+\bto\b/iu,
+  ]);
+
+  const dates = Array.from(
+    text.matchAll(/\b(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{4})\b/g),
+    (match) => match[1],
+  );
+  const adultsMatch = text.match(
+    /\b(\d+)\s*(?:adults?|adultos?|people|personas?|pax|travellers?|viajeros?)\b/i,
+  );
+  const includeFlights = /\b(?:vuelo|vuelos|flight|flights|volar|desde|from)\b/i.test(
+    text,
+  );
+  const requestedCategories: InventoryCategory[] = [];
+
+  if (/\b(?:hotel|hoteles|alojamiento|habitaci[oó]n)\b/i.test(text)) {
+    requestedCategories.push("hotels");
+  }
+  if (/\b(?:experiencia|experiencias|tour|actividad|actividades|gu[ií]a)\b/i.test(text)) {
+    requestedCategories.push("experiences");
+  }
+  if (/\b(?:traslado|transfer|proveedor|supplier)\b/i.test(text)) {
+    requestedCategories.push("suppliers");
+  }
+  if (/\b(?:tour operador|operador|paquete)\b/i.test(text)) {
+    requestedCategories.push("tour_operators");
+  }
+
+  if (requestedCategories.length === 0) {
+    requestedCategories.push("hotels", "experiences");
+  }
+
+  return {
+    destination,
+    origin: origin || undefined,
+    checkIn: dates[0] ?? today.toISOString().slice(0, 10),
+    checkOut: dates[1] ?? addDays(today, 3),
+    adults: adultsMatch ? Number(adultsMatch[1]) : 2,
+    includeFlights,
+    requestedCategories,
+  };
+}
+
+function matchesDestination(item: InventoryItem, destination: string) {
+  const normalizedDestination = destination.toLowerCase();
+  const searchable = [
+    item.name,
+    item.category,
+    ...Object.values(item.data ?? {}),
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return searchable.includes(normalizedDestination);
+}
+
+function inventoryItemToLineItem(item: InventoryItem): QuoteLineItem {
+  const netCost = parsePrice(
+    item.data.netPrice ?? item.data.price ?? item.data.cost ?? item.data.net_cost,
+  );
+
+  return {
+    id: `inventory-${item.id}`,
+    name: item.name,
+    description: Object.entries(item.data)
+      .filter(([, value]) => Boolean(value))
+      .slice(0, 3)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join(" · "),
+    source: "INV-PROPIO",
+    netCost: netCost || 100,
+    marginPercent: 18,
+  };
+}
+
+function hotelToLineItem(hotel: HotelOption, index: number): QuoteLineItem {
+  return {
+    id: `web-hotel-${index}`,
+    name: hotel.name,
+    description: `${hotel.roomType} · ${hotel.stars} stars · Rating ${hotel.rating}`,
+    source: "WEB",
+    netCost: parsePrice(hotel.pricePerNight) || 150,
+    marginPercent: 12,
+  };
+}
+
+function flightToLineItem(flight: FlightOption, index: number): QuoteLineItem {
+  return {
+    id: `web-flight-${index}`,
+    name: `${flight.airline} ${flight.flightNumber}`,
+    description: `${flight.duration} · ${flight.stops} stops`,
+    source: "WEB",
+    netCost: parsePrice(flight.price) || 220,
+    marginPercent: 10,
+  };
+}
+
+async function fetchJson<T>(url: string, body: unknown): Promise<T> {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? "Request failed");
+  }
+
+  return data as T;
 }
 
 function drawAgencyHeader(
@@ -192,6 +402,7 @@ export function QuoteEngine() {
   const [isRunning, setIsRunning] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [lineItems, setLineItems] = useState(DEFAULT_ITEMS);
+  const [stepChips, setStepChips] = useState(defaultStepChips);
 
   const totals = useMemo(() => {
     return lineItems.reduce(
@@ -220,12 +431,140 @@ export function QuoteEngine() {
   async function runQuoteEngine() {
     setIsRunning(true);
     setIsComplete(false);
+    setLineItems([]);
+    setStepChips(defaultStepChips);
     setActiveStep(0);
+    const parsed = parseRequest(request);
+    const quoteItems: QuoteLineItem[] = [];
 
-    for (let index = 0; index < PROCESS_STEPS.length; index += 1) {
-      setActiveStep(index);
-      await new Promise((resolve) => window.setTimeout(resolve, 900));
+    setStepChips((current) =>
+      current.map((chips, index) =>
+        index === 0
+          ? [
+              `Destination: ${parsed.destination}`,
+              `${parsed.adults} travellers`,
+              parsed.includeFlights ? "Flights requested" : "Hotels/services only",
+            ]
+          : chips,
+      ),
+    );
+    await new Promise((resolve) => window.setTimeout(resolve, 700));
+
+    setActiveStep(1);
+    const supabase = createBrowserSupabaseClient();
+    const { data: inventoryData, error: inventoryError } = await supabase
+      .from("inventory")
+      .select("id,category,name,data")
+      .in("category", parsed.requestedCategories);
+    const inventoryItems = ((inventoryData ?? []) as InventoryItem[]).filter(
+      (item) =>
+        parsed.requestedCategories.includes(item.category) &&
+        (matchesDestination(item, parsed.destination) ||
+          parsed.requestedCategories.includes(item.category)),
+    );
+    const inventoryLineItems = inventoryItems.map(inventoryItemToLineItem);
+    quoteItems.push(...inventoryLineItems);
+    setLineItems([...quoteItems]);
+    setStepChips((current) =>
+      current.map((chips, index) =>
+        index === 1
+          ? [
+              `${inventoryLineItems.length} items found in own inventory`,
+              inventoryError ? `Inventory warning: ${inventoryError.message}` : "Supabase inventory checked",
+            ]
+          : chips,
+      ),
+    );
+    await new Promise((resolve) => window.setTimeout(resolve, 700));
+
+    setActiveStep(2);
+    const contractedItems = inventoryItems.filter((item) =>
+      ["suppliers", "tour_operators"].includes(item.category),
+    );
+    setStepChips((current) =>
+      current.map((chips, index) =>
+        index === 2
+          ? [
+              `${contractedItems.length} contracted supplier matches`,
+              "Supplier contracts checked",
+            ]
+          : chips,
+      ),
+    );
+    await new Promise((resolve) => window.setTimeout(resolve, 700));
+
+    setActiveStep(3);
+    setStepChips((current) =>
+      current.map((chips, index) =>
+        index === 3
+          ? ["Corporate system not connected", "Skipped corporate pricing"]
+          : chips,
+      ),
+    );
+    await new Promise((resolve) => window.setTimeout(resolve, 700));
+
+    setActiveStep(4);
+    const hasHotelCoverage = inventoryItems.some((item) => item.category === "hotels");
+    const webItems: QuoteLineItem[] = [];
+
+    try {
+      if (!hasHotelCoverage) {
+        const hotelData = await fetchJson<{ hotels: HotelOption[] }>(
+          "/api/search-hotels",
+          {
+            destination: parsed.destination,
+            checkIn: parsed.checkIn,
+            checkOut: parsed.checkOut,
+            adults: parsed.adults,
+          },
+        );
+        webItems.push(...hotelData.hotels.slice(0, 1).map(hotelToLineItem));
+      }
+
+      if (parsed.includeFlights && parsed.origin) {
+        const flightData = await fetchJson<{ flights: FlightOption[] }>(
+          "/api/search-flights",
+          {
+            origin: parsed.origin,
+            destination: parsed.destination,
+            date: parsed.checkIn,
+            adults: parsed.adults,
+          },
+        );
+        webItems.push(...flightData.flights.slice(0, 1).map(flightToLineItem));
+      }
+    } catch (error) {
+      console.error("[QuoteEngine] Web search failed", error);
     }
+
+    quoteItems.push(...webItems);
+    setLineItems([...quoteItems]);
+    setStepChips((current) =>
+      current.map((chips, index) =>
+        index === 4
+          ? [
+              `${webItems.length} web items found`,
+              hasHotelCoverage ? "Hotel covered by own inventory" : "Booking.com checked",
+              parsed.includeFlights ? "Skyscanner checked" : "Flight search skipped",
+            ]
+          : chips,
+      ),
+    );
+    await new Promise((resolve) => window.setTimeout(resolve, 700));
+
+    setActiveStep(5);
+    setStepChips((current) =>
+      current.map((chips, index) =>
+        index === 5
+          ? [
+              `${quoteItems.filter((item) => item.source === "INV-PROPIO").length} [INV-PROPIO] items`,
+              `${quoteItems.filter((item) => item.source === "WEB").length} [WEB] items`,
+              "Margins applied",
+            ]
+          : chips,
+      ),
+    );
+    await new Promise((resolve) => window.setTimeout(resolve, 700));
 
     setActiveStep(PROCESS_STEPS.length);
     setIsRunning(false);
@@ -505,7 +844,7 @@ export function QuoteEngine() {
                     </div>
                     {status !== "pending" ? (
                       <div className="mt-3 flex flex-wrap gap-2 pl-9">
-                        {step.chips.map((chip) => (
+                        {stepChips[index].map((chip) => (
                           <span
                             key={chip}
                             className="rounded-full border border-[#00C9A7]/20 bg-[#00C9A7]/10 px-2.5 py-1 text-xs font-medium text-[#00C9A7]"
