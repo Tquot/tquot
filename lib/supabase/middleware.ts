@@ -6,7 +6,7 @@ const SUPABASE_ANON_KEY =
   "sb_publishable_QvcOjBhSI00AVcuf0r8idQ_p45uX6CC";
 
 export async function updateSession(request: NextRequest) {
-  let response = NextResponse.next({
+  const response = NextResponse.next({
     request: {
       headers: request.headers,
     },
