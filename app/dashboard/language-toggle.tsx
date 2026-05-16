@@ -49,8 +49,14 @@ export function LanguageToggle({ email }: LanguageToggleProps) {
 
           <div className="flex items-center gap-3 sm:gap-4">
             <Link
+              href="/dashboard/inventory"
+              className="hidden rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-[#E8EEF7] transition-colors hover:border-[#00C9A7]/40 hover:bg-[#00C9A7]/10 hover:text-[#00C9A7] md:inline-flex"
+            >
+              {t.inventory}
+            </Link>
+            <Link
               href="/dashboard/agency"
-              className="hidden rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-[#E8EEF7] transition-colors hover:border-[#00C9A7]/40 hover:bg-[#00C9A7]/10 hover:text-[#00C9A7] sm:inline-flex"
+              className="hidden rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-[#E8EEF7] transition-colors hover:border-[#00C9A7]/40 hover:bg-[#00C9A7]/10 hover:text-[#00C9A7] md:inline-flex"
             >
               {t.agency}
             </Link>
@@ -123,6 +129,12 @@ export function LanguageToggle({ email }: LanguageToggleProps) {
               className="rounded-2xl border border-white/10 bg-white/[0.04] px-12 py-5 text-center text-lg font-semibold text-[#E8EEF7] transition-all hover:border-[#00C9A7]/40 hover:bg-[#00C9A7]/10 hover:text-[#00C9A7]"
             >
               {t.agency}
+            </Link>
+            <Link
+              href="/dashboard/inventory"
+              className="rounded-2xl border border-white/10 bg-white/[0.04] px-12 py-5 text-center text-lg font-semibold text-[#E8EEF7] transition-all hover:border-[#00C9A7]/40 hover:bg-[#00C9A7]/10 hover:text-[#00C9A7]"
+            >
+              {t.inventory}
             </Link>
           </div>
         </section>
