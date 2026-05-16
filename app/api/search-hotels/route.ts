@@ -19,6 +19,9 @@ export type HotelOption = {
   stars: number | string;
   rating: number | string;
   address: string;
+  roomType: string;
+  highlights: string[];
+  distanceFromCenter: string;
 };
 
 type DestinationMatch = {
@@ -33,6 +36,9 @@ const MOCK_HOTELS: HotelOption[] = [
     stars: 4,
     rating: 8.7,
     address: "City centre, close to the main attractions",
+    roomType: "Habitación doble",
+    highlights: ["Centro ciudad", "Desayuno incluido", "Wifi gratis"],
+    distanceFromCenter: "0.4 km from centre",
   },
   {
     name: "Aurora Boutique Suites",
@@ -40,6 +46,9 @@ const MOCK_HOTELS: HotelOption[] = [
     stars: 4,
     rating: 9.1,
     address: "Historic district, near restaurants and shops",
+    roomType: "Suite",
+    highlights: ["Piscina", "Terraza", "Cerca del casco antiguo"],
+    distanceFromCenter: "0.8 km from centre",
   },
   {
     name: "Metropolitan Business Hotel",
@@ -47,6 +56,9 @@ const MOCK_HOTELS: HotelOption[] = [
     stars: 3,
     rating: 8.3,
     address: "Central station area",
+    roomType: "Habitación estándar",
+    highlights: ["Estación central", "Recepción 24h", "Cancelación flexible"],
+    distanceFromCenter: "1.2 km from centre",
   },
 ];
 
@@ -70,6 +82,31 @@ function getStringValue(...values: unknown[]) {
   }
 
   return "Unknown";
+}
+
+function cleanPrice(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return `${Math.round(value)} EUR`;
+  }
+
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  const normalized = value.replace(/\s+/g, " ").trim();
+  const numberMatch = normalized.match(/\d+(?:[.,]\d+)?/);
+
+  if (!numberMatch) {
+    return "";
+  }
+
+  const amount = Math.round(Number(numberMatch[0].replace(",", ".")));
+
+  if (!Number.isFinite(amount)) {
+    return "";
+  }
+
+  return `${amount} EUR`;
 }
 
 function firstArray(...values: unknown[]) {
@@ -157,15 +194,24 @@ function getPricePerNight(hotel: Record<string, unknown>) {
   const grossPrice = asRecord(priceBreakdown.grossPrice);
   const benefitBadge = asRecord(priceBreakdown.benefitBadge);
 
-  return getStringValue(
-    priceBreakdown.displayPrice,
+  const candidates = [
     grossPrice.value,
     grossPrice.amount,
     grossPrice.formatted,
+    priceBreakdown.displayPrice,
     benefitBadge.text,
     hotel.price,
     hotel.pricePerNight,
-  );
+  ];
+
+  for (const candidate of candidates) {
+    const price = cleanPrice(candidate);
+    if (price) {
+      return price;
+    }
+  }
+
+  return "Unknown";
 }
 
 function getStars(hotel: Record<string, unknown>) {
@@ -208,6 +254,70 @@ function getAddress(hotel: Record<string, unknown>) {
   );
 }
 
+function getRoomType(hotel: Record<string, unknown>) {
+  const property = asRecord(hotel.property);
+  const blocks = firstArray(hotel.block, hotel.rooms, property.rooms);
+  const firstRoom = asRecord(blocks[0]);
+
+  return getStringValue(
+    hotel.roomType,
+    hotel.room_name,
+    hotel.roomName,
+    firstRoom.name,
+    firstRoom.room_name,
+    firstRoom.roomName,
+    property.roomType,
+    "Habitación doble",
+  );
+}
+
+function getDistanceFromCenter(hotel: Record<string, unknown>) {
+  const property = asRecord(hotel.property);
+  const location = asRecord(hotel.location ?? property.location);
+
+  return getStringValue(
+    hotel.distanceFromCenter,
+    hotel.distance_to_cc,
+    hotel.distance,
+    property.distanceFromCenter,
+    property.distance_to_cc,
+    property.distance,
+    location.distanceFromCenter,
+    "Distance unavailable",
+  );
+}
+
+function getHighlights(hotel: Record<string, unknown>) {
+  const property = asRecord(hotel.property);
+  const badges = firstArray(
+    hotel.badges,
+    hotel.facilities,
+    hotel.highlights,
+    property.badges,
+    property.facilities,
+    property.highlights,
+  );
+
+  const parsed = badges
+    .map((badge) => {
+      const badgeObject = asRecord(badge);
+      return getStringValue(
+        badgeObject.text,
+        badgeObject.name,
+        badgeObject.title,
+        badge,
+      );
+    })
+    .filter((highlight) => highlight !== "Unknown")
+    .slice(0, 3);
+
+  if (parsed.length > 0) {
+    return parsed;
+  }
+
+  return ["Centro ciudad", "Wifi gratis", "Buena ubicación"];
+}
+
 function normalizeHotelOptions(payload: unknown): HotelOption[] {
   const response = asRecord(payload);
   const data = asRecord(response.data);
@@ -233,6 +343,9 @@ function normalizeHotelOptions(payload: unknown): HotelOption[] {
       stars: getStars(hotelObject),
       rating: getRating(hotelObject),
       address: getAddress(hotelObject),
+      roomType: getRoomType(hotelObject),
+      highlights: getHighlights(hotelObject),
+      distanceFromCenter: getDistanceFromCenter(hotelObject),
     };
   });
 }

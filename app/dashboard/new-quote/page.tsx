@@ -20,6 +20,9 @@ type HotelOption = {
   stars: number | string;
   rating: number | string;
   address: string;
+  roomType: string;
+  highlights: string[];
+  distanceFromCenter: string;
 };
 
 type ExtractedRequest = {
@@ -309,13 +312,29 @@ export default function NewQuotePage() {
                       <p className="mt-1 text-sm text-[#8B9CB3]">
                         {hotel.stars} stars · Rating {hotel.rating}
                       </p>
+                      <p className="mt-1 text-sm text-[#8B9CB3]">
+                        {hotel.roomType} · {hotel.distanceFromCenter}
+                      </p>
                       <p className="mt-2 text-sm text-[#8B9CB3]">
                         {hotel.address}
                       </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {hotel.highlights.map((highlight) => (
+                          <span
+                            key={highlight}
+                            className="rounded-full border border-[#00C9A7]/20 bg-[#00C9A7]/10 px-2.5 py-1 text-xs font-medium text-[#00C9A7]"
+                          >
+                            {highlight}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                    <p className="text-lg font-bold text-[#00C9A7]">
-                      {hotel.pricePerNight}
-                    </p>
+                    <div className="shrink-0 text-left sm:text-right">
+                      <p className="text-lg font-bold text-[#00C9A7]">
+                        {hotel.pricePerNight}
+                      </p>
+                      <p className="text-xs text-[#8B9CB3]">per night</p>
+                    </div>
                   </ResultCard>
                 ))
               ) : (
