@@ -18,6 +18,27 @@ type FlightOption = {
   stops: number | string;
 };
 
+const MOCK_FLIGHTS: FlightOption[] = [
+  {
+    price: "€189",
+    airline: "Iberia",
+    duration: "2h 15m",
+    stops: 0,
+  },
+  {
+    price: "€214",
+    airline: "Vueling",
+    duration: "2h 35m",
+    stops: 0,
+  },
+  {
+    price: "€249",
+    airline: "Air Europa",
+    duration: "3h 20m",
+    stops: 1,
+  },
+];
+
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
@@ -111,6 +132,17 @@ function normalizeFlightOptions(payload: unknown): FlightOption[] {
     });
 }
 
+function fallbackFlights(message: string, status = 200) {
+  return NextResponse.json(
+    {
+      flights: MOCK_FLIGHTS,
+      fallback: true,
+      error: message,
+    },
+    { status },
+  );
+}
+
 export async function POST(request: Request) {
   const rapidApiKey = process.env.RAPIDAPI_KEY;
 
@@ -155,34 +187,74 @@ export async function POST(request: Request) {
   }
 
   const searchParams = new URLSearchParams({
-    fromId: origin.trim(),
-    toId: destination.trim(),
-    departDate: date.trim(),
+    fromEntityId: origin.trim(),
+    toEntityId: destination.trim(),
+    date: date.trim(),
     adults: String(adultCount),
   });
 
-  const response = await fetch(`${SKYSCANNER_API_URL}?${searchParams}`, {
-    method: "GET",
-    headers: {
-      "x-rapidapi-host": RAPIDAPI_HOST,
-      "x-rapidapi-key": rapidApiKey,
-    },
+  const requestUrl = `${SKYSCANNER_API_URL}?${searchParams}`;
+  console.log("[search-flights] RapidAPI request", {
+    url: requestUrl,
+    params: Object.fromEntries(searchParams),
   });
 
-  if (!response.ok) {
-    return NextResponse.json(
-      {
-        error: "Failed to search flights.",
-        status: response.status,
-        details: await response.text(),
+  try {
+    const response = await fetch(requestUrl, {
+      method: "GET",
+      headers: {
+        "x-rapidapi-host": RAPIDAPI_HOST,
+        "x-rapidapi-key": rapidApiKey,
       },
-      { status: response.status },
-    );
+    });
+
+    const responseText = await response.text();
+    console.log("[search-flights] RapidAPI response", {
+      status: response.status,
+      ok: response.ok,
+      body: responseText,
+    });
+
+    let payload: unknown;
+
+    try {
+      payload = responseText ? JSON.parse(responseText) : {};
+    } catch {
+      payload = { raw: responseText };
+    }
+
+    if (!response.ok) {
+      const message =
+        typeof payload === "object" && payload !== null && "message" in payload
+          ? String((payload as { message: unknown }).message)
+          : responseText || "Failed to search flights.";
+
+      console.error("[search-flights] RapidAPI error", {
+        status: response.status,
+        message,
+        payload,
+      });
+
+      return fallbackFlights(message);
+    }
+
+    const flights = normalizeFlightOptions(payload);
+
+    if (flights.length === 0) {
+      console.error("[search-flights] RapidAPI returned no flight options", {
+        payload,
+      });
+
+      return fallbackFlights("RapidAPI returned no flight options.");
+    }
+
+    return NextResponse.json({ flights });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unexpected flight search error.";
+
+    console.error("[search-flights] Request failed", error);
+
+    return fallbackFlights(message);
   }
-
-  const payload = await response.json();
-
-  return NextResponse.json({
-    flights: normalizeFlightOptions(payload),
-  });
 }
