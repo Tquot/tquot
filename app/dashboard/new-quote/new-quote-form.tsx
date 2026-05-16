@@ -1,12 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { useLanguage } from "../language-provider";
+import { useEffect, useState } from "react";
+import { LOCALE_CHANGE_EVENT, readLocale } from "../locale";
+import { type Locale, translations } from "../translations";
 
 export function NewQuoteForm() {
-  const { t } = useLanguage();
+  const [locale, setLocale] = useState<Locale>("es");
   const [request, setRequest] = useState("");
+
+  useEffect(() => {
+    setLocale(readLocale());
+
+    const onLocaleChange = (event: Event) => {
+      const detail = (event as CustomEvent<Locale>).detail;
+      if (detail === "es" || detail === "en") {
+        setLocale(detail);
+      }
+    };
+
+    window.addEventListener(LOCALE_CHANGE_EVENT, onLocaleChange);
+    return () =>
+      window.removeEventListener(LOCALE_CHANGE_EVENT, onLocaleChange);
+  }, []);
+
+  const t = translations[locale];
 
   function handleGenerate() {
     // Quote generation will be wired up in a future step.

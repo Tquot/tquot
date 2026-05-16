@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { LanguageProvider } from "./language-provider";
+import { DashboardEmailProvider } from "./dashboard-email-context";
 import { LanguageToggle } from "./language-toggle";
 import { LogoutButtonClient } from "./logout-button-client";
 
@@ -12,7 +12,7 @@ type DashboardShellProps = {
 
 export function DashboardShell({ email, children }: DashboardShellProps) {
   return (
-    <LanguageProvider>
+    <DashboardEmailProvider email={email}>
       <div className="relative min-h-screen bg-[#03080F] text-[#E8EEF7]">
         <div
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_40%_at_50%_-10%,rgba(0,201,167,0.12),transparent)]"
@@ -44,6 +44,6 @@ export function DashboardShell({ email, children }: DashboardShellProps) {
           {children}
         </main>
       </div>
-    </LanguageProvider>
+    </DashboardEmailProvider>
   );
 }

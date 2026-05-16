@@ -1,19 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { getGreeting, useLanguage } from "./language-provider";
+import { getGreeting } from "./language-provider";
+import type { translations } from "./translations";
 
 const STAT_VALUES = ["0", "0", "1", "0"] as const;
 
-export function DashboardHome({ email }: { email: string }) {
-  const { t } = useLanguage();
+type DashboardHomeProps = {
+  email: string;
+  t: (typeof translations)["es"];
+};
+
+export function DashboardHome({ email, t }: DashboardHomeProps) {
   const greeting = getGreeting(t);
 
   const stats = [
-    { label: t.statsToday, value: STAT_VALUES[0] },
-    { label: t.statsMonth, value: STAT_VALUES[1] },
-    { label: t.statsAgencies, value: STAT_VALUES[2] },
-    { label: t.statsPdfs, value: STAT_VALUES[3] },
+    { id: "today", label: t.statsToday, value: STAT_VALUES[0] },
+    { id: "month", label: t.statsMonth, value: STAT_VALUES[1] },
+    { id: "agencies", label: t.statsAgencies, value: STAT_VALUES[2] },
+    { id: "pdfs", label: t.statsPdfs, value: STAT_VALUES[3] },
   ];
 
   return (
@@ -29,7 +34,7 @@ export function DashboardHome({ email }: { email: string }) {
       <section className="mb-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
           <div
-            key={stat.label}
+            key={stat.id}
             className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 backdrop-blur-sm"
           >
             <p className="text-sm font-medium text-[#8B9CB3]">{stat.label}</p>
