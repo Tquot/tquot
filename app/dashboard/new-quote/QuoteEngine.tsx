@@ -26,6 +26,11 @@ type QuoteLineItem = {
   marginPercent: number;
 };
 
+type ChatMessage = {
+  role: "agent" | "ai";
+  content: string;
+};
+
 type InventoryCategory =
   | "hotels"
   | "experiences"
@@ -43,8 +48,11 @@ type FlightOption = {
   price: string;
   airline: string;
   flightNumber: string;
+  departureTime: string;
+  arrivalTime: string;
   duration: string;
   stops: number | string;
+  stopoverLocation: string;
 };
 
 type HotelOption = {
@@ -53,6 +61,9 @@ type HotelOption = {
   stars: number | string;
   rating: number | string;
   roomType: string;
+  address: string;
+  highlights: string[];
+  distanceFromCenter: string;
 };
 
 type ParsedRequest = {
@@ -89,41 +100,6 @@ const PROCESS_STEPS: ProcessStep[] = [
   {
     title: "💰 Applying margins and compiling quote",
     chips: ["Márgenes aplicados", "Quote listo"],
-  },
-];
-
-const DEFAULT_ITEMS: QuoteLineItem[] = [
-  {
-    id: "hotel",
-    name: "Hotel boutique 4* - 3 noches",
-    description: "Habitación doble con desayuno incluido",
-    source: "INV-PROPIO",
-    netCost: 420,
-    marginPercent: 18,
-  },
-  {
-    id: "experience",
-    name: "Experiencia privada en destino",
-    description: "Tour local con proveedor contratado",
-    source: "CORPORATIVO",
-    netCost: 180,
-    marginPercent: 15,
-  },
-  {
-    id: "flight",
-    name: "Vuelos ida y vuelta",
-    description: "Mejor combinación encontrada en búsqueda web",
-    source: "WEB",
-    netCost: 365,
-    marginPercent: 10,
-  },
-  {
-    id: "transfer",
-    name: "Traslados aeropuerto - hotel",
-    description: "Servicio privado con asistencia",
-    source: "INV-PROPIO",
-    netCost: 95,
-    marginPercent: 20,
   },
 ];
 
@@ -308,7 +284,7 @@ function hotelToLineItem(hotel: HotelOption, index: number): QuoteLineItem {
   return {
     id: `web-hotel-${index}`,
     name: hotel.name,
-    description: `${hotel.roomType} · ${hotel.stars} stars · Rating ${hotel.rating}`,
+    description: `${hotel.roomType} · ${hotel.stars} stars · Rating ${hotel.rating} · ${hotel.distanceFromCenter}`,
     source: "WEB",
     netCost: parsePrice(hotel.pricePerNight) || 150,
     marginPercent: 12,
@@ -319,10 +295,21 @@ function flightToLineItem(flight: FlightOption, index: number): QuoteLineItem {
   return {
     id: `web-flight-${index}`,
     name: `${flight.airline} ${flight.flightNumber}`,
-    description: `${flight.duration} · ${flight.stops} stops`,
+    description: `${flight.departureTime} → ${flight.arrivalTime} · ${flight.duration} · ${flight.stops} stops`,
     source: "WEB",
     netCost: parsePrice(flight.price) || 220,
     marginPercent: 10,
+  };
+}
+
+function createInsuranceLineItem(): QuoteLineItem {
+  return {
+    id: `corporate-insurance-${Date.now()}`,
+    name: "Seguro de viaje premium",
+    description: "Cobertura médica, cancelación y asistencia 24/7",
+    source: "CORPORATIVO",
+    netCost: 48,
+    marginPercent: 20,
   };
 }
 
@@ -401,8 +388,21 @@ export function QuoteEngine() {
   const [activeStep, setActiveStep] = useState(-1);
   const [isRunning, setIsRunning] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
-  const [lineItems, setLineItems] = useState(DEFAULT_ITEMS);
+  const [lineItems, setLineItems] = useState<QuoteLineItem[]>([]);
   const [stepChips, setStepChips] = useState(defaultStepChips);
+  const [flightOptions, setFlightOptions] = useState<FlightOption[]>([]);
+  const [hotelOptions, setHotelOptions] = useState<HotelOption[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+    {
+      role: "ai",
+      content:
+        'Puedes pedirme: "make cheaper", "add insurance" o "upgrade hotel".',
+    },
+  ]);
+  const [agentNotes, setAgentNotes] = useState(
+    "Revisar disponibilidad antes de confirmar. Validar condiciones de cancelación.",
+  );
 
   const totals = useMemo(() => {
     return lineItems.reduce(
@@ -428,10 +428,81 @@ export function QuoteEngine() {
     );
   }
 
+  function toggleFlightOption(flight: FlightOption, index: number) {
+    const item = flightToLineItem(flight, index);
+    setLineItems((items) =>
+      items.some((current) => current.id === item.id)
+        ? items.filter((current) => current.id !== item.id)
+        : [...items, item],
+    );
+  }
+
+  function toggleHotelOption(hotel: HotelOption, index: number) {
+    const item = hotelToLineItem(hotel, index);
+    setLineItems((items) =>
+      items.some((current) => current.id === item.id)
+        ? items.filter((current) => current.id !== item.id)
+        : [...items, item],
+    );
+  }
+
+  function isSelected(id: string) {
+    return lineItems.some((item) => item.id === id);
+  }
+
+  function sendChatMessage() {
+    const message = chatInput.trim();
+    if (!message) return;
+
+    const normalized = message.toLowerCase();
+    let response =
+      "He revisado la cotización. Puedes pedirme bajar precio, añadir seguro o mejorar hotel.";
+
+    if (/cheaper|barato|bajar|econ[oó]mico|reduce/.test(normalized)) {
+      setLineItems((items) =>
+        items.map((item) => ({
+          ...item,
+          marginPercent: Math.max(5, item.marginPercent - 5),
+        })),
+      );
+      response = "He reducido los márgenes para hacer la propuesta más económica.";
+    } else if (/insurance|seguro/.test(normalized)) {
+      setLineItems((items) =>
+        items.some((item) => item.id.startsWith("corporate-insurance"))
+          ? items
+          : [...items, createInsuranceLineItem()],
+      );
+      response = "He añadido un seguro de viaje premium desde proveedor corporativo.";
+    } else if (/upgrade|mejor|subir|hotel/.test(normalized)) {
+      setLineItems((items) =>
+        items.map((item) =>
+          item.id.startsWith("web-hotel") || item.id.startsWith("inventory-")
+            ? {
+                ...item,
+                name: `${item.name} - upgrade`,
+                description: `${item.description} · categoría superior`,
+                netCost: Math.round(item.netCost * 1.18),
+              }
+            : item,
+        ),
+      );
+      response = "He aplicado un upgrade de hotel y recalculado el precio.";
+    }
+
+    setChatMessages((messages) => [
+      ...messages,
+      { role: "agent", content: message },
+      { role: "ai", content: response },
+    ]);
+    setChatInput("");
+  }
+
   async function runQuoteEngine() {
     setIsRunning(true);
     setIsComplete(false);
     setLineItems([]);
+    setFlightOptions([]);
+    setHotelOptions([]);
     setStepChips(defaultStepChips);
     setActiveStep(0);
     const parsed = parseRequest(request);
@@ -505,7 +576,8 @@ export function QuoteEngine() {
 
     setActiveStep(4);
     const hasHotelCoverage = inventoryItems.some((item) => item.category === "hotels");
-    const webItems: QuoteLineItem[] = [];
+    let webFlightOptions: FlightOption[] = [];
+    let webHotelOptions: HotelOption[] = [];
 
     try {
       if (!hasHotelCoverage) {
@@ -518,7 +590,8 @@ export function QuoteEngine() {
             adults: parsed.adults,
           },
         );
-        webItems.push(...hotelData.hotels.slice(0, 1).map(hotelToLineItem));
+        webHotelOptions = hotelData.hotels.slice(0, 3);
+        setHotelOptions(webHotelOptions);
       }
 
       if (parsed.includeFlights && parsed.origin) {
@@ -531,19 +604,19 @@ export function QuoteEngine() {
             adults: parsed.adults,
           },
         );
-        webItems.push(...flightData.flights.slice(0, 1).map(flightToLineItem));
+        webFlightOptions = flightData.flights.slice(0, 3);
+        setFlightOptions(webFlightOptions);
       }
     } catch (error) {
       console.error("[QuoteEngine] Web search failed", error);
     }
 
-    quoteItems.push(...webItems);
     setLineItems([...quoteItems]);
     setStepChips((current) =>
       current.map((chips, index) =>
         index === 4
           ? [
-              `${webItems.length} web items found`,
+              `${webFlightOptions.length + webHotelOptions.length} web options found`,
               hasHotelCoverage ? "Hotel covered by own inventory" : "Booking.com checked",
               parsed.includeFlights ? "Skyscanner checked" : "Flight search skipped",
             ]
@@ -558,7 +631,7 @@ export function QuoteEngine() {
         index === 5
           ? [
               `${quoteItems.filter((item) => item.source === "INV-PROPIO").length} [INV-PROPIO] items`,
-              `${quoteItems.filter((item) => item.source === "WEB").length} [WEB] items`,
+              `${webFlightOptions.length + webHotelOptions.length} [WEB] options ready`,
               "Margins applied",
             ]
           : chips,
@@ -659,15 +732,9 @@ export function QuoteEngine() {
     doc.setTextColor(139, 156, 179);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
-    doc.text(
-      [
-        "- Revisar disponibilidad final antes de enviar al cliente.",
-        "- Validar condiciones de cancelacion con cada proveedor.",
-        "- Confirmar margen minimo antes de cerrar reserva.",
-      ],
-      14,
-      finalY + 63,
-    );
+    doc.text(agentNotes || "Sin notas adicionales.", 14, finalY + 63, {
+      maxWidth: 180,
+    });
 
     doc.save(`${quoteReference}-agente.pdf`);
   }
@@ -890,6 +957,125 @@ export function QuoteEngine() {
               </div>
             </div>
 
+            {(flightOptions.length > 0 || hotelOptions.length > 0) ? (
+              <div className="mb-6 grid gap-6 lg:grid-cols-2">
+                {flightOptions.length > 0 ? (
+                  <section>
+                    <h3 className="mb-3 text-lg font-semibold text-white">
+                      Flight search options
+                    </h3>
+                    <div className="space-y-3">
+                      {flightOptions.map((flight, index) => {
+                        const selected = isSelected(`web-flight-${index}`);
+                        return (
+                          <button
+                            key={`${flight.airline}-${flight.flightNumber}-${index}`}
+                            type="button"
+                            onClick={() => toggleFlightOption(flight, index)}
+                            className={`w-full rounded-2xl border p-4 text-left transition-colors ${
+                              selected
+                                ? "border-purple-400/50 bg-purple-400/10"
+                                : "border-white/[0.06] bg-[#03080F]/50 hover:border-purple-400/30"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <div>
+                                <div className="mb-2 flex flex-wrap items-center gap-2">
+                                  <p className="font-semibold text-white">
+                                    {flight.airline} {flight.flightNumber}
+                                  </p>
+                                  <span className={sourceStyles.WEB + " rounded-full border px-2 py-0.5 text-xs font-semibold"}>
+                                    [WEB]
+                                  </span>
+                                </div>
+                                <p className="text-sm text-[#8B9CB3]">
+                                  {flight.departureTime} → {flight.arrivalTime} ·{" "}
+                                  {flight.duration} · {flight.stops} stops
+                                </p>
+                                {String(flight.stops) !== "0" ? (
+                                  <p className="mt-1 text-sm text-[#8B9CB3]">
+                                    Stopover: {flight.stopoverLocation}
+                                  </p>
+                                ) : null}
+                              </div>
+                              <div className="text-right">
+                                <p className="font-bold text-[#00C9A7]">
+                                  {flight.price}
+                                </p>
+                                <p className="text-xs text-[#8B9CB3]">
+                                  {selected ? "Included" : "Click to include"}
+                                </p>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ) : null}
+
+                {hotelOptions.length > 0 ? (
+                  <section>
+                    <h3 className="mb-3 text-lg font-semibold text-white">
+                      Hotel search options
+                    </h3>
+                    <div className="space-y-3">
+                      {hotelOptions.map((hotel, index) => {
+                        const selected = isSelected(`web-hotel-${index}`);
+                        return (
+                          <button
+                            key={`${hotel.name}-${index}`}
+                            type="button"
+                            onClick={() => toggleHotelOption(hotel, index)}
+                            className={`w-full rounded-2xl border p-4 text-left transition-colors ${
+                              selected
+                                ? "border-purple-400/50 bg-purple-400/10"
+                                : "border-white/[0.06] bg-[#03080F]/50 hover:border-purple-400/30"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <div>
+                                <div className="mb-2 flex flex-wrap items-center gap-2">
+                                  <p className="font-semibold text-white">
+                                    {hotel.name}
+                                  </p>
+                                  <span className={sourceStyles.WEB + " rounded-full border px-2 py-0.5 text-xs font-semibold"}>
+                                    [WEB]
+                                  </span>
+                                </div>
+                                <p className="text-sm text-[#8B9CB3]">
+                                  {hotel.roomType} · {hotel.stars} stars · Rating{" "}
+                                  {hotel.rating}
+                                </p>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {hotel.highlights.slice(0, 3).map((highlight) => (
+                                    <span
+                                      key={highlight}
+                                      className="rounded-full border border-[#00C9A7]/20 bg-[#00C9A7]/10 px-2 py-0.5 text-xs text-[#00C9A7]"
+                                    >
+                                      {highlight}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-bold text-[#00C9A7]">
+                                  {hotel.pricePerNight}
+                                </p>
+                                <p className="text-xs text-[#8B9CB3]">
+                                  {selected ? "Included" : "Click to include"}
+                                </p>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ) : null}
+              </div>
+            ) : null}
+
             <div className="space-y-3">
               {lineItems.map((item) => {
                 const marginAmount = item.netCost * (item.marginPercent / 100);
@@ -953,6 +1139,61 @@ export function QuoteEngine() {
                   </article>
                 );
               })}
+            </div>
+
+            <div className="mt-6 grid gap-6 lg:grid-cols-2">
+              <section className="rounded-2xl border border-white/[0.06] bg-[#03080F]/50 p-5">
+                <h3 className="mb-3 text-lg font-semibold text-white">
+                  AI refinement chat
+                </h3>
+                <div className="mb-4 max-h-56 space-y-3 overflow-y-auto pr-1">
+                  {chatMessages.map((message, index) => (
+                    <div
+                      key={`${message.role}-${index}`}
+                      className={`rounded-xl px-4 py-3 text-sm ${
+                        message.role === "ai"
+                          ? "bg-[#00C9A7]/10 text-[#00C9A7]"
+                          : "bg-white/[0.05] text-[#E8EEF7]"
+                      }`}
+                    >
+                      <span className="font-semibold">
+                        {message.role === "ai" ? "AI" : "Agent"}:
+                      </span>{" "}
+                      {message.content}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    value={chatInput}
+                    onChange={(event) => setChatInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") sendChatMessage();
+                    }}
+                    placeholder='Try "make cheaper", "add insurance", "upgrade hotel"'
+                    className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none focus:border-[#00C9A7]/50"
+                  />
+                  <button
+                    type="button"
+                    onClick={sendChatMessage}
+                    className="rounded-xl bg-[#00C9A7] px-4 py-3 text-sm font-semibold text-[#03080F]"
+                  >
+                    Send
+                  </button>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-white/[0.06] bg-[#03080F]/50 p-5">
+                <label className="mb-3 block text-lg font-semibold text-white">
+                  Agent notes
+                </label>
+                <textarea
+                  value={agentNotes}
+                  onChange={(event) => setAgentNotes(event.target.value)}
+                  rows={8}
+                  className="w-full resize-y rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none focus:border-[#00C9A7]/50"
+                />
+              </section>
             </div>
 
             <div className="mt-6 grid gap-4 rounded-2xl border border-[#00C9A7]/20 bg-[#00C9A7]/10 p-5 sm:grid-cols-3">
