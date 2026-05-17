@@ -4,6 +4,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
+import { getCityIATA } from "@/lib/airports";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { readAgencyProfile } from "../agency/agency-profile";
 import { useDashboardLanguage } from "../dashboard-language-provider";
@@ -220,13 +221,13 @@ const AIRPORT_LOOKUP: Record<string, AirportDisplay> = {
   },
   tokyo: {
     city: "Tokyo",
-    airport: "Tokyo Haneda",
-    code: "HND",
+    airport: "Narita International",
+    code: "NRT",
   },
   tokio: {
     city: "Tokio",
-    airport: "Tokyo Haneda",
-    code: "HND",
+    airport: "Narita International",
+    code: "NRT",
   },
   paris: {
     city: "Paris",
@@ -280,14 +281,21 @@ function fallbackAirportCode(place: string) {
 
 function getAirportDisplay(place: string, fallbackLabel: string): AirportDisplay {
   const city = cleanPlaceName(place) || fallbackLabel;
+  const resolvedCode = getCityIATA(city);
+  const code = resolvedCode === city ? fallbackAirportCode(city) : resolvedCode;
   const lookup = AIRPORT_LOOKUP[normalizeLookupKey(city)];
 
-  if (lookup) return lookup;
+  if (lookup) {
+    return {
+      ...lookup,
+      code,
+    };
+  }
 
   return {
     city,
     airport: `${city} Airport`,
-    code: fallbackAirportCode(city),
+    code,
   };
 }
 

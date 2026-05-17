@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getCityIATA } from "@/lib/airports";
 
 const SKYSCANNER_API_URL =
   "https://skyscanner80.p.rapidapi.com/api/v1/flights/search-one-way";
@@ -99,7 +100,7 @@ function normalizePlaceKey(value: string) {
 }
 
 function resolveAirport(value: string): Airport | null {
-  const trimmed = value.trim();
+  const trimmed = getCityIATA(value.trim());
   const iataCode = trimmed.match(/^[A-Za-z]{3}$/)?.[0]?.toUpperCase();
 
   if (iataCode) {
@@ -462,11 +463,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const originAirport = resolveAirport(origin);
-  const destinationAirport = resolveAirport(destination);
+  const originIata = getCityIATA(origin.trim());
+  const destinationIata = getCityIATA(destination.trim());
   const searchParams = new URLSearchParams({
-    fromEntityId: originAirport?.code ?? origin.trim(),
-    toEntityId: destinationAirport?.code ?? destination.trim(),
+    fromEntityId: originIata,
+    toEntityId: destinationIata,
     date: date.trim(),
     adults: String(adultCount),
     market: SKYSCANNER_MARKET,
