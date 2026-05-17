@@ -29,41 +29,19 @@ type DestinationMatch = {
   searchType: string;
 };
 
-const MOCK_HOTELS: HotelOption[] = [
-  {
-    name: "TQuot Grand Central Hotel",
-    pricePerNight: "EUR 145",
-    stars: 4,
-    rating: 8.7,
-    address: "City centre, close to the main attractions",
-    roomType: "Habitación doble",
-    highlights: ["Centro ciudad", "Desayuno incluido", "Wifi gratis"],
-    distanceFromCenter: "0.4 km from centre",
-  },
-  {
-    name: "Aurora Boutique Suites",
-    pricePerNight: "EUR 178",
-    stars: 4,
-    rating: 9.1,
-    address: "Historic district, near restaurants and shops",
-    roomType: "Suite",
-    highlights: ["Piscina", "Terraza", "Cerca del casco antiguo"],
-    distanceFromCenter: "0.8 km from centre",
-  },
-  {
-    name: "Metropolitan Business Hotel",
-    pricePerNight: "EUR 121",
-    stars: 3,
-    rating: 8.3,
-    address: "Central station area",
-    roomType: "Habitación estándar",
-    highlights: ["Estación central", "Recepción 24h", "Cancelación flexible"],
-    distanceFromCenter: "1.2 km from centre",
-  },
-];
-
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function cleanDestinationName(value: string) {
+  return (
+    value
+      .trim()
+      .replace(/\s+/g, " ")
+      .replace(/\b(city|hotels?|hotel|accommodation|stay|stays)\b/gi, "")
+      .replace(/\s+/g, " ")
+      .trim() || "the requested destination"
+  );
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -350,9 +328,46 @@ function normalizeHotelOptions(payload: unknown): HotelOption[] {
   });
 }
 
-function fallbackHotels(message: string) {
+function createMockHotels(destination: string): HotelOption[] {
+  const city = cleanDestinationName(destination);
+
+  return [
+    {
+      name: `${city} Grand Central Hotel`,
+      pricePerNight: "EUR 145",
+      stars: 4,
+      rating: 8.7,
+      address: `${city} city centre, close to the main attractions`,
+      roomType: "Habitación doble",
+      highlights: ["Centro ciudad", "Desayuno incluido", "Wifi gratis"],
+      distanceFromCenter: "0.4 km from centre",
+    },
+    {
+      name: `${city} Aurora Boutique Suites`,
+      pricePerNight: "EUR 178",
+      stars: 4,
+      rating: 9.1,
+      address: `${city} historic district, near restaurants and shops`,
+      roomType: "Suite",
+      highlights: ["Piscina", "Terraza", "Cerca del casco antiguo"],
+      distanceFromCenter: "0.8 km from centre",
+    },
+    {
+      name: `${city} Metropolitan Business Hotel`,
+      pricePerNight: "EUR 121",
+      stars: 3,
+      rating: 8.3,
+      address: `${city} central station area`,
+      roomType: "Habitación estándar",
+      highlights: ["Estación central", "Recepción 24h", "Cancelación flexible"],
+      distanceFromCenter: "1.2 km from centre",
+    },
+  ];
+}
+
+function fallbackHotels(message: string, destination: string) {
   return NextResponse.json({
-    hotels: MOCK_HOTELS,
+    hotels: createMockHotels(destination),
     fallback: true,
     error: message,
   });
@@ -434,7 +449,10 @@ export async function POST(request: Request) {
 
   if (!rapidApiKey) {
     console.error("[search-hotels] Missing RAPIDAPI_KEY; returning fallback.");
-    return fallbackHotels("Missing RAPIDAPI_KEY environment variable.");
+    return fallbackHotels(
+      "Missing RAPIDAPI_KEY environment variable.",
+      destination,
+    );
   }
 
   try {
@@ -454,7 +472,7 @@ export async function POST(request: Request) {
         payload: destinationPayload,
       });
 
-      return fallbackHotels("Booking.com returned no destination match.");
+      return fallbackHotels("Booking.com returned no destination match.", destination);
     }
 
     const hotelParams = new URLSearchParams({
@@ -477,7 +495,7 @@ export async function POST(request: Request) {
         payload: hotelPayload,
       });
 
-      return fallbackHotels("RapidAPI returned no hotel options.");
+      return fallbackHotels("RapidAPI returned no hotel options.", destination);
     }
 
     return NextResponse.json({ hotels });
@@ -487,6 +505,6 @@ export async function POST(request: Request) {
 
     console.error("[search-hotels] Request failed", error);
 
-    return fallbackHotels(message);
+    return fallbackHotels(message, destination);
   }
 }

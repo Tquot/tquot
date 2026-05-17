@@ -3,6 +3,9 @@ import { NextResponse } from "next/server";
 const SKYSCANNER_API_URL =
   "https://skyscanner80.p.rapidapi.com/api/v1/flights/search-one-way";
 const RAPIDAPI_HOST = "skyscanner80.p.rapidapi.com";
+const SKYSCANNER_MARKET = "ES";
+const SKYSCANNER_LOCALE = "en-GB";
+const SKYSCANNER_CURRENCY = "EUR";
 
 type SearchFlightsRequest = {
   origin?: unknown;
@@ -22,41 +25,93 @@ export type FlightOption = {
   stopoverLocation: string;
 };
 
-const MOCK_FLIGHTS: FlightOption[] = [
-  {
-    price: "EUR 189",
-    airline: "Iberia",
-    flightNumber: "IB 3171",
-    departureTime: "09:15",
-    arrivalTime: "11:30",
-    duration: "2h 15m",
-    stops: 0,
-    stopoverLocation: "Direct",
-  },
-  {
-    price: "EUR 214",
-    airline: "Vueling",
-    flightNumber: "VY 7824",
-    departureTime: "13:40",
-    arrivalTime: "16:15",
-    duration: "2h 35m",
-    stops: 0,
-    stopoverLocation: "Direct",
-  },
-  {
-    price: "EUR 249",
-    airline: "Air Europa",
-    flightNumber: "UX 1048",
-    departureTime: "18:10",
-    arrivalTime: "21:30",
-    duration: "3h 20m",
-    stops: 1,
-    stopoverLocation: "Madrid",
-  },
+type Airport = {
+  code: string;
+  city: string;
+  country: string;
+  region: "europe" | "americas" | "asia" | "africa" | "middle-east";
+};
+
+const AIRPORTS: Airport[] = [
+  { code: "MAD", city: "Madrid", country: "Spain", region: "europe" },
+  { code: "BCN", city: "Barcelona", country: "Spain", region: "europe" },
+  { code: "OVD", city: "Asturias", country: "Spain", region: "europe" },
+  { code: "VLL", city: "Valladolid", country: "Spain", region: "europe" },
+  { code: "SVQ", city: "Seville", country: "Spain", region: "europe" },
+  { code: "PMI", city: "Palma de Mallorca", country: "Spain", region: "europe" },
+  { code: "CDG", city: "Paris", country: "France", region: "europe" },
+  { code: "ORY", city: "Paris", country: "France", region: "europe" },
+  { code: "LHR", city: "London", country: "United Kingdom", region: "europe" },
+  { code: "LGW", city: "London", country: "United Kingdom", region: "europe" },
+  { code: "FCO", city: "Rome", country: "Italy", region: "europe" },
+  { code: "MXP", city: "Milan", country: "Italy", region: "europe" },
+  { code: "LIS", city: "Lisbon", country: "Portugal", region: "europe" },
+  { code: "AMS", city: "Amsterdam", country: "Netherlands", region: "europe" },
+  { code: "FRA", city: "Frankfurt", country: "Germany", region: "europe" },
+  { code: "MUC", city: "Munich", country: "Germany", region: "europe" },
+  { code: "JFK", city: "New York", country: "United States", region: "americas" },
+  { code: "MIA", city: "Miami", country: "United States", region: "americas" },
+  { code: "LAX", city: "Los Angeles", country: "United States", region: "americas" },
+  { code: "CUN", city: "Cancun", country: "Mexico", region: "americas" },
+  { code: "MEX", city: "Mexico City", country: "Mexico", region: "americas" },
+  { code: "EZE", city: "Buenos Aires", country: "Argentina", region: "americas" },
+  { code: "HND", city: "Tokyo", country: "Japan", region: "asia" },
+  { code: "NRT", city: "Tokyo", country: "Japan", region: "asia" },
+  { code: "MLE", city: "Male", country: "Maldives", region: "asia" },
+  { code: "DXB", city: "Dubai", country: "United Arab Emirates", region: "middle-east" },
+  { code: "RAK", city: "Marrakech", country: "Morocco", region: "africa" },
 ];
+
+const AIRPORT_ALIASES: Record<string, Airport> = AIRPORTS.reduce(
+  (aliasesByKey, airport) => {
+    const aliases = [airport.code, airport.city, `${airport.city} ${airport.country}`];
+
+    if (airport.code === "CDG") aliases.push("paris", "paris charles de gaulle");
+    if (airport.code === "CUN") aliases.push("cancun", "cancun mexico", "cancún");
+    if (airport.code === "HND") aliases.push("tokyo", "tokio");
+    if (airport.code === "JFK") aliases.push("new york", "nueva york", "nyc");
+    if (airport.code === "OVD") aliases.push("ribadesella", "asturias");
+    if (airport.code === "SVQ") aliases.push("sevilla");
+    if (airport.code === "MLE") aliases.push("maldives", "maldivas");
+    if (airport.code === "PMI") aliases.push("mallorca", "palma");
+
+    for (const alias of aliases) {
+      const key = normalizePlaceKey(alias);
+      aliasesByKey[key] ??= airport;
+    }
+
+    return aliasesByKey;
+  },
+  {} as Record<string, Airport>,
+);
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function normalizePlaceKey(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function resolveAirport(value: string): Airport | null {
+  const trimmed = value.trim();
+  const iataCode = trimmed.match(/^[A-Za-z]{3}$/)?.[0]?.toUpperCase();
+
+  if (iataCode) {
+    return AIRPORT_ALIASES[normalizePlaceKey(iataCode)] ?? {
+      code: iataCode,
+      city: iataCode,
+      country: "Unknown",
+      region: "europe",
+    };
+  }
+
+  return AIRPORT_ALIASES[normalizePlaceKey(trimmed)] ?? null;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -242,9 +297,121 @@ function getErrorMessage(payload: unknown, fallback: string) {
   );
 }
 
-function fallbackFlights(message: string) {
+function seededNumber(seed: string, min: number, max: number) {
+  const hash = Array.from(seed).reduce(
+    (total, character) => total + character.charCodeAt(0),
+    0,
+  );
+
+  return min + (hash % (max - min + 1));
+}
+
+function addMinutes(time: string, minutesToAdd: number) {
+  const [hours, minutes] = time.split(":").map(Number);
+  const totalMinutes = hours * 60 + minutes + minutesToAdd;
+  const normalized = ((totalMinutes % 1440) + 1440) % 1440;
+  const nextHours = Math.floor(normalized / 60);
+  const nextMinutes = normalized % 60;
+
+  return `${String(nextHours).padStart(2, "0")}:${String(nextMinutes).padStart(2, "0")}`;
+}
+
+function estimateDuration(origin: Airport | null, destination: Airport | null) {
+  if (!origin || !destination) {
+    return 150;
+  }
+
+  if (origin.region === destination.region) {
+    return origin.country === destination.country ? 90 : 140;
+  }
+
+  if (
+    [origin.region, destination.region].includes("americas") &&
+    [origin.code, destination.code].includes("CUN")
+  ) {
+    return 610;
+  }
+
+  if ([origin.region, destination.region].includes("americas")) {
+    return 520;
+  }
+
+  if ([origin.region, destination.region].includes("asia")) {
+    return 780;
+  }
+
+  return 360;
+}
+
+function getMockAirlines(destination: Airport | null) {
+  if (destination?.code === "CUN") {
+    return [
+      { airline: "Iberojet", prefix: "E9" },
+      { airline: "World2Fly", prefix: "2W" },
+      { airline: "Air Europa", prefix: "UX" },
+    ];
+  }
+
+  if (destination?.region === "americas") {
+    return [
+      { airline: "Iberia", prefix: "IB" },
+      { airline: "Air Europa", prefix: "UX" },
+      { airline: "American Airlines", prefix: "AA" },
+    ];
+  }
+
+  return [
+    { airline: "Iberia", prefix: "IB" },
+    { airline: "Vueling", prefix: "VY" },
+    { airline: "Air Europa", prefix: "UX" },
+  ];
+}
+
+function getMockStopover(origin: Airport | null, destination: Airport | null) {
+  const candidates =
+    destination?.region === "americas"
+      ? ["Lisbon (LIS)", "Miami (MIA)", "New York (JFK)"]
+      : ["Madrid (MAD)", "Barcelona (BCN)", "Paris (CDG)"];
+
+  return (
+    candidates.find(
+      (candidate) =>
+        !candidate.includes(`(${origin?.code ?? ""})`) &&
+        !candidate.includes(`(${destination?.code ?? ""})`),
+    ) ?? candidates[0]
+  );
+}
+
+function createMockFlights(originValue: string, destinationValue: string): FlightOption[] {
+  const origin = resolveAirport(originValue);
+  const destination = resolveAirport(destinationValue);
+  const routeSeed = `${origin?.code ?? originValue}-${destination?.code ?? destinationValue}`;
+  const baseDuration = estimateDuration(origin, destination);
+  const directAvailable = baseDuration < 720;
+  const airlines = getMockAirlines(destination);
+  const departures = ["09:15", "13:40", "18:10"];
+
+  return airlines.map((airline, index): FlightOption => {
+    const stops = directAvailable && index < 2 ? 0 : 1;
+    const durationMinutes = baseDuration + index * 25 + (stops ? 75 : 0);
+    const price = seededNumber(`${routeSeed}-${airline.prefix}`, 120, 420) + index * 35;
+
+    return {
+      price: `EUR ${price}`,
+      airline: airline.airline,
+      flightNumber: `${airline.prefix} ${seededNumber(`${routeSeed}-${index}`, 1000, 8999)}`,
+      departureTime: departures[index],
+      arrivalTime: addMinutes(departures[index], durationMinutes),
+      duration: formatDuration(durationMinutes),
+      stops,
+      stopoverLocation: stops ? getMockStopover(origin, destination) : "Direct",
+    };
+  });
+}
+
+function fallbackFlights(message: string, origin: string, destination: string) {
   return NextResponse.json({
-    flights: MOCK_FLIGHTS,
+    flights: createMockFlights(origin, destination),
     fallback: true,
     error: message,
   });
@@ -288,14 +455,23 @@ export async function POST(request: Request) {
 
   if (!rapidApiKey) {
     console.error("[search-flights] Missing RAPIDAPI_KEY; returning fallback.");
-    return fallbackFlights("Missing RAPIDAPI_KEY environment variable.");
+    return fallbackFlights(
+      "Missing RAPIDAPI_KEY environment variable.",
+      origin,
+      destination,
+    );
   }
 
+  const originAirport = resolveAirport(origin);
+  const destinationAirport = resolveAirport(destination);
   const searchParams = new URLSearchParams({
-    fromEntityId: origin.trim(),
-    toEntityId: destination.trim(),
+    fromEntityId: originAirport?.code ?? origin.trim(),
+    toEntityId: destinationAirport?.code ?? destination.trim(),
     date: date.trim(),
     adults: String(adultCount),
+    market: SKYSCANNER_MARKET,
+    locale: SKYSCANNER_LOCALE,
+    currency: SKYSCANNER_CURRENCY,
   });
 
   const requestUrl = `${SKYSCANNER_API_URL}?${searchParams}`;
@@ -336,7 +512,7 @@ export async function POST(request: Request) {
         payload,
       });
 
-      return fallbackFlights(message);
+      return fallbackFlights(message, origin, destination);
     }
 
     const flights = normalizeFlightOptions(payload);
@@ -346,7 +522,7 @@ export async function POST(request: Request) {
         payload,
       });
 
-      return fallbackFlights("RapidAPI returned no flight options.");
+      return fallbackFlights("RapidAPI returned no flight options.", origin, destination);
     }
 
     return NextResponse.json({ flights });
@@ -356,6 +532,6 @@ export async function POST(request: Request) {
 
     console.error("[search-flights] Request failed", error);
 
-    return fallbackFlights(message);
+    return fallbackFlights(message, origin, destination);
   }
 }
