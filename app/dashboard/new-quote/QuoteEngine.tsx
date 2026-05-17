@@ -66,6 +66,17 @@ type HotelOption = {
   distanceFromCenter: string;
 };
 
+type AirportDisplay = {
+  city: string;
+  airport: string;
+  code: string;
+};
+
+type FlightRouteDisplay = {
+  origin: AirportDisplay;
+  destination: AirportDisplay;
+};
+
 type ParsedRequest = {
   destination: string;
   origin?: string;
@@ -184,6 +195,100 @@ function parsePrice(value: string | number | undefined) {
   if (!match) return 0;
 
   return Number(match[0].replace(",", "."));
+}
+
+const AIRPORT_LOOKUP: Record<string, AirportDisplay> = {
+  madrid: {
+    city: "Madrid",
+    airport: "Adolfo Suarez Madrid-Barajas",
+    code: "MAD",
+  },
+  barcelona: {
+    city: "Barcelona",
+    airport: "Josep Tarradellas Barcelona-El Prat",
+    code: "BCN",
+  },
+  ribadesella: {
+    city: "Ribadesella",
+    airport: "Asturias Airport",
+    code: "OVD",
+  },
+  asturias: {
+    city: "Asturias",
+    airport: "Asturias Airport",
+    code: "OVD",
+  },
+  tokyo: {
+    city: "Tokyo",
+    airport: "Tokyo Haneda",
+    code: "HND",
+  },
+  tokio: {
+    city: "Tokio",
+    airport: "Tokyo Haneda",
+    code: "HND",
+  },
+  paris: {
+    city: "Paris",
+    airport: "Charles de Gaulle",
+    code: "CDG",
+  },
+  "nueva york": {
+    city: "Nueva York",
+    airport: "John F. Kennedy",
+    code: "JFK",
+  },
+  "new york": {
+    city: "New York",
+    airport: "John F. Kennedy",
+    code: "JFK",
+  },
+  valladolid: {
+    city: "Valladolid",
+    airport: "Valladolid Airport",
+    code: "VLL",
+  },
+  sevilla: {
+    city: "Sevilla",
+    airport: "Seville Airport",
+    code: "SVQ",
+  },
+  maldivas: {
+    city: "Male",
+    airport: "Velana International",
+    code: "MLE",
+  },
+  mallorca: {
+    city: "Mallorca",
+    airport: "Palma de Mallorca",
+    code: "PMI",
+  },
+};
+
+function normalizeLookupKey(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function fallbackAirportCode(place: string) {
+  const letters = place.replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase();
+  return letters.padEnd(3, "X") || "AIR";
+}
+
+function getAirportDisplay(place: string, fallbackLabel: string): AirportDisplay {
+  const city = cleanPlaceName(place) || fallbackLabel;
+  const lookup = AIRPORT_LOOKUP[normalizeLookupKey(city)];
+
+  if (lookup) return lookup;
+
+  return {
+    city,
+    airport: `${city} Airport`,
+    code: fallbackAirportCode(city),
+  };
 }
 
 function extractBareFlightRoute(text: string) {
@@ -418,6 +523,7 @@ export function QuoteEngine() {
   const [stepChips, setStepChips] = useState(defaultStepChips);
   const [flightOptions, setFlightOptions] = useState<FlightOption[]>([]);
   const [hotelOptions, setHotelOptions] = useState<HotelOption[]>([]);
+  const [flightRoute, setFlightRoute] = useState<FlightRouteDisplay | null>(null);
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
@@ -531,6 +637,7 @@ export function QuoteEngine() {
     setLineItems([]);
     setFlightOptions([]);
     setHotelOptions([]);
+    setFlightRoute(null);
     setStepChips(defaultStepChips);
     setActiveStep(0);
     const parsed = parseRequest(latestRequest);
@@ -549,6 +656,14 @@ export function QuoteEngine() {
       setActiveStep(0);
       return;
     }
+    setFlightRoute(
+      parsed.origin
+        ? {
+            origin: getAirportDisplay(parsed.origin, "Origin"),
+            destination: getAirportDisplay(parsed.destination, "Destination"),
+          }
+        : null,
+    );
     const quoteItems: QuoteLineItem[] = [];
 
     setStepChips((current) =>
@@ -858,34 +973,39 @@ export function QuoteEngine() {
   }
 
   return (
-    <div className="relative min-h-screen bg-[#03080F] px-6 py-10 text-[#E8EEF7]">
+    <div className="relative min-h-screen overflow-hidden bg-[#03080F] px-4 py-8 text-[#E8EEF7] sm:px-6 lg:px-8">
       <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_40%_at_50%_-10%,rgba(0,201,167,0.12),transparent)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_45%_at_50%_-12%,rgba(0,201,167,0.20),transparent_62%),radial-gradient(circle_at_12%_18%,rgba(74,106,133,0.22),transparent_28%),linear-gradient(180deg,rgba(3,8,15,0)_0%,#03080F_72%)]"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute left-1/2 top-0 h-px w-[min(920px,80vw)] -translate-x-1/2 bg-gradient-to-r from-transparent via-[#00C9A7]/70 to-transparent"
         aria-hidden
       />
 
-      <main className="relative mx-auto max-w-6xl">
+      <main className="relative mx-auto max-w-7xl">
         <Link
           href="/dashboard"
-          className="mb-8 inline-flex items-center text-sm text-[#8B9CB3] transition-colors hover:text-[#00C9A7]"
+          className="mb-8 inline-flex items-center rounded-full border border-white/[0.07] bg-white/[0.03] px-4 py-2 text-sm text-[#8B9CB3] shadow-[0_12px_40px_rgba(0,0,0,0.25)] transition-colors hover:border-[#00C9A7]/30 hover:text-[#00C9A7]"
         >
           ← {t.backToDashboard}
         </Link>
 
-        <section className="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
+        <section className="mb-8 overflow-hidden rounded-[2rem] border border-white/[0.08] bg-[linear-gradient(135deg,rgba(10,21,37,0.88),rgba(13,32,56,0.68))] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.45),0_0_60px_rgba(0,201,167,0.08)] backdrop-blur-xl sm:p-8">
+          <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-start">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-[#00C9A7]">
+            <p className="text-sm font-semibold uppercase tracking-[0.35em] text-[#00C9A7]">
               TQuot AI Engine
             </p>
-            <h1 className="mt-3 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+            <h1 className="mt-4 max-w-3xl text-4xl font-black tracking-tight text-white sm:text-5xl">
               {t.newQuote}
             </h1>
-            <p className="mt-3 max-w-2xl text-[#8B9CB3]">
+            <p className="mt-4 max-w-2xl text-base leading-7 text-[#8B9CB3]">
               Pega una solicitud de cliente y visualiza cómo TQuot analiza,
               busca, aplica márgenes y compila una propuesta lista para PDF.
             </p>
           </div>
-          <div className="flex w-fit rounded-full border border-white/10 bg-white/[0.04] p-0.5">
+          <div className="flex w-fit rounded-full border border-white/10 bg-[#03080F]/60 p-1 shadow-inner shadow-black/30">
             {(["es", "en"] as Locale[]).map((code) => (
               <button
                 key={code}
@@ -901,10 +1021,16 @@ export function QuoteEngine() {
               </button>
             ))}
           </div>
+          </div>
+          <div className="mt-7 grid gap-3 sm:grid-cols-3">
+            <PremiumMetric label="Prioridad" value="INV → CORP → WEB" />
+            <PremiumMetric label="Motor" value="IA + APIs" />
+            <PremiumMetric label="Salida" value="PDF agente / cliente" />
+          </div>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 backdrop-blur-sm">
+        <section className="grid gap-6 lg:grid-cols-[0.92fr_1.08fr]">
+          <div className="rounded-[1.75rem] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(9,18,32,0.92),rgba(3,8,15,0.72))] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.34)] backdrop-blur-xl">
             <label
               htmlFor="client-request"
               className="mb-3 block text-sm font-medium text-[#E8EEF7]"
@@ -917,7 +1043,7 @@ export function QuoteEngine() {
               value={request}
               onChange={(event) => setRequest(event.target.value)}
               rows={10}
-              className="w-full resize-y rounded-xl border border-white/10 bg-[#03080F]/60 px-4 py-3 text-[#E8EEF7] placeholder:text-[#8B9CB3]/50 outline-none transition-colors focus:border-[#00C9A7]/50 focus:ring-2 focus:ring-[#00C9A7]/20"
+              className="w-full resize-y rounded-2xl border border-white/10 bg-[#03080F]/70 px-4 py-4 text-[#E8EEF7] shadow-inner shadow-black/30 placeholder:text-[#8B9CB3]/50 outline-none transition-colors focus:border-[#00C9A7]/50 focus:ring-2 focus:ring-[#00C9A7]/20"
               placeholder="Ej: 2 adultos a Ribadesella, 3 noches, hotel boutique, vuelos desde Madrid..."
             />
 
@@ -925,47 +1051,37 @@ export function QuoteEngine() {
               type="button"
               onClick={runQuoteEngine}
               disabled={!request.trim() || isRunning}
-              className="mt-6 w-full rounded-xl bg-[#00C9A7] px-8 py-3 text-sm font-semibold text-[#03080F] shadow-[0_0_32px_-8px_rgba(0,201,167,0.5)] transition-all hover:bg-[#00E5BB] disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-6 w-full rounded-2xl bg-[#00C9A7] px-8 py-4 text-sm font-bold text-[#03080F] shadow-[0_0_42px_-8px_rgba(0,201,167,0.7)] transition-all hover:-translate-y-0.5 hover:bg-[#00E5BB] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
             >
               {isRunning ? "Procesando..." : t.generateQuote}
             </button>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 backdrop-blur-sm">
-            <h2 className="mb-5 text-lg font-semibold text-white">
-              Proceso IA paso a paso
-            </h2>
-            <div className="space-y-4">
+          <div className="rounded-[1.75rem] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(9,18,32,0.92),rgba(3,8,15,0.72))] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+            <div className="mb-5 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#00C9A7]">
+                  Live pipeline
+                </p>
+                <h2 className="mt-2 text-xl font-bold text-white">
+                  Proceso IA paso a paso
+                </h2>
+              </div>
+              <span className="rounded-full border border-[#00C9A7]/25 bg-[#00C9A7]/10 px-3 py-1 text-xs font-semibold text-[#00C9A7]">
+                {isRunning ? "En curso" : isComplete ? "Completado" : "Listo"}
+              </span>
+            </div>
+            <div className="space-y-3">
               {PROCESS_STEPS.map((step, index) => {
                 const status = getStepStatus(index, activeStep, isRunning);
                 return (
-                  <div
+                  <ProcessStepCard
                     key={step.title}
-                    className={`rounded-2xl border p-4 transition-colors ${
-                      status === "active"
-                        ? "border-[#00C9A7]/40 bg-[#00C9A7]/10"
-                        : status === "done"
-                          ? "border-emerald-400/25 bg-emerald-400/5"
-                          : "border-white/[0.06] bg-[#03080F]/40"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <StepIndicator status={status} />
-                      <p className="font-medium text-white">{step.title}</p>
-                    </div>
-                    {status !== "pending" ? (
-                      <div className="mt-3 flex flex-wrap gap-2 pl-9">
-                        {stepChips[index].map((chip) => (
-                          <span
-                            key={chip}
-                            className="rounded-full border border-[#00C9A7]/20 bg-[#00C9A7]/10 px-2.5 py-1 text-xs font-medium text-[#00C9A7]"
-                          >
-                            {chip}
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
+                    index={index}
+                    status={status}
+                    title={step.title}
+                    chips={stepChips[index]}
+                  />
                 );
               })}
             </div>
@@ -973,10 +1089,13 @@ export function QuoteEngine() {
         </section>
 
         {isComplete ? (
-          <section className="mt-8 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 backdrop-blur-sm">
+          <section className="mt-8 rounded-[2rem] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(9,18,32,0.94),rgba(3,8,15,0.78))] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.42)] backdrop-blur-xl">
             <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
               <div>
-                <h2 className="text-2xl font-bold text-white">
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#00C9A7]">
+                  Proposal workspace
+                </p>
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-white">
                   Cotización compilada
                 </h2>
                 <p className="mt-1 text-sm text-[#8B9CB3]">
@@ -987,14 +1106,14 @@ export function QuoteEngine() {
                 <button
                   type="button"
                   onClick={generateAgentPDF}
-                  className="rounded-xl border border-[#00C9A7]/30 bg-[#00C9A7]/10 px-5 py-2.5 text-sm font-semibold text-[#00C9A7] transition-colors hover:bg-[#00C9A7]/15"
+                  className="rounded-2xl border border-[#00C9A7]/30 bg-[#00C9A7]/10 px-5 py-3 text-sm font-semibold text-[#00C9A7] transition-colors hover:bg-[#00C9A7]/15"
                 >
                   PDF Agente
                 </button>
                 <button
                   type="button"
                   onClick={generateClientPDF}
-                  className="rounded-xl bg-[#00C9A7] px-5 py-2.5 text-sm font-semibold text-[#03080F] transition-colors hover:bg-[#00E5BB]"
+                  className="rounded-2xl bg-[#00C9A7] px-5 py-3 text-sm font-bold text-[#03080F] shadow-[0_0_34px_-10px_rgba(0,201,167,0.9)] transition-colors hover:bg-[#00E5BB]"
                 >
                   PDF Cliente
                 </button>
@@ -1005,53 +1124,22 @@ export function QuoteEngine() {
               <div className="mb-6 grid gap-6 lg:grid-cols-2">
                 {flightOptions.length > 0 ? (
                   <section>
-                    <h3 className="mb-3 text-lg font-semibold text-white">
-                      Flight search options
-                    </h3>
+                    <SectionHeading
+                      eyebrow="Skyscanner API"
+                      title="Flight search options"
+                      subtitle="Selecciona vuelos con ruta, horarios, aerolinea y precio."
+                    />
                     <div className="space-y-3">
                       {flightOptions.map((flight, index) => {
                         const selected = isSelected(`web-flight-${index}`);
                         return (
-                          <button
+                          <FlightOptionCard
                             key={`${flight.airline}-${flight.flightNumber}-${index}`}
-                            type="button"
-                            onClick={() => toggleFlightOption(flight, index)}
-                            className={`w-full rounded-2xl border p-4 text-left transition-colors ${
-                              selected
-                                ? "border-purple-400/50 bg-purple-400/10"
-                                : "border-white/[0.06] bg-[#03080F]/50 hover:border-purple-400/30"
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-4">
-                              <div>
-                                <div className="mb-2 flex flex-wrap items-center gap-2">
-                                  <p className="font-semibold text-white">
-                                    {flight.airline} {flight.flightNumber}
-                                  </p>
-                                  <span className={sourceStyles.WEB + " rounded-full border px-2 py-0.5 text-xs font-semibold"}>
-                                    [WEB]
-                                  </span>
-                                </div>
-                                <p className="text-sm text-[#8B9CB3]">
-                                  {flight.departureTime} → {flight.arrivalTime} ·{" "}
-                                  {flight.duration} · {flight.stops} stops
-                                </p>
-                                {String(flight.stops) !== "0" ? (
-                                  <p className="mt-1 text-sm text-[#8B9CB3]">
-                                    Stopover: {flight.stopoverLocation}
-                                  </p>
-                                ) : null}
-                              </div>
-                              <div className="text-right">
-                                <p className="font-bold text-[#00C9A7]">
-                                  {flight.price}
-                                </p>
-                                <p className="text-xs text-[#8B9CB3]">
-                                  {selected ? "Included" : "Click to include"}
-                                </p>
-                              </div>
-                            </div>
-                          </button>
+                            flight={flight}
+                            route={flightRoute}
+                            selected={selected}
+                            onToggle={() => toggleFlightOption(flight, index)}
+                          />
                         );
                       })}
                     </div>
@@ -1060,58 +1148,21 @@ export function QuoteEngine() {
 
                 {hotelOptions.length > 0 ? (
                   <section>
-                    <h3 className="mb-3 text-lg font-semibold text-white">
-                      Hotel search options
-                    </h3>
+                    <SectionHeading
+                      eyebrow="Booking.com API"
+                      title="Hotel search options"
+                      subtitle="Compara habitacion, ubicacion, highlights y tarifa por noche."
+                    />
                     <div className="space-y-3">
                       {hotelOptions.map((hotel, index) => {
                         const selected = isSelected(`web-hotel-${index}`);
                         return (
-                          <button
+                          <HotelOptionCard
                             key={`${hotel.name}-${index}`}
-                            type="button"
-                            onClick={() => toggleHotelOption(hotel, index)}
-                            className={`w-full rounded-2xl border p-4 text-left transition-colors ${
-                              selected
-                                ? "border-purple-400/50 bg-purple-400/10"
-                                : "border-white/[0.06] bg-[#03080F]/50 hover:border-purple-400/30"
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-4">
-                              <div>
-                                <div className="mb-2 flex flex-wrap items-center gap-2">
-                                  <p className="font-semibold text-white">
-                                    {hotel.name}
-                                  </p>
-                                  <span className={sourceStyles.WEB + " rounded-full border px-2 py-0.5 text-xs font-semibold"}>
-                                    [WEB]
-                                  </span>
-                                </div>
-                                <p className="text-sm text-[#8B9CB3]">
-                                  {hotel.roomType} · {hotel.stars} stars · Rating{" "}
-                                  {hotel.rating}
-                                </p>
-                                <div className="mt-2 flex flex-wrap gap-2">
-                                  {hotel.highlights.slice(0, 3).map((highlight) => (
-                                    <span
-                                      key={highlight}
-                                      className="rounded-full border border-[#00C9A7]/20 bg-[#00C9A7]/10 px-2 py-0.5 text-xs text-[#00C9A7]"
-                                    >
-                                      {highlight}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <p className="font-bold text-[#00C9A7]">
-                                  {hotel.pricePerNight}
-                                </p>
-                                <p className="text-xs text-[#8B9CB3]">
-                                  {selected ? "Included" : "Click to include"}
-                                </p>
-                              </div>
-                            </div>
-                          </button>
+                            hotel={hotel}
+                            selected={selected}
+                            onToggle={() => toggleHotelOption(hotel, index)}
+                          />
                         );
                       })}
                     </div>
@@ -1128,7 +1179,7 @@ export function QuoteEngine() {
                 return (
                   <article
                     key={item.id}
-                    className="grid gap-4 rounded-2xl border border-white/[0.06] bg-[#03080F]/50 p-5 md:grid-cols-[1fr_auto_auto]"
+                    className="grid gap-4 rounded-3xl border border-white/[0.08] bg-[#03080F]/60 p-5 shadow-[0_16px_44px_rgba(0,0,0,0.24)] transition-colors hover:border-[#00C9A7]/20 md:grid-cols-[1fr_auto_auto]"
                   >
                     <div>
                       <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -1153,7 +1204,7 @@ export function QuoteEngine() {
                       </div>
                       <label>
                         <span className="text-[#8B9CB3]">Margen</span>
-                        <div className="mt-1 flex items-center rounded-lg border border-white/10 bg-white/[0.04] px-2">
+                        <div className="mt-1 flex items-center rounded-xl border border-white/10 bg-white/[0.04] px-2">
                           <input
                             type="number"
                             min={0}
@@ -1186,7 +1237,7 @@ export function QuoteEngine() {
             </div>
 
             <div className="mt-6 grid gap-6 lg:grid-cols-2">
-              <section className="rounded-2xl border border-white/[0.06] bg-[#03080F]/50 p-5">
+              <section className="rounded-3xl border border-white/[0.08] bg-[#03080F]/60 p-5 shadow-[0_16px_44px_rgba(0,0,0,0.22)]">
                 <h3 className="mb-3 text-lg font-semibold text-white">
                   AI refinement chat
                 </h3>
@@ -1196,7 +1247,7 @@ export function QuoteEngine() {
                       key={`${message.role}-${index}`}
                       className={`rounded-xl px-4 py-3 text-sm ${
                         message.role === "ai"
-                          ? "bg-[#00C9A7]/10 text-[#00C9A7]"
+                          ? "border border-[#00C9A7]/20 bg-[#00C9A7]/10 text-[#00C9A7]"
                           : "bg-white/[0.05] text-[#E8EEF7]"
                       }`}
                     >
@@ -1215,19 +1266,19 @@ export function QuoteEngine() {
                       if (event.key === "Enter") sendChatMessage();
                     }}
                     placeholder='Try "make cheaper", "add insurance", "upgrade hotel"'
-                    className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none focus:border-[#00C9A7]/50"
+                    className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none focus:border-[#00C9A7]/50"
                   />
                   <button
                     type="button"
                     onClick={sendChatMessage}
-                    className="rounded-xl bg-[#00C9A7] px-4 py-3 text-sm font-semibold text-[#03080F]"
+                    className="rounded-2xl bg-[#00C9A7] px-4 py-3 text-sm font-bold text-[#03080F]"
                   >
                     Send
                   </button>
                 </div>
               </section>
 
-              <section className="rounded-2xl border border-white/[0.06] bg-[#03080F]/50 p-5">
+              <section className="rounded-3xl border border-white/[0.08] bg-[#03080F]/60 p-5 shadow-[0_16px_44px_rgba(0,0,0,0.22)]">
                 <label className="mb-3 block text-lg font-semibold text-white">
                   Agent notes
                 </label>
@@ -1235,12 +1286,12 @@ export function QuoteEngine() {
                   value={agentNotes}
                   onChange={(event) => setAgentNotes(event.target.value)}
                   rows={8}
-                  className="w-full resize-y rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none focus:border-[#00C9A7]/50"
+                  className="w-full resize-y rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none focus:border-[#00C9A7]/50"
                 />
               </section>
             </div>
 
-            <div className="mt-6 grid gap-4 rounded-2xl border border-[#00C9A7]/20 bg-[#00C9A7]/10 p-5 sm:grid-cols-3">
+            <div className="mt-6 grid gap-4 rounded-3xl border border-[#00C9A7]/20 bg-[linear-gradient(135deg,rgba(0,201,167,0.14),rgba(13,32,56,0.48))] p-5 shadow-[0_0_50px_-24px_rgba(0,201,167,0.9)] sm:grid-cols-3">
               <TotalCard label="Net cost" value={totals.netCost} />
               <TotalCard label="Agency margin" value={totals.agencyMargin} />
               <TotalCard label="Client price" value={totals.clientPrice} highlight />
@@ -1252,10 +1303,278 @@ export function QuoteEngine() {
   );
 }
 
+function PremiumMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/[0.07] bg-[#03080F]/45 px-4 py-3 shadow-inner shadow-black/25">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#4A6A85]">
+        {label}
+      </p>
+      <p className="mt-1 text-sm font-bold text-white">{value}</p>
+    </div>
+  );
+}
+
+function SectionHeading({
+  eyebrow,
+  title,
+  subtitle,
+}: {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <div className="mb-4">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-[#00C9A7]">
+        {eyebrow}
+      </p>
+      <h3 className="mt-1 text-lg font-bold text-white">{title}</h3>
+      <p className="mt-1 text-xs leading-5 text-[#8B9CB3]">{subtitle}</p>
+    </div>
+  );
+}
+
+function ProcessStepCard({
+  index,
+  status,
+  title,
+  chips,
+}: {
+  index: number;
+  status: StepStatus;
+  title: string;
+  chips: string[];
+}) {
+  const statusLabel =
+    status === "active" ? "Procesando" : status === "done" ? "Hecho" : "Pendiente";
+
+  return (
+    <div
+      className={`relative overflow-hidden rounded-3xl border p-4 transition-all ${
+        status === "active"
+          ? "border-[#00C9A7]/45 bg-[linear-gradient(135deg,rgba(0,201,167,0.16),rgba(13,32,56,0.42))] shadow-[0_0_46px_-20px_rgba(0,201,167,0.95)]"
+          : status === "done"
+            ? "border-emerald-400/25 bg-emerald-400/[0.06]"
+            : "border-white/[0.06] bg-[#03080F]/48"
+      }`}
+    >
+      {status === "active" ? (
+        <div
+          className="absolute inset-x-0 top-0 h-px animate-pulse bg-gradient-to-r from-transparent via-[#00C9A7] to-transparent"
+          aria-hidden
+        />
+      ) : null}
+      <div className="flex items-center gap-3">
+        <StepIndicator status={status} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-3">
+            <p className="font-semibold text-white">{title}</p>
+            <span className="hidden rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8B9CB3] sm:inline-flex">
+              {String(index + 1).padStart(2, "0")} · {statusLabel}
+            </span>
+          </div>
+          {status === "active" ? (
+            <div className="mt-3 flex items-center gap-1.5">
+              {[0, 1, 2].map((dot) => (
+                <span
+                  key={dot}
+                  className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#00C9A7]"
+                  style={{ animationDelay: `${dot * 140}ms` }}
+                />
+              ))}
+              <span className="ml-2 text-xs text-[#8B9CB3]">
+                Buscando la mejor fuente disponible
+              </span>
+            </div>
+          ) : null}
+        </div>
+      </div>
+      {status !== "pending" ? (
+        <div className="mt-3 flex flex-wrap gap-2 pl-9">
+          {chips.map((chip) => (
+            <span
+              key={chip}
+              className="rounded-full border border-[#00C9A7]/20 bg-[#00C9A7]/10 px-2.5 py-1 text-xs font-medium text-[#00C9A7]"
+            >
+              {chip}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function FlightOptionCard({
+  flight,
+  route,
+  selected,
+  onToggle,
+}: {
+  flight: FlightOption;
+  route: FlightRouteDisplay | null;
+  selected: boolean;
+  onToggle: () => void;
+}) {
+  const origin = route?.origin ?? {
+    city: "Origin",
+    airport: "Origin airport",
+    code: "ORG",
+  };
+  const destination = route?.destination ?? {
+    city: "Destination",
+    airport: "Destination airport",
+    code: "DST",
+  };
+  const isDirect = String(flight.stops) === "0";
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={selected}
+      className={`group w-full overflow-hidden rounded-3xl border p-4 text-left shadow-[0_16px_44px_rgba(0,0,0,0.24)] transition-all hover:-translate-y-0.5 ${
+        selected
+          ? "border-[#00C9A7]/55 bg-[#00C9A7]/10"
+          : "border-white/[0.08] bg-[#03080F]/60 hover:border-[#00C9A7]/30"
+      }`}
+    >
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-bold text-white">
+              {flight.airline} {flight.flightNumber}
+            </p>
+            <span className={sourceStyles.WEB + " rounded-full border px-2 py-0.5 text-xs font-semibold"}>
+              [WEB]
+            </span>
+          </div>
+          <p className="mt-1 text-xs text-[#8B9CB3]">
+            {isDirect ? "Direct flight" : `${flight.stops} stops`} · {flight.duration}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-xl font-black text-[#00C9A7]">{flight.price}</p>
+          <p className="text-xs text-[#8B9CB3]">
+            {selected ? "Included" : "Click to include"}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3 sm:grid-cols-[1fr_auto_1fr]">
+        <AirportBlock airport={origin} time={flight.departureTime} align="left" />
+        <div className="flex items-center justify-center gap-2 text-[#4A6A85]">
+          <span className="h-px w-10 bg-gradient-to-r from-transparent to-[#00C9A7]/60" />
+          <span className="rounded-full border border-[#00C9A7]/25 bg-[#00C9A7]/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[#00C9A7]">
+            {flight.duration}
+          </span>
+          <span className="h-px w-10 bg-gradient-to-r from-[#00C9A7]/60 to-transparent" />
+        </div>
+        <AirportBlock airport={destination} time={flight.arrivalTime} align="right" />
+      </div>
+
+      {!isDirect ? (
+        <p className="mt-3 text-xs text-[#8B9CB3]">
+          Stopover: <span className="text-[#E8EEF7]">{flight.stopoverLocation}</span>
+        </p>
+      ) : null}
+    </button>
+  );
+}
+
+function AirportBlock({
+  airport,
+  time,
+  align,
+}: {
+  airport: AirportDisplay;
+  time: string;
+  align: "left" | "right";
+}) {
+  return (
+    <div className={align === "right" ? "text-right" : "text-left"}>
+      <p className="text-2xl font-black tracking-tight text-white">{airport.code}</p>
+      <p className="text-sm font-semibold text-[#E8EEF7]">{time}</p>
+      <p className="mt-1 text-xs text-[#8B9CB3]">{airport.airport}</p>
+      <p className="text-[11px] text-[#4A6A85]">{airport.city}</p>
+    </div>
+  );
+}
+
+function HotelOptionCard({
+  hotel,
+  selected,
+  onToggle,
+}: {
+  hotel: HotelOption;
+  selected: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={selected}
+      className={`group w-full rounded-3xl border p-4 text-left shadow-[0_16px_44px_rgba(0,0,0,0.24)] transition-all hover:-translate-y-0.5 ${
+        selected
+          ? "border-[#00C9A7]/55 bg-[#00C9A7]/10"
+          : "border-white/[0.08] bg-[#03080F]/60 hover:border-[#00C9A7]/30"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <p className="font-bold text-white">{hotel.name}</p>
+            <span className={sourceStyles.WEB + " rounded-full border px-2 py-0.5 text-xs font-semibold"}>
+              [WEB]
+            </span>
+          </div>
+          <p className="text-sm text-[#E8EEF7]">
+            {hotel.roomType} · {hotel.stars} stars · Rating {hotel.rating}
+          </p>
+          <p className="mt-1 text-xs text-[#8B9CB3]">{hotel.address}</p>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-xl font-black text-[#00C9A7]">{hotel.pricePerNight}</p>
+          <p className="text-xs text-[#8B9CB3]">per night</p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3 sm:grid-cols-3">
+        <HotelDetail label="Room" value={hotel.roomType} />
+        <HotelDetail label="Distance" value={hotel.distanceFromCenter} />
+        <HotelDetail label={selected ? "Status" : "Action"} value={selected ? "Included" : "Click to include"} />
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {hotel.highlights.slice(0, 5).map((highlight) => (
+          <span
+            key={highlight}
+            className="rounded-full border border-[#00C9A7]/20 bg-[#00C9A7]/10 px-2.5 py-1 text-xs font-medium text-[#00C9A7]"
+          >
+            {highlight}
+          </span>
+        ))}
+      </div>
+    </button>
+  );
+}
+
+function HotelDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#4A6A85]">
+        {label}
+      </p>
+      <p className="mt-1 text-xs font-semibold text-[#E8EEF7]">{value}</p>
+    </div>
+  );
+}
+
 function StepIndicator({ status }: { status: StepStatus }) {
   if (status === "done") {
     return (
-      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-400 text-xs font-bold text-[#03080F]">
+      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-400 text-xs font-bold text-[#03080F] shadow-[0_0_24px_rgba(52,211,153,0.35)]">
         ✓
       </span>
     );
@@ -1263,11 +1582,14 @@ function StepIndicator({ status }: { status: StepStatus }) {
 
   if (status === "active") {
     return (
-      <span className="h-6 w-6 rounded-full border-2 border-[#00C9A7] border-t-transparent animate-spin" />
+      <span className="relative flex h-7 w-7 items-center justify-center rounded-full border border-[#00C9A7]/35 bg-[#00C9A7]/10">
+        <span className="absolute h-7 w-7 animate-ping rounded-full border border-[#00C9A7]/50" />
+        <span className="h-2.5 w-2.5 rounded-full bg-[#00C9A7] shadow-[0_0_18px_rgba(0,201,167,0.8)]" />
+      </span>
     );
   }
 
-  return <span className="h-6 w-6 rounded-full border border-white/15" />;
+  return <span className="h-7 w-7 rounded-full border border-white/15 bg-white/[0.03]" />;
 }
 
 function TotalCard({
