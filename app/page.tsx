@@ -69,6 +69,9 @@ export default function Home() {
           <a href="#features" className="transition-colors hover:text-[#00C9A7]">
             Features
           </a>
+          <Link href="/login" className="transition-colors hover:text-[#00C9A7]">
+            Sign in
+          </Link>
           <a
             href="#cta"
             className="rounded-full border border-[#00C9A7]/30 bg-[#00C9A7]/5 px-5 py-2 text-[#00C9A7] transition-all hover:border-[#00C9A7]/60 hover:bg-[#00C9A7]/10"
@@ -105,7 +108,7 @@ export default function Home() {
               href="/login"
               className="group relative inline-flex items-center justify-center overflow-hidden rounded-full bg-[#00C9A7] px-8 py-4 text-base font-semibold text-[#03080F] shadow-[0_0_40px_-8px_rgba(0,201,167,0.6)] transition-all hover:scale-[1.02] hover:shadow-[0_0_56px_-8px_rgba(0,201,167,0.8)]"
             >
-              Request early access
+              Get started
               <ArrowIcon className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
             <a
@@ -243,7 +246,7 @@ export default function Home() {
               href="/login"
               className="cta-shine relative mt-8 inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#00C9A7] via-[#00E5BB] to-[#00C9A7] px-10 py-4 text-base font-bold text-[#03080F] shadow-[0_0_48px_-8px_rgba(0,201,167,0.5)] transition-transform hover:scale-[1.02]"
             >
-              Request early access
+              Get started
             </Link>
           </div>
         </section>
