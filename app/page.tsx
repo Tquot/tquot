@@ -101,13 +101,13 @@ export default function Home() {
           </p>
 
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-            <a
-              href="#cta"
+            <Link
+              href="/login"
               className="group relative inline-flex items-center justify-center overflow-hidden rounded-full bg-[#00C9A7] px-8 py-4 text-base font-semibold text-[#03080F] shadow-[0_0_40px_-8px_rgba(0,201,167,0.6)] transition-all hover:scale-[1.02] hover:shadow-[0_0_56px_-8px_rgba(0,201,167,0.8)]"
             >
               Request early access
               <ArrowIcon className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </a>
+            </Link>
             <a
               href="#features"
               className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-8 py-4 text-base font-medium text-[#E8EEF7] backdrop-blur-sm transition-all hover:border-white/20 hover:bg-white/[0.06]"
@@ -239,12 +239,12 @@ export default function Home() {
               Join the waitlist for early access. Limited spots for founding
               agency partners across Europe.
             </p>
-            <a
-              href="mailto:hello@tquot.io?subject=Early%20access%20request"
+            <Link
+              href="/login"
               className="cta-shine relative mt-8 inline-flex items-center justify-center rounded-full bg-gradient-to-r from-[#00C9A7] via-[#00E5BB] to-[#00C9A7] px-10 py-4 text-base font-bold text-[#03080F] shadow-[0_0_48px_-8px_rgba(0,201,167,0.5)] transition-transform hover:scale-[1.02]"
             >
               Request early access
-            </a>
+            </Link>
           </div>
         </section>
       </main>
