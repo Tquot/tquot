@@ -1,0 +1,27 @@
+{
+  "name": "tquot-pdf",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sistema de generación de PDFs premium para TQuot (agente + cliente)",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "preview:pdfs": "tsx scripts/preview-pdfs.ts"
+  },
+  "dependencies": {
+    "@react-pdf/renderer": "^4.1.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "next": "^15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
