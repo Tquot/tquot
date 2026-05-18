@@ -72,7 +72,7 @@ export async function callStructured<S extends ZodTypeAny>(
         system,
         messages: [{ role: "user", content: userMessage }],
         output_config: {
-          format: { type: "json_schema", schema: jsonSchema },
+          format: { type: "json_schema", schema: jsonSchema as Record<string, unknown> },
         },
       });
 
