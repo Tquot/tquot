@@ -6,7 +6,7 @@ if (!process.env.ANTHROPIC_API_KEY) {
   console.warn("[tquot-parser] ANTHROPIC_API_KEY no configurada");
 }
 
-export const client = new Anthropic({ apiKey: "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" });
+export const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY || "" });
 
 export const CLAUDE_MODEL = process.env.CLAUDE_MODEL ?? "claude-sonnet-4-6";
 
