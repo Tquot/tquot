@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionStore } from "@/tquot-parser/lib/parser/session";
+import { getSessionStore } from "@/lib/parser/session";
 import { getAuthenticatedUser, validateAgentId } from "../../_auth";
 
 export async function GET(

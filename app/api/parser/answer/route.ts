@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { ParserEngine } from "@/tquot-parser/lib/parser/engine";
+import { ParserEngine } from "@/lib/parser/engine";
 import {
   runParserSearchOrchestrator,
   shouldRequireHumanReview,
-} from "@/tquot-parser/lib/parser/search-orchestrator";
-import { getSessionStore } from "@/tquot-parser/lib/parser/session";
+} from "@/lib/parser/search-orchestrator";
+import { getSessionStore } from "@/lib/parser/session";
 import { getAuthenticatedUser, validateAgentId } from "../_auth";
 
 const MAX_QUESTION_ROUNDS = Number(process.env.PARSER_MAX_QUESTION_ROUNDS ?? 2);
