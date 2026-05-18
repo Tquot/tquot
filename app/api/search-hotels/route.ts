@@ -27,6 +27,7 @@ export type HotelOption = {
 type DestinationMatch = {
   destId: string;
   searchType: string;
+  name: string;
 };
 
 function isNonEmptyString(value: unknown): value is string {
@@ -60,6 +61,11 @@ function getStringValue(...values: unknown[]) {
   }
 
   return "Unknown";
+}
+
+function getOptionalString(...values: unknown[]) {
+  const value = getStringValue(...values);
+  return value === "Unknown" ? null : value;
 }
 
 function cleanPrice(value: unknown) {
@@ -136,34 +142,83 @@ function getDestinationItems(payload: unknown) {
   );
 }
 
-function findDestination(payload: unknown): DestinationMatch | null {
+function getDestinationName(destination: Record<string, unknown>) {
+  return getStringValue(
+    destination.name,
+    destination.label,
+    destination.city_name,
+    destination.cityName,
+    destination.region,
+    destination.country,
+  );
+}
+
+function destinationScore(
+  destination: Record<string, unknown>,
+  requestedDestination: string,
+) {
+  const requested = cleanDestinationName(requestedDestination).toLowerCase();
+  const name = getDestinationName(destination).toLowerCase();
+
+  if (name === requested) {
+    return 3;
+  }
+
+  if (name.includes(requested)) {
+    return 2;
+  }
+
+  if (requested.includes(name)) {
+    return 1;
+  }
+
+  return 0;
+}
+
+function findDestination(
+  payload: unknown,
+  requestedDestination: string,
+): DestinationMatch | null {
   const destinations = getDestinationItems(payload);
-
-  for (const item of destinations) {
-    const destination = asRecord(item);
-    const destId = getStringValue(
-      destination.dest_id,
-      destination.destId,
-      destination.id,
-      destination.entityId,
-    );
-
-    if (destId === "Unknown") {
-      continue;
-    }
-
-    return {
-      destId,
-      searchType: getStringValue(
+  const validDestinations = destinations
+    .map((item) => {
+      const destination = asRecord(item);
+      const destId = getOptionalString(
+        destination.dest_id,
+        destination.destId,
+      );
+      const searchType = getOptionalString(
         destination.search_type,
         destination.searchType,
         destination.dest_type,
-        "CITY",
-      ),
-    };
+        destination.destType,
+      );
+
+      if (!destId || !searchType) {
+        return null;
+      }
+
+      return {
+        destId,
+        searchType,
+        name: getDestinationName(destination),
+        score: destinationScore(destination, requestedDestination),
+      };
+    })
+    .filter((destination) => destination !== null)
+    .sort((left, right) => right.score - left.score);
+
+  const bestMatch = validDestinations[0];
+
+  if (!bestMatch) {
+    return null;
   }
 
-  return null;
+  return {
+    destId: bestMatch.destId,
+    searchType: bestMatch.searchType,
+    name: bestMatch.name,
+  };
 }
 
 function getPricePerNight(hotel: Record<string, unknown>) {
@@ -331,6 +386,8 @@ function normalizeHotelOptions(payload: unknown): HotelOption[] {
 function createMockHotels(destination: string): HotelOption[] {
   const city = cleanDestinationName(destination);
 
+  console.log("[search-hotels] Creating fallback mock hotels", { city });
+
   return [
     {
       name: `${city} Grand Central Hotel`,
@@ -464,7 +521,7 @@ export async function POST(request: Request) {
       rapidApiKey,
       "searchDestination",
     );
-    const destinationMatch = findDestination(destinationPayload);
+    const destinationMatch = findDestination(destinationPayload, destination);
 
     if (!destinationMatch) {
       console.error("[search-hotels] No destination match found", {
@@ -474,6 +531,13 @@ export async function POST(request: Request) {
 
       return fallbackHotels("Booking.com returned no destination match.", destination);
     }
+
+    console.log("[search-hotels] Selected Booking.com destination", {
+      requestedDestination: destination,
+      destId: destinationMatch.destId,
+      searchType: destinationMatch.searchType,
+      matchedName: destinationMatch.name,
+    });
 
     const hotelParams = new URLSearchParams({
       dest_id: destinationMatch.destId,
