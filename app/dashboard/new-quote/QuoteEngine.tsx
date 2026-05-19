@@ -1,81 +1,36 @@
-"use client";
+﻿"use client";
 
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
-import { getCityIATA } from "@/lib/airports";
+import { useRef, useState } from "react";
+import {
+  buildQuote,
+  type Quote,
+  type QuoteItem,
+  type QuoteItemSource,
+} from "@/lib/quotes/build-quote";
+import {
+  localParseToParsedTripInput,
+  tripRequestToParsedTripInput,
+} from "@/lib/quotes/map-parser";
+import type { TripRequest } from "@/lib/parser/schema";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { readAgencyProfile } from "../agency/agency-profile";
 import { useDashboardLanguage } from "../dashboard-language-provider";
 import type { Locale } from "../translations";
+import { QuoteItemsSection } from "./quote-results";
 
 type StepStatus = "pending" | "active" | "done";
-type Source = "INV-PROPIO" | "CORPORATIVO" | "WEB";
 
 type ProcessStep = {
   title: string;
   chips: string[];
 };
 
-type QuoteLineItem = {
-  id: string;
-  name: string;
-  description: string;
-  source: Source;
-  netCost: number;
-  marginPercent: number;
-};
-
 type ChatMessage = {
   role: "agent" | "ai";
   content: string;
-};
-
-type InventoryCategory =
-  | "hotels"
-  | "experiences"
-  | "suppliers"
-  | "tour_operators";
-
-type InventoryItem = {
-  id: string;
-  category: InventoryCategory;
-  name: string;
-  data: Record<string, string>;
-};
-
-type FlightOption = {
-  price: string;
-  airline: string;
-  flightNumber: string;
-  departureTime: string;
-  arrivalTime: string;
-  duration: string;
-  stops: number | string;
-  stopoverLocation: string;
-};
-
-type HotelOption = {
-  name: string;
-  pricePerNight: string;
-  stars: number | string;
-  rating: number | string;
-  roomType: string;
-  address: string;
-  highlights: string[];
-  distanceFromCenter: string;
-};
-
-type AirportDisplay = {
-  city: string;
-  airport: string;
-  code: string;
-};
-
-type FlightRouteDisplay = {
-  origin: AirportDisplay;
-  destination: AirportDisplay;
 };
 
 type ParsedRequest = {
@@ -85,48 +40,35 @@ type ParsedRequest = {
   checkOut: string;
   adults: number;
   includeFlights: boolean;
-  requestedCategories: InventoryCategory[];
 };
 
 const PROCESS_STEPS: ProcessStep[] = [
   {
-    title: "🧠 Analyzing natural language request",
-    chips: ["Destino detectado", "Fechas normalizadas", "Viajeros identificados"],
+    title: "ðŸ§  Parsing client request",
+    chips: ["Parser API", "TripRequest extracted"],
   },
   {
-    title: "🗄️ Checking own inventory (hotels, experiences, suppliers)",
-    chips: ["Hotel propio disponible", "Experiencia local encontrada"],
+    title: "ðŸ“‹ Mapping ParsedTripInput",
+    chips: ["Route & dates", "Passengers & preferences"],
   },
   {
-    title: "🤝 Checking contracted suppliers",
-    chips: ["Traslado contratado", "Guía certificado"],
-  },
-  {
-    title: "🏢 Corporate system (if connected)",
-    chips: ["Política validada", "Tarifa corporativa aplicada"],
-  },
-  {
-    title: "🌐 Web search (Skyscanner + Booking.com APIs)",
-    chips: ["Vuelo web encontrado", "Hotel web comparado"],
-  },
-  {
-    title: "💰 Applying margins and compiling quote",
-    chips: ["Márgenes aplicados", "Quote listo"],
+    title: "ðŸ’° Building deterministic quote",
+    chips: ["Flights", "Hotels", "Experiences", "Margins applied"],
   },
 ];
 
 const defaultStepChips = PROCESS_STEPS.map((step) => step.chips);
 
-const sourceStyles: Record<Source, string> = {
-  "INV-PROPIO": "border-[#00C9A7]/30 bg-[#00C9A7]/10 text-[#00C9A7]",
-  CORPORATIVO: "border-[#F5C518]/30 bg-[#F5C518]/10 text-[#F5C518]",
-  WEB: "border-purple-400/30 bg-purple-400/10 text-purple-300",
+const sourceStyles: Record<QuoteItemSource, string> = {
+  mock: "border-slate-400/30 bg-slate-400/10 text-slate-300",
+  inventory: "border-[#00C9A7]/30 bg-[#00C9A7]/10 text-[#00C9A7]",
+  api: "border-purple-400/30 bg-purple-400/10 text-purple-300",
 };
 
-const sourcePdfColors: Record<Source, [number, number, number]> = {
-  "INV-PROPIO": [0, 201, 167],
-  CORPORATIVO: [245, 197, 24],
-  WEB: [168, 85, 247],
+const sourcePdfColors: Record<QuoteItemSource, [number, number, number]> = {
+  mock: [148, 163, 184],
+  inventory: [0, 201, 167],
+  api: [168, 85, 247],
 };
 
 function formatCurrency(value: number) {
@@ -145,20 +87,26 @@ function getStepStatus(index: number, activeStep: number, isRunning: boolean) {
   return "pending";
 }
 
-function createQuoteReference() {
-  const date = new Date();
-  const stamp = date
-    .toISOString()
-    .slice(0, 10)
-    .replaceAll("-", "");
-  return `TQ-${stamp}-${Math.floor(1000 + Math.random() * 9000)}`;
+function allQuoteItems(quote: Quote): QuoteItem[] {
+  return [...quote.flights, ...quote.hotels, ...quote.experiences];
 }
 
-function getLineFinancials(item: QuoteLineItem) {
-  const marginAmount = item.netCost * (item.marginPercent / 100);
-  const clientPrice = item.netCost + marginAmount;
+function cloneQuote(quote: Quote): Quote {
+  return {
+    ...quote,
+    flights: quote.flights.map((item) => ({ ...item })),
+    hotels: quote.hotels.map((item) => ({ ...item })),
+    experiences: quote.experiences.map((item) => ({ ...item })),
+    summary: { ...quote.summary, passengers: { ...quote.summary.passengers } },
+    pricing: { ...quote.pricing },
+  };
+}
 
-  return { marginAmount, clientPrice };
+function syncQuotePricing(quote: Quote): void {
+  const items = allQuoteItems(quote);
+  quote.pricing.baseTotal = items.reduce((sum, item) => sum + item.price, 0);
+  quote.pricing.margin = items.reduce((sum, item) => sum + item.markup, 0);
+  quote.pricing.finalTotal = quote.pricing.baseTotal + quote.pricing.margin;
 }
 
 function addDays(date: Date, days: number) {
@@ -186,117 +134,6 @@ function matchKeyword(text: string, patterns: RegExp[]) {
   }
 
   return "";
-}
-
-function parsePrice(value: string | number | undefined) {
-  if (typeof value === "number") return value;
-  if (!value) return 0;
-
-  const match = value.match(/\d+(?:[.,]\d+)?/);
-  if (!match) return 0;
-
-  return Number(match[0].replace(",", "."));
-}
-
-const AIRPORT_LOOKUP: Record<string, AirportDisplay> = {
-  madrid: {
-    city: "Madrid",
-    airport: "Adolfo Suarez Madrid-Barajas",
-    code: "MAD",
-  },
-  barcelona: {
-    city: "Barcelona",
-    airport: "Josep Tarradellas Barcelona-El Prat",
-    code: "BCN",
-  },
-  ribadesella: {
-    city: "Ribadesella",
-    airport: "Asturias Airport",
-    code: "OVD",
-  },
-  asturias: {
-    city: "Asturias",
-    airport: "Asturias Airport",
-    code: "OVD",
-  },
-  tokyo: {
-    city: "Tokyo",
-    airport: "Narita International",
-    code: "NRT",
-  },
-  tokio: {
-    city: "Tokio",
-    airport: "Narita International",
-    code: "NRT",
-  },
-  paris: {
-    city: "Paris",
-    airport: "Charles de Gaulle",
-    code: "CDG",
-  },
-  "nueva york": {
-    city: "Nueva York",
-    airport: "John F. Kennedy",
-    code: "JFK",
-  },
-  "new york": {
-    city: "New York",
-    airport: "John F. Kennedy",
-    code: "JFK",
-  },
-  valladolid: {
-    city: "Valladolid",
-    airport: "Valladolid Airport",
-    code: "VLL",
-  },
-  sevilla: {
-    city: "Sevilla",
-    airport: "Seville Airport",
-    code: "SVQ",
-  },
-  maldivas: {
-    city: "Male",
-    airport: "Velana International",
-    code: "MLE",
-  },
-  mallorca: {
-    city: "Mallorca",
-    airport: "Palma de Mallorca",
-    code: "PMI",
-  },
-};
-
-function normalizeLookupKey(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-}
-
-function fallbackAirportCode(place: string) {
-  const letters = place.replace(/[^A-Za-z]/g, "").slice(0, 3).toUpperCase();
-  return letters.padEnd(3, "X") || "AIR";
-}
-
-function getAirportDisplay(place: string, fallbackLabel: string): AirportDisplay {
-  const city = cleanPlaceName(place) || fallbackLabel;
-  const resolvedCode = getCityIATA(city);
-  const code = resolvedCode === city ? fallbackAirportCode(city) : resolvedCode;
-  const lookup = AIRPORT_LOOKUP[normalizeLookupKey(city)];
-
-  if (lookup) {
-    return {
-      ...lookup,
-      code,
-    };
-  }
-
-  return {
-    city,
-    airport: `${city} Airport`,
-    code,
-  };
 }
 
 function extractBareFlightRoute(text: string) {
@@ -356,24 +193,6 @@ function parseRequest(text: string): ParsedRequest | null {
   const includeFlights = /\b(?:vuelo|vuelos|flight|flights|volar|desde|from)\b/i.test(
     sourceText,
   );
-  const requestedCategories: InventoryCategory[] = [];
-
-  if (/\b(?:hotel|hoteles|alojamiento|habitaci[oó]n)\b/i.test(sourceText)) {
-    requestedCategories.push("hotels");
-  }
-  if (/\b(?:experiencia|experiencias|tour|actividad|actividades|gu[ií]a)\b/i.test(sourceText)) {
-    requestedCategories.push("experiences");
-  }
-  if (/\b(?:traslado|transfer|proveedor|supplier)\b/i.test(sourceText)) {
-    requestedCategories.push("suppliers");
-  }
-  if (/\b(?:tour operador|operador|paquete)\b/i.test(sourceText)) {
-    requestedCategories.push("tour_operators");
-  }
-
-  if (requestedCategories.length === 0) {
-    requestedCategories.push("hotels", "experiences");
-  }
 
   return {
     destination,
@@ -382,88 +201,11 @@ function parseRequest(text: string): ParsedRequest | null {
     checkOut: dates[1] ?? addDays(today, 3),
     adults: adultsMatch ? Number(adultsMatch[1]) : 2,
     includeFlights,
-    requestedCategories,
   };
 }
 
-function matchesDestination(item: InventoryItem, destination: string) {
-  const normalizedDestination = destination.toLowerCase();
-  const searchable = [
-    item.name,
-    item.category,
-    ...Object.values(item.data ?? {}),
-  ]
-    .join(" ")
-    .toLowerCase();
-
-  return searchable.includes(normalizedDestination);
-}
-
-function inventoryItemToLineItem(item: InventoryItem): QuoteLineItem {
-  const netCost = parsePrice(
-    item.data.netPrice ?? item.data.price ?? item.data.cost ?? item.data.net_cost,
-  );
-
-  return {
-    id: `inventory-${item.id}`,
-    name: item.name,
-    description: Object.entries(item.data)
-      .filter(([, value]) => Boolean(value))
-      .slice(0, 3)
-      .map(([key, value]) => `${key}: ${value}`)
-      .join(" · "),
-    source: "INV-PROPIO",
-    netCost: netCost || 100,
-    marginPercent: 18,
-  };
-}
-
-function hotelToLineItem(hotel: HotelOption, index: number): QuoteLineItem {
-  return {
-    id: `web-hotel-${index}`,
-    name: hotel.name,
-    description: `${hotel.roomType} · ${hotel.stars} stars · Rating ${hotel.rating} · ${hotel.distanceFromCenter}`,
-    source: "WEB",
-    netCost: parsePrice(hotel.pricePerNight) || 150,
-    marginPercent: 12,
-  };
-}
-
-function flightToLineItem(flight: FlightOption, index: number): QuoteLineItem {
-  return {
-    id: `web-flight-${index}`,
-    name: `${flight.airline} ${flight.flightNumber}`,
-    description: `${flight.departureTime} → ${flight.arrivalTime} · ${flight.duration} · ${flight.stops} stops`,
-    source: "WEB",
-    netCost: parsePrice(flight.price) || 220,
-    marginPercent: 10,
-  };
-}
-
-function createInsuranceLineItem(): QuoteLineItem {
-  return {
-    id: `corporate-insurance-${Date.now()}`,
-    name: "Seguro de viaje premium",
-    description: "Cobertura médica, cancelación y asistencia 24/7",
-    source: "CORPORATIVO",
-    netCost: 48,
-    marginPercent: 20,
-  };
-}
-
-async function fetchJson<T>(url: string, body: unknown): Promise<T> {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error ?? "Request failed");
-  }
-
-  return data as T;
+function pipelineDelay(ms = 600) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 function drawAgencyHeader(
@@ -527,11 +269,8 @@ export function QuoteEngine() {
   const [activeStep, setActiveStep] = useState(-1);
   const [isRunning, setIsRunning] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
-  const [lineItems, setLineItems] = useState<QuoteLineItem[]>([]);
+  const [quote, setQuote] = useState<Quote | null>(null);
   const [stepChips, setStepChips] = useState(defaultStepChips);
-  const [flightOptions, setFlightOptions] = useState<FlightOption[]>([]);
-  const [hotelOptions, setHotelOptions] = useState<HotelOption[]>([]);
-  const [flightRoute, setFlightRoute] = useState<FlightRouteDisplay | null>(null);
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
@@ -541,91 +280,63 @@ export function QuoteEngine() {
     },
   ]);
   const [agentNotes, setAgentNotes] = useState(
-    "Revisar disponibilidad antes de confirmar. Validar condiciones de cancelación.",
+    "Revisar disponibilidad antes de confirmar. Validar condiciones de cancelaciÃ³n.",
   );
-
-  const totals = useMemo(() => {
-    return lineItems.reduce(
-      (acc, item) => {
-        const margin = item.netCost * (item.marginPercent / 100);
-        return {
-          netCost: acc.netCost + item.netCost,
-          agencyMargin: acc.agencyMargin + margin,
-          clientPrice: acc.clientPrice + item.netCost + margin,
-        };
-      },
-      { netCost: 0, agencyMargin: 0, clientPrice: 0 },
-    );
-  }, [lineItems]);
-
-  function updateMargin(id: string, marginPercent: number) {
-    setLineItems((items) =>
-      items.map((item) =>
-        item.id === id
-          ? { ...item, marginPercent: Number.isFinite(marginPercent) ? marginPercent : 0 }
-          : item,
-      ),
-    );
-  }
-
-  function toggleFlightOption(flight: FlightOption, index: number) {
-    const item = flightToLineItem(flight, index);
-    setLineItems((items) =>
-      items.some((current) => current.id === item.id)
-        ? items.filter((current) => current.id !== item.id)
-        : [...items, item],
-    );
-  }
-
-  function toggleHotelOption(hotel: HotelOption, index: number) {
-    const item = hotelToLineItem(hotel, index);
-    setLineItems((items) =>
-      items.some((current) => current.id === item.id)
-        ? items.filter((current) => current.id !== item.id)
-        : [...items, item],
-    );
-  }
-
-  function isSelected(id: string) {
-    return lineItems.some((item) => item.id === id);
-  }
 
   function sendChatMessage() {
     const message = chatInput.trim();
-    if (!message) return;
+    if (!message || !quote) return;
 
     const normalized = message.toLowerCase();
     let response =
-      "He revisado la cotización. Puedes pedirme bajar precio, añadir seguro o mejorar hotel.";
+      "He revisado la cotizaciÃ³n. Puedes pedirme bajar precio, aÃ±adir seguro o mejorar hotel.";
 
-    if (/cheaper|barato|bajar|econ[oó]mico|reduce/.test(normalized)) {
-      setLineItems((items) =>
-        items.map((item) => ({
-          ...item,
-          marginPercent: Math.max(5, item.marginPercent - 5),
-        })),
-      );
-      response = "He reducido los márgenes para hacer la propuesta más económica.";
+    if (/cheaper|barato|bajar|econ[oÃ³]mico|reduce/.test(normalized)) {
+      setQuote((current) => {
+        if (!current) return current;
+        const next = cloneQuote(current);
+        for (const item of allQuoteItems(next)) {
+          item.markup = Math.round(item.markup * 0.85);
+          item.finalPrice = item.price + item.markup;
+        }
+        syncQuotePricing(next);
+        return next;
+      });
+      response = "He reducido los mÃ¡rgenes para hacer la propuesta mÃ¡s econÃ³mica.";
     } else if (/insurance|seguro/.test(normalized)) {
-      setLineItems((items) =>
-        items.some((item) => item.id.startsWith("corporate-insurance"))
-          ? items
-          : [...items, createInsuranceLineItem()],
-      );
-      response = "He añadido un seguro de viaje premium desde proveedor corporativo.";
+      setQuote((current) => {
+        if (!current || current.experiences.some((item) => item.id === "exp-insurance")) {
+          return current;
+        }
+        const next = cloneQuote(current);
+        const insurance: QuoteItem = {
+          id: "exp-insurance",
+          type: "experience",
+          title: "Seguro de viaje premium",
+          provider: "Proveedor corporativo",
+          price: 48,
+          markup: 10,
+          finalPrice: 58,
+          source: "inventory",
+        };
+        next.experiences = [...next.experiences, insurance];
+        syncQuotePricing(next);
+        return next;
+      });
+      response = "He aÃ±adido un seguro de viaje premium.";
     } else if (/upgrade|mejor|subir|hotel/.test(normalized)) {
-      setLineItems((items) =>
-        items.map((item) =>
-          item.id.startsWith("web-hotel") || item.id.startsWith("inventory-")
-            ? {
-                ...item,
-                name: `${item.name} - upgrade`,
-                description: `${item.description} · categoría superior`,
-                netCost: Math.round(item.netCost * 1.18),
-              }
-            : item,
-        ),
-      );
+      setQuote((current) => {
+        if (!current) return current;
+        const next = cloneQuote(current);
+        for (const hotel of next.hotels) {
+          hotel.price = Math.round(hotel.price * 1.18);
+          hotel.markup = Math.round(hotel.markup * 1.18);
+          hotel.finalPrice = hotel.price + hotel.markup;
+          hotel.title = `${hotel.title} Â· upgrade`;
+        }
+        syncQuotePricing(next);
+        return next;
+      });
       response = "He aplicado un upgrade de hotel y recalculado el precio.";
     }
 
@@ -642,168 +353,128 @@ export function QuoteEngine() {
     setRequest(latestRequest);
     setIsRunning(true);
     setIsComplete(false);
-    setLineItems([]);
-    setFlightOptions([]);
-    setHotelOptions([]);
-    setFlightRoute(null);
+    setQuote(null);
     setStepChips(defaultStepChips);
     setActiveStep(0);
-    const parsed = parseRequest(latestRequest);
-    if (!parsed) {
+
+    let parsedInput = null as ReturnType<typeof tripRequestToParsedTripInput>;
+    let parserSource = "local";
+
+    const supabase = createBrowserSupabaseClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const agentId = user?.id ?? "test-agent";
+
+    try {
+      const response = await fetch("/api/parser/parse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: latestRequest,
+          agentId,
+          currentDate: new Date().toISOString().slice(0, 10),
+        }),
+      });
+      const data = await response.json();
+
+      if (data.status === "needs_input") {
+        setStepChips((current) =>
+          current.map((chips, index) =>
+            index === 0
+              ? [
+                  "Parser needs more details",
+                  ...(data.questions ?? []).slice(0, 2),
+                ]
+              : chips,
+          ),
+        );
+        setIsRunning(false);
+        return;
+      }
+
+      if (response.ok && data.status === "ready" && data.data) {
+        parsedInput = tripRequestToParsedTripInput(data.data as TripRequest);
+        parserSource = "parser";
+        setStepChips((current) =>
+          current.map((chips, index) =>
+            index === 0
+              ? [
+                  `Destino: ${data.data.destination}`,
+                  `Adultos: ${data.data.adults ?? 2}`,
+                  "TripRequest ready",
+                ]
+              : chips,
+          ),
+        );
+      }
+    } catch (error) {
+      console.error("[QuoteEngine] Parser failed", error);
+    }
+
+    if (!parsedInput) {
+      const localParsed = parseRequest(latestRequest);
+      if (!localParsed) {
+        setStepChips((current) =>
+          current.map((chips, index) =>
+            index === 0
+              ? [
+                  "Destination not detected",
+                  "Especifica destino: hoteles en Ribadesella / viaje a Roma",
+                ]
+              : chips,
+          ),
+        );
+        setIsRunning(false);
+        return;
+      }
+      parsedInput = localParseToParsedTripInput(localParsed);
+      parserSource = "local";
       setStepChips((current) =>
         current.map((chips, index) =>
           index === 0
             ? [
-                "Destination not detected",
-                "Please specify: hoteles en Ribadesella / viaje a Valladolid / vuelo de Madrid a Tokyo",
+                `Destino: ${localParsed.destination}`,
+                `${localParsed.adults} viajeros`,
+                "ExtracciÃ³n local (fallback)",
               ]
             : chips,
         ),
       );
-      setIsRunning(false);
-      setActiveStep(0);
-      return;
     }
-    setFlightRoute(
-      parsed.origin
-        ? {
-            origin: getAirportDisplay(parsed.origin, "Origin"),
-            destination: getAirportDisplay(parsed.destination, "Destination"),
-          }
-        : null,
-    );
-    const quoteItems: QuoteLineItem[] = [];
 
-    setStepChips((current) =>
-      current.map((chips, index) =>
-        index === 0
-          ? [
-              `Destination: ${parsed.destination}`,
-              `${parsed.adults} travellers`,
-              parsed.includeFlights ? "Flights requested" : "Hotels/services only",
-            ]
-          : chips,
-      ),
-    );
-    await new Promise((resolve) => window.setTimeout(resolve, 700));
+    await pipelineDelay();
 
     setActiveStep(1);
-    const supabase = createBrowserSupabaseClient();
-    const { data: inventoryData, error: inventoryError } = await supabase
-      .from("inventory")
-      .select("id,category,name,data")
-      .in("category", parsed.requestedCategories);
-    const inventoryItems = ((inventoryData ?? []) as InventoryItem[]).filter(
-      (item) =>
-        parsed.requestedCategories.includes(item.category) &&
-        (matchesDestination(item, parsed.destination) ||
-          parsed.requestedCategories.includes(item.category)),
-    );
-    const inventoryLineItems = inventoryItems.map(inventoryItemToLineItem);
-    quoteItems.push(...inventoryLineItems);
-    setLineItems([...quoteItems]);
     setStepChips((current) =>
       current.map((chips, index) =>
         index === 1
           ? [
-              `${inventoryLineItems.length} items found in own inventory`,
-              inventoryError ? `Inventory warning: ${inventoryError.message}` : "Supabase inventory checked",
+              `${parsedInput.origin} â†’ ${parsedInput.destination}`,
+              `${parsedInput.dates.start} â†’ ${parsedInput.dates.end}`,
+              `Fuente: ${parserSource}`,
             ]
           : chips,
       ),
     );
-    await new Promise((resolve) => window.setTimeout(resolve, 700));
+    await pipelineDelay();
 
     setActiveStep(2);
-    const contractedItems = inventoryItems.filter((item) =>
-      ["suppliers", "tour_operators"].includes(item.category),
-    );
+    const built = buildQuote(parsedInput);
+    setQuote(built);
     setStepChips((current) =>
       current.map((chips, index) =>
         index === 2
           ? [
-              `${contractedItems.length} contracted supplier matches`,
-              "Supplier contracts checked",
+              `${built.flights.length} vuelos`,
+              `${built.hotels.length} hoteles`,
+              `${built.experiences.length} experiencias`,
+              formatCurrency(built.pricing.finalTotal),
             ]
           : chips,
       ),
     );
-    await new Promise((resolve) => window.setTimeout(resolve, 700));
-
-    setActiveStep(3);
-    setStepChips((current) =>
-      current.map((chips, index) =>
-        index === 3
-          ? ["Corporate system not connected", "Skipped corporate pricing"]
-          : chips,
-      ),
-    );
-    await new Promise((resolve) => window.setTimeout(resolve, 700));
-
-    setActiveStep(4);
-    const hasHotelCoverage = inventoryItems.some((item) => item.category === "hotels");
-    let webFlightOptions: FlightOption[] = [];
-    let webHotelOptions: HotelOption[] = [];
-
-    try {
-      if (!hasHotelCoverage) {
-        const hotelData = await fetchJson<{ hotels: HotelOption[] }>(
-          "/api/search-hotels",
-          {
-            destination: parsed.destination,
-            checkIn: parsed.checkIn,
-            checkOut: parsed.checkOut,
-            adults: parsed.adults,
-          },
-        );
-        webHotelOptions = hotelData.hotels.slice(0, 3);
-        setHotelOptions(webHotelOptions);
-      }
-
-      if (parsed.includeFlights && parsed.origin) {
-        const flightData = await fetchJson<{ flights: FlightOption[] }>(
-          "/api/search-flights",
-          {
-            origin: parsed.origin,
-            destination: parsed.destination,
-            date: parsed.checkIn,
-            adults: parsed.adults,
-          },
-        );
-        webFlightOptions = flightData.flights.slice(0, 3);
-        setFlightOptions(webFlightOptions);
-      }
-    } catch (error) {
-      console.error("[QuoteEngine] Web search failed", error);
-    }
-
-    setLineItems([...quoteItems]);
-    setStepChips((current) =>
-      current.map((chips, index) =>
-        index === 4
-          ? [
-              `${webFlightOptions.length + webHotelOptions.length} web options found`,
-              hasHotelCoverage ? "Hotel covered by own inventory" : "Booking.com checked",
-              parsed.includeFlights ? "Skyscanner checked" : "Flight search skipped",
-            ]
-          : chips,
-      ),
-    );
-    await new Promise((resolve) => window.setTimeout(resolve, 700));
-
-    setActiveStep(5);
-    setStepChips((current) =>
-      current.map((chips, index) =>
-        index === 5
-          ? [
-              `${quoteItems.filter((item) => item.source === "INV-PROPIO").length} [INV-PROPIO] items`,
-              `${webFlightOptions.length + webHotelOptions.length} [WEB] options ready`,
-              "Margins applied",
-            ]
-          : chips,
-      ),
-    );
-    await new Promise((resolve) => window.setTimeout(resolve, 700));
+    await pipelineDelay();
 
     setActiveStep(PROCESS_STEPS.length);
     setIsRunning(false);
@@ -811,8 +482,11 @@ export function QuoteEngine() {
   }
 
   function generateAgentPDF() {
+    if (!quote) return;
+
     const doc = new jsPDF();
-    const quoteReference = createQuoteReference();
+    const quoteReference = quote.id;
+    const items = allQuoteItems(quote);
 
     doc.setFillColor(3, 8, 15);
     doc.rect(0, 0, 210, 297, "F");
@@ -829,17 +503,14 @@ export function QuoteEngine() {
 
     autoTable(doc, {
       startY: 80,
-      head: [["Linea", "Fuente", "Neto", "Margen", "Cliente"]],
-      body: lineItems.map((item) => {
-        const { clientPrice } = getLineFinancials(item);
-        return [
-          `${item.name}\n${item.description}`,
-          `[${item.source}]`,
-          formatCurrency(item.netCost),
-          `${item.marginPercent}%`,
-          formatCurrency(clientPrice),
-        ];
-      }),
+      head: [["Linea", "Fuente", "Base", "Margen", "Cliente"]],
+      body: items.map((item) => [
+        `${item.title}\n${item.provider}`,
+        `[${item.source}]`,
+        formatCurrency(item.price),
+        formatCurrency(item.markup),
+        formatCurrency(item.finalPrice),
+      ]),
       theme: "grid",
       styles: {
         fillColor: [9, 18, 32],
@@ -858,7 +529,7 @@ export function QuoteEngine() {
       },
       didParseCell: (data) => {
         if (data.section === "body" && data.column.index === 1) {
-          const source = lineItems[data.row.index]?.source;
+          const source = items[data.row.index]?.source;
           if (source) {
             data.cell.styles.textColor = sourcePdfColors[source];
             data.cell.styles.fontStyle = "bold";
@@ -878,16 +549,16 @@ export function QuoteEngine() {
     doc.text("Totales internos", 20, finalY + 20);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(232, 238, 247);
-    doc.text(`Net cost: ${formatCurrency(totals.netCost)}`, 20, finalY + 29);
+    doc.text(`Base: ${formatCurrency(quote.pricing.baseTotal)}`, 20, finalY + 29);
     doc.text(
-      `Agency margin: ${formatCurrency(totals.agencyMargin)}`,
+      `Margen: ${formatCurrency(quote.pricing.margin)}`,
       76,
       finalY + 29,
     );
     doc.setTextColor(0, 201, 167);
     doc.setFont("helvetica", "bold");
     doc.text(
-      `Client price: ${formatCurrency(totals.clientPrice)}`,
+      `Total cliente: ${formatCurrency(quote.pricing.finalTotal)}`,
       140,
       finalY + 29,
     );
@@ -906,8 +577,11 @@ export function QuoteEngine() {
   }
 
   function generateClientPDF() {
+    if (!quote) return;
+
     const doc = new jsPDF();
-    const quoteReference = createQuoteReference();
+    const quoteReference = quote.id;
+    const items = allQuoteItems(quote);
 
     doc.setFillColor(255, 255, 255);
     doc.rect(0, 0, 210, 297, "F");
@@ -924,11 +598,12 @@ export function QuoteEngine() {
 
     autoTable(doc, {
       startY: 82,
-      head: [["Servicio", "Descripcion", "Precio cliente"]],
-      body: lineItems.map((item) => {
-        const { clientPrice } = getLineFinancials(item);
-        return [item.name, item.description, formatCurrency(clientPrice)];
-      }),
+      head: [["Servicio", "Proveedor", "Precio cliente"]],
+      body: items.map((item) => [
+        item.title,
+        item.provider,
+        formatCurrency(item.finalPrice),
+      ]),
       theme: "striped",
       styles: {
         textColor: [15, 23, 42],
@@ -965,7 +640,7 @@ export function QuoteEngine() {
     doc.setTextColor(0, 145, 122);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(16);
-    doc.text(formatCurrency(totals.clientPrice), 126, finalY + 32);
+    doc.text(formatCurrency(quote.pricing.finalTotal), 126, finalY + 32);
 
     doc.setTextColor(100, 116, 139);
     doc.setFont("helvetica", "normal");
@@ -996,7 +671,7 @@ export function QuoteEngine() {
           href="/dashboard"
           className="mb-8 inline-flex items-center rounded-full border border-white/[0.07] bg-white/[0.03] px-4 py-2 text-sm text-[#8B9CB3] shadow-[0_12px_40px_rgba(0,0,0,0.25)] transition-colors hover:border-[#00C9A7]/30 hover:text-[#00C9A7]"
         >
-          ← {t.backToDashboard}
+          â† {t.backToDashboard}
         </Link>
 
         <section className="mb-8 overflow-hidden rounded-[2rem] border border-white/[0.08] bg-[linear-gradient(135deg,rgba(10,21,37,0.88),rgba(13,32,56,0.68))] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.45),0_0_60px_rgba(0,201,167,0.08)] backdrop-blur-xl sm:p-8">
@@ -1009,8 +684,8 @@ export function QuoteEngine() {
               {t.newQuote}
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-7 text-[#8B9CB3]">
-              Pega una solicitud de cliente y visualiza cómo TQuot analiza,
-              busca, aplica márgenes y compila una propuesta lista para PDF.
+              Pega una solicitud de cliente: el parser extrae el viaje,
+              buildQuote genera la cotizaciÃ³n determinista y puedes exportar PDF.
             </p>
           </div>
           <div className="flex w-fit rounded-full border border-white/10 bg-[#03080F]/60 p-1 shadow-inner shadow-black/30">
@@ -1031,8 +706,8 @@ export function QuoteEngine() {
           </div>
           </div>
           <div className="mt-7 grid gap-3 sm:grid-cols-3">
-            <PremiumMetric label="Prioridad" value="INV → CORP → WEB" />
-            <PremiumMetric label="Motor" value="IA + APIs" />
+            <PremiumMetric label="Flujo" value="Parser â†’ buildQuote" />
+            <PremiumMetric label="Motor" value="Determinista" />
             <PremiumMetric label="Salida" value="PDF agente / cliente" />
           </div>
         </section>
@@ -1096,7 +771,7 @@ export function QuoteEngine() {
           </div>
         </section>
 
-        {isComplete ? (
+        {isComplete && quote ? (
           <section className="mt-8 rounded-[2rem] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(9,18,32,0.94),rgba(3,8,15,0.78))] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.42)] backdrop-blur-xl">
             <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
               <div>
@@ -1104,10 +779,11 @@ export function QuoteEngine() {
                   Proposal workspace
                 </p>
                 <h2 className="mt-2 text-3xl font-black tracking-tight text-white">
-                  Cotización compilada
+                  CotizaciÃ³n compilada
                 </h2>
                 <p className="mt-1 text-sm text-[#8B9CB3]">
-                  Ajusta márgenes por línea antes de generar el PDF.
+                  Ref: {quote.id} Â· {quote.summary.route} Â· {quote.summary.durationDays}{" "}
+                  dÃ­as Â· {quote.summary.passengers.total} viajeros
                 </p>
               </div>
               <div className="flex gap-3">
@@ -1128,120 +804,16 @@ export function QuoteEngine() {
               </div>
             </div>
 
-            {(flightOptions.length > 0 || hotelOptions.length > 0) ? (
-              <div className="mb-6 grid gap-6 lg:grid-cols-2">
-                {flightOptions.length > 0 ? (
-                  <section>
-                    <SectionHeading
-                      eyebrow="Skyscanner API"
-                      title="Flight search options"
-                      subtitle="Selecciona vuelos con ruta, horarios, aerolinea y precio."
-                    />
-                    <div className="space-y-3">
-                      {flightOptions.map((flight, index) => {
-                        const selected = isSelected(`web-flight-${index}`);
-                        return (
-                          <FlightOptionCard
-                            key={`${flight.airline}-${flight.flightNumber}-${index}`}
-                            flight={flight}
-                            route={flightRoute}
-                            selected={selected}
-                            onToggle={() => toggleFlightOption(flight, index)}
-                          />
-                        );
-                      })}
-                    </div>
-                  </section>
-                ) : null}
-
-                {hotelOptions.length > 0 ? (
-                  <section>
-                    <SectionHeading
-                      eyebrow="Booking.com API"
-                      title="Hotel search options"
-                      subtitle="Compara habitacion, ubicacion, highlights y tarifa por noche."
-                    />
-                    <div className="space-y-3">
-                      {hotelOptions.map((hotel, index) => {
-                        const selected = isSelected(`web-hotel-${index}`);
-                        return (
-                          <HotelOptionCard
-                            key={`${hotel.name}-${index}`}
-                            hotel={hotel}
-                            selected={selected}
-                            onToggle={() => toggleHotelOption(hotel, index)}
-                          />
-                        );
-                      })}
-                    </div>
-                  </section>
-                ) : null}
-              </div>
-            ) : null}
-
-            <div className="space-y-3">
-              {lineItems.map((item) => {
-                const marginAmount = item.netCost * (item.marginPercent / 100);
-                const clientPrice = item.netCost + marginAmount;
-
-                return (
-                  <article
-                    key={item.id}
-                    className="grid gap-4 rounded-3xl border border-white/[0.08] bg-[#03080F]/60 p-5 shadow-[0_16px_44px_rgba(0,0,0,0.24)] transition-colors hover:border-[#00C9A7]/20 md:grid-cols-[1fr_auto_auto]"
-                  >
-                    <div>
-                      <div className="mb-2 flex flex-wrap items-center gap-2">
-                        <h3 className="font-semibold text-white">{item.name}</h3>
-                        <span
-                          className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${sourceStyles[item.source]}`}
-                        >
-                          [{item.source}]
-                        </span>
-                      </div>
-                      <p className="text-sm text-[#8B9CB3]">
-                        {item.description}
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-3 text-sm md:w-80">
-                      <div>
-                        <p className="text-[#8B9CB3]">Neto</p>
-                        <p className="font-semibold text-white">
-                          {formatCurrency(item.netCost)}
-                        </p>
-                      </div>
-                      <label>
-                        <span className="text-[#8B9CB3]">Margen</span>
-                        <div className="mt-1 flex items-center rounded-xl border border-white/10 bg-white/[0.04] px-2">
-                          <input
-                            type="number"
-                            min={0}
-                            value={item.marginPercent}
-                            onChange={(event) =>
-                              updateMargin(item.id, Number(event.target.value))
-                            }
-                            className="w-full bg-transparent py-1.5 text-white outline-none"
-                          />
-                          <span className="text-[#8B9CB3]">%</span>
-                        </div>
-                      </label>
-                      <div>
-                        <p className="text-[#8B9CB3]">Cliente</p>
-                        <p className="font-semibold text-[#00C9A7]">
-                          {formatCurrency(clientPrice)}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="text-sm md:text-right">
-                      <p className="text-[#8B9CB3]">Beneficio</p>
-                      <p className="font-semibold text-[#F5C518]">
-                        {formatCurrency(marginAmount)}
-                      </p>
-                    </div>
-                  </article>
-                );
-              })}
+            <div className="mb-6 grid gap-6 lg:grid-cols-3">
+              {quote.flights.length > 0 ? (
+                <QuoteItemsSection eyebrow="Vuelos" title="Flights" items={quote.flights} />
+              ) : null}
+              {quote.hotels.length > 0 ? (
+                <QuoteItemsSection eyebrow="Hoteles" title="Hotels" items={quote.hotels} />
+              ) : null}
+              {quote.experiences.length > 0 ? (
+                <QuoteItemsSection eyebrow="Experiencias" title="Experiences" items={quote.experiences} />
+              ) : null}
             </div>
 
             <div className="mt-6 grid gap-6 lg:grid-cols-2">
@@ -1300,9 +872,13 @@ export function QuoteEngine() {
             </div>
 
             <div className="mt-6 grid gap-4 rounded-3xl border border-[#00C9A7]/20 bg-[linear-gradient(135deg,rgba(0,201,167,0.14),rgba(13,32,56,0.48))] p-5 shadow-[0_0_50px_-24px_rgba(0,201,167,0.9)] sm:grid-cols-3">
-              <TotalCard label="Net cost" value={totals.netCost} />
-              <TotalCard label="Agency margin" value={totals.agencyMargin} />
-              <TotalCard label="Client price" value={totals.clientPrice} highlight />
+              <TotalCard label="Base total" value={quote.pricing.baseTotal} />
+              <TotalCard label="Margin" value={quote.pricing.margin} />
+              <TotalCard
+                label={`Final total (${quote.pricing.currency})`}
+                value={quote.pricing.finalTotal}
+                highlight
+              />
             </div>
           </section>
         ) : null}
@@ -1318,26 +894,6 @@ function PremiumMetric({ label, value }: { label: string; value: string }) {
         {label}
       </p>
       <p className="mt-1 text-sm font-bold text-white">{value}</p>
-    </div>
-  );
-}
-
-function SectionHeading({
-  eyebrow,
-  title,
-  subtitle,
-}: {
-  eyebrow: string;
-  title: string;
-  subtitle: string;
-}) {
-  return (
-    <div className="mb-4">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-[#00C9A7]">
-        {eyebrow}
-      </p>
-      <h3 className="mt-1 text-lg font-bold text-white">{title}</h3>
-      <p className="mt-1 text-xs leading-5 text-[#8B9CB3]">{subtitle}</p>
     </div>
   );
 }
@@ -1378,7 +934,7 @@ function ProcessStepCard({
           <div className="flex items-center justify-between gap-3">
             <p className="font-semibold text-white">{title}</p>
             <span className="hidden rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8B9CB3] sm:inline-flex">
-              {String(index + 1).padStart(2, "0")} · {statusLabel}
+              {String(index + 1).padStart(2, "0")} Â· {statusLabel}
             </span>
           </div>
           {status === "active" ? (
@@ -1413,177 +969,11 @@ function ProcessStepCard({
   );
 }
 
-function FlightOptionCard({
-  flight,
-  route,
-  selected,
-  onToggle,
-}: {
-  flight: FlightOption;
-  route: FlightRouteDisplay | null;
-  selected: boolean;
-  onToggle: () => void;
-}) {
-  const origin = route?.origin ?? {
-    city: "Origin",
-    airport: "Origin airport",
-    code: "ORG",
-  };
-  const destination = route?.destination ?? {
-    city: "Destination",
-    airport: "Destination airport",
-    code: "DST",
-  };
-  const isDirect = String(flight.stops) === "0";
-
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-pressed={selected}
-      className={`group w-full overflow-hidden rounded-3xl border p-4 text-left shadow-[0_16px_44px_rgba(0,0,0,0.24)] transition-all hover:-translate-y-0.5 ${
-        selected
-          ? "border-[#00C9A7]/55 bg-[#00C9A7]/10"
-          : "border-white/[0.08] bg-[#03080F]/60 hover:border-[#00C9A7]/30"
-      }`}
-    >
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="font-bold text-white">
-              {flight.airline} {flight.flightNumber}
-            </p>
-            <span className={sourceStyles.WEB + " rounded-full border px-2 py-0.5 text-xs font-semibold"}>
-              [WEB]
-            </span>
-          </div>
-          <p className="mt-1 text-xs text-[#8B9CB3]">
-            {isDirect ? "Direct flight" : `${flight.stops} stops`} · {flight.duration}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-xl font-black text-[#00C9A7]">{flight.price}</p>
-          <p className="text-xs text-[#8B9CB3]">
-            {selected ? "Included" : "Click to include"}
-          </p>
-        </div>
-      </div>
-
-      <div className="grid items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3 sm:grid-cols-[1fr_auto_1fr]">
-        <AirportBlock airport={origin} time={flight.departureTime} align="left" />
-        <div className="flex items-center justify-center gap-2 text-[#4A6A85]">
-          <span className="h-px w-10 bg-gradient-to-r from-transparent to-[#00C9A7]/60" />
-          <span className="rounded-full border border-[#00C9A7]/25 bg-[#00C9A7]/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[#00C9A7]">
-            {flight.duration}
-          </span>
-          <span className="h-px w-10 bg-gradient-to-r from-[#00C9A7]/60 to-transparent" />
-        </div>
-        <AirportBlock airport={destination} time={flight.arrivalTime} align="right" />
-      </div>
-
-      {!isDirect ? (
-        <p className="mt-3 text-xs text-[#8B9CB3]">
-          Stopover: <span className="text-[#E8EEF7]">{flight.stopoverLocation}</span>
-        </p>
-      ) : null}
-    </button>
-  );
-}
-
-function AirportBlock({
-  airport,
-  time,
-  align,
-}: {
-  airport: AirportDisplay;
-  time: string;
-  align: "left" | "right";
-}) {
-  return (
-    <div className={align === "right" ? "text-right" : "text-left"}>
-      <p className="text-2xl font-black tracking-tight text-white">{airport.code}</p>
-      <p className="text-sm font-semibold text-[#E8EEF7]">{time}</p>
-      <p className="mt-1 text-xs text-[#8B9CB3]">{airport.airport}</p>
-      <p className="text-[11px] text-[#4A6A85]">{airport.city}</p>
-    </div>
-  );
-}
-
-function HotelOptionCard({
-  hotel,
-  selected,
-  onToggle,
-}: {
-  hotel: HotelOption;
-  selected: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-pressed={selected}
-      className={`group w-full rounded-3xl border p-4 text-left shadow-[0_16px_44px_rgba(0,0,0,0.24)] transition-all hover:-translate-y-0.5 ${
-        selected
-          ? "border-[#00C9A7]/55 bg-[#00C9A7]/10"
-          : "border-white/[0.08] bg-[#03080F]/60 hover:border-[#00C9A7]/30"
-      }`}
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <p className="font-bold text-white">{hotel.name}</p>
-            <span className={sourceStyles.WEB + " rounded-full border px-2 py-0.5 text-xs font-semibold"}>
-              [WEB]
-            </span>
-          </div>
-          <p className="text-sm text-[#E8EEF7]">
-            {hotel.roomType} · {hotel.stars} stars · Rating {hotel.rating}
-          </p>
-          <p className="mt-1 text-xs text-[#8B9CB3]">{hotel.address}</p>
-        </div>
-        <div className="shrink-0 text-right">
-          <p className="text-xl font-black text-[#00C9A7]">{hotel.pricePerNight}</p>
-          <p className="text-xs text-[#8B9CB3]">per night</p>
-        </div>
-      </div>
-
-      <div className="mt-4 grid gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3 sm:grid-cols-3">
-        <HotelDetail label="Room" value={hotel.roomType} />
-        <HotelDetail label="Distance" value={hotel.distanceFromCenter} />
-        <HotelDetail label={selected ? "Status" : "Action"} value={selected ? "Included" : "Click to include"} />
-      </div>
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        {hotel.highlights.slice(0, 5).map((highlight) => (
-          <span
-            key={highlight}
-            className="rounded-full border border-[#00C9A7]/20 bg-[#00C9A7]/10 px-2.5 py-1 text-xs font-medium text-[#00C9A7]"
-          >
-            {highlight}
-          </span>
-        ))}
-      </div>
-    </button>
-  );
-}
-
-function HotelDetail({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#4A6A85]">
-        {label}
-      </p>
-      <p className="mt-1 text-xs font-semibold text-[#E8EEF7]">{value}</p>
-    </div>
-  );
-}
-
 function StepIndicator({ status }: { status: StepStatus }) {
   if (status === "done") {
     return (
       <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-400 text-xs font-bold text-[#03080F] shadow-[0_0_24px_rgba(52,211,153,0.35)]">
-        ✓
+        âœ“
       </span>
     );
   }
