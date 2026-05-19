@@ -1,6 +1,9 @@
 /**
- * Deterministic quote builder — pure logic and mock data, no AI or API calls.
+ * Quote builder: flights and hotels from search APIs when available, mock fallback otherwise.
  */
+
+import type { FlightOption } from "@/app/api/search-flights/route";
+import type { HotelOption } from "@/app/api/search-hotels/route";
 
 // ─────────────────────────────────────────────────────────────
 // Input
@@ -75,7 +78,7 @@ export interface Quote {
 // Public API
 // ─────────────────────────────────────────────────────────────
 
-export function buildQuote(input: ParsedTripInput): Quote {
+export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
   const origin = normalizePlace(input.origin);
   const destination = normalizePlace(input.destination);
   const durationDays = computeDurationDays(input.dates.start, input.dates.end);
@@ -85,22 +88,25 @@ export function buildQuote(input: ParsedTripInput): Quote {
     `${origin}|${destination}|${input.dates.start}|${input.dates.end}|${pax.adults}|${pax.children}|${input.preferences.hotelLevel}|${input.preferences.directFlights}|${input.preferences.accessibility}`,
   );
 
-  const flights = buildFlights({
-    origin,
-    destination,
-    pax,
-    directFlights: input.preferences.directFlights,
-    seed,
-  });
-
-  const hotels = buildHotels({
-    destination,
-    nights,
-    pax,
-    hotelLevel: input.preferences.hotelLevel,
-    accessibility: input.preferences.accessibility,
-    seed,
-  });
+  const [flights, hotels] = await Promise.all([
+    buildFlightsFromApiOrMock({
+      origin,
+      destination,
+      dates: input.dates,
+      pax,
+      directFlights: input.preferences.directFlights,
+      seed,
+    }),
+    buildHotelsFromApiOrMock({
+      destination,
+      dates: input.dates,
+      nights,
+      pax,
+      hotelLevel: input.preferences.hotelLevel,
+      accessibility: input.preferences.accessibility,
+      seed,
+    }),
+  ]);
 
   const experiences = buildExperiences({
     destination,
@@ -141,10 +147,213 @@ export function buildQuote(input: ParsedTripInput): Quote {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Mock line items
+// Search APIs
 // ─────────────────────────────────────────────────────────────
 
-function buildFlights(params: {
+async function postSearchApi<T>(
+  path: string,
+  body: Record<string, unknown>,
+): Promise<T | null> {
+  try {
+    const response = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      return null;
+    }
+    return data as T;
+  } catch (error) {
+    console.warn(`[buildQuote] ${path} failed`, error);
+    return null;
+  }
+}
+
+async function searchFlightsApi(params: {
+  origin: string;
+  destination: string;
+  date: string;
+  adults: number;
+}): Promise<FlightOption[]> {
+  const data = await postSearchApi<{ flights?: FlightOption[]; fallback?: boolean }>(
+    "/api/search-flights",
+    {
+      origin: params.origin,
+      destination: params.destination,
+      date: params.date,
+      adults: params.adults,
+    },
+  );
+  if (!data || data.fallback) return [];
+  const flights = data.flights;
+  return Array.isArray(flights) && flights.length > 0 ? flights : [];
+}
+
+async function searchHotelsApi(params: {
+  destination: string;
+  checkIn: string;
+  checkOut: string;
+  adults: number;
+}): Promise<HotelOption[]> {
+  const data = await postSearchApi<{ hotels?: HotelOption[]; fallback?: boolean }>(
+    "/api/search-hotels",
+    {
+      destination: params.destination,
+      checkIn: params.checkIn,
+      checkOut: params.checkOut,
+      adults: params.adults,
+    },
+  );
+  if (!data || data.fallback) return [];
+  const hotels = data.hotels;
+  return Array.isArray(hotels) && hotels.length > 0 ? hotels : [];
+}
+
+function mapApiFlightToQuoteItem(
+  flight: FlightOption,
+  id: string,
+  routeLabel: string,
+): QuoteItem {
+  const isDirect = String(flight.stops) === "0";
+  const stopLabel = isDirect ? "directo" : `${flight.stops} escala(s)`;
+
+  return draftItem({
+    id,
+    type: "flight",
+    title: `${flight.airline} ${flight.flightNumber} · ${stopLabel} · ${routeLabel}`,
+    provider: flight.airline,
+    price: parsePriceString(flight.price),
+    source: "api",
+  });
+}
+
+function mapApiHotelToQuoteItem(
+  hotel: HotelOption,
+  nights: number,
+  id: string,
+): QuoteItem {
+  const pricePerNight = parsePriceString(hotel.pricePerNight);
+
+  return draftItem({
+    id,
+    type: "hotel",
+    title: `${hotel.name} — ${nights} ${nights === 1 ? "noche" : "noches"} · ${hotel.roomType}`,
+    provider: "Booking.com",
+    price: Math.round(pricePerNight * nights),
+    source: "api",
+  });
+}
+
+async function buildFlightsFromApiOrMock(params: {
+  origin: string;
+  destination: string;
+  dates: { start: string; end: string };
+  pax: { adults: number; children: number };
+  directFlights: boolean;
+  seed: number;
+}): Promise<QuoteItem[]> {
+  const { origin, destination, dates, pax, directFlights, seed } = params;
+  const adults = pax.adults;
+
+  const [outboundFlights, returnFlights] = await Promise.all([
+    searchFlightsApi({
+      origin,
+      destination,
+      date: dates.start,
+      adults,
+    }),
+    searchFlightsApi({
+      origin: destination,
+      destination: origin,
+      date: dates.end,
+      adults,
+    }),
+  ]);
+
+  const items: QuoteItem[] = [];
+
+  if (outboundFlights[0]) {
+    items.push(
+      mapApiFlightToQuoteItem(
+        outboundFlights[0],
+        "flight-out",
+        `${origin} → ${destination}`,
+      ),
+    );
+  }
+
+  if (returnFlights[0]) {
+    items.push(
+      mapApiFlightToQuoteItem(
+        returnFlights[0],
+        "flight-return",
+        `${destination} → ${origin}`,
+      ),
+    );
+  }
+
+  if (items.length > 0) {
+    const mockFlights = buildMockFlights({
+      origin,
+      destination,
+      pax,
+      directFlights,
+      seed,
+    });
+    if (!items.some((item) => item.id === "flight-out")) {
+      const mockOut = mockFlights.find((item) => item.id === "flight-out");
+      if (mockOut) items.unshift(mockOut);
+    }
+    if (!items.some((item) => item.id === "flight-return")) {
+      const mockReturn = mockFlights.find((item) => item.id === "flight-return");
+      if (mockReturn) items.push(mockReturn);
+    }
+    return items;
+  }
+
+  return buildMockFlights({ origin, destination, pax, directFlights, seed });
+}
+
+async function buildHotelsFromApiOrMock(params: {
+  destination: string;
+  dates: { start: string; end: string };
+  nights: number;
+  pax: { adults: number; children: number };
+  hotelLevel: HotelLevel;
+  accessibility: boolean;
+  seed: number;
+}): Promise<QuoteItem[]> {
+  const { destination, dates, nights, pax, hotelLevel, accessibility, seed } =
+    params;
+
+  const apiHotels = await searchHotelsApi({
+    destination,
+    checkIn: dates.start,
+    checkOut: dates.end,
+    adults: pax.adults,
+  });
+
+  if (apiHotels[0]) {
+    return [mapApiHotelToQuoteItem(apiHotels[0], nights, "hotel-main")];
+  }
+
+  return buildMockHotels({
+    destination,
+    nights,
+    pax,
+    hotelLevel,
+    accessibility,
+    seed,
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// Mock line items (fallback)
+// ─────────────────────────────────────────────────────────────
+
+function buildMockFlights(params: {
   origin: string;
   destination: string;
   pax: { adults: number; children: number };
@@ -171,7 +380,7 @@ function buildFlights(params: {
       title: `Vuelo ${stopLabel} ${origin} → ${destination}`,
       provider: airline,
       price: outboundBase,
-      source: itemSource(seed, 0),
+      source: "mock",
     }),
     draftItem({
       id: "flight-return",
@@ -179,12 +388,12 @@ function buildFlights(params: {
       title: `Vuelo ${stopLabel} ${destination} → ${origin}`,
       provider: airline,
       price: returnBase,
-      source: itemSource(seed, 1),
+      source: "mock",
     }),
   ];
 }
 
-function buildHotels(params: {
+function buildMockHotels(params: {
   destination: string;
   nights: number;
   pax: { adults: number; children: number };
@@ -214,9 +423,21 @@ function buildHotels(params: {
       title: `${hotelName} — ${nights} ${nights === 1 ? "noche" : "noches"}${accessibilityNote}`,
       provider: pickFrom(seed + 7, ["Booking Partner", "Hotelbeds", "Contrato directo"]),
       price: base,
-      source: itemSource(seed, 2),
+      source: "mock",
     }),
   ];
+}
+
+function parsePriceString(value: string | number | undefined): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.round(value);
+  }
+  if (!value) return 0;
+
+  const match = String(value).match(/\d+(?:[.,]\d+)?/);
+  if (!match) return 0;
+
+  return Math.round(Number(match[0].replace(",", ".")));
 }
 
 function buildExperiences(params: {

@@ -507,7 +507,7 @@ export function QuoteEngine() {
     await pipelineDelay();
 
     setActiveStep(2);
-    const built = buildQuote(parsedInput);
+    const built = await buildQuote(parsedInput);
     setQuote(built);
     setStepChips((current) =>
       current.map((chips, index) =>
