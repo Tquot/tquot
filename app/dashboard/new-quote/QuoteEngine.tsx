@@ -11,7 +11,9 @@ import {
   type QuoteItemSource,
 } from "@/lib/quotes/build-quote";
 import {
+  addDaysIso,
   localParseToParsedTripInput,
+  parseDatesFromText,
   tripRequestToParsedTripInput,
 } from "@/lib/quotes/map-parser";
 import type { TripRequest } from "@/lib/parser/schema";
@@ -183,10 +185,11 @@ function parseRequest(text: string): ParsedRequest | null {
     /\bfrom\s+([\p{L}\p{M}\s.'-]+?)\s+\bto\b/iu,
   ]) || bareFlightRoute.origin;
 
-  const dates = Array.from(
-    sourceText.matchAll(/\b(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{4})\b/g),
-    (match) => match[1],
-  );
+  const extractedDates = parseDatesFromText(sourceText);
+  const todayIso = today.toISOString().slice(0, 10);
+  const checkIn = extractedDates?.start ?? todayIso;
+  const checkOut = extractedDates?.end ?? addDaysIso(checkIn, 3);
+
   const adultsMatch = sourceText.match(
     /\b(\d+)\s*(?:adults?|adultos?|people|personas?|pax|travellers?|viajeros?)\b/i,
   );
@@ -197,8 +200,8 @@ function parseRequest(text: string): ParsedRequest | null {
   return {
     destination,
     origin: origin || undefined,
-    checkIn: dates[0] ?? today.toISOString().slice(0, 10),
-    checkOut: dates[1] ?? addDays(today, 3),
+    checkIn,
+    checkOut,
     adults: adultsMatch ? Number(adultsMatch[1]) : 2,
     includeFlights,
   };
