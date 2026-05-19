@@ -208,6 +208,62 @@ function pipelineDelay(ms = 600) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
+const PARSER_TIMEOUT_MS = 10_000;
+
+type ParserApiResult =
+  | { ok: true; status: "ready"; data: TripRequest }
+  | { ok: true; status: "needs_input"; questions: string[] }
+  | { ok: false; reason: "timeout" | "error" | "invalid" };
+
+async function callParserApi(
+  text: string,
+  agentId: string,
+): Promise<ParserApiResult> {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), PARSER_TIMEOUT_MS);
+
+  try {
+    const response = await fetch("/api/parser/parse", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text,
+        agentId,
+        currentDate: new Date().toISOString().slice(0, 10),
+      }),
+      signal: controller.signal,
+    });
+    const data = await response.json();
+
+    if (data.status === "needs_input") {
+      return {
+        ok: true,
+        status: "needs_input",
+        questions: data.questions ?? [],
+      };
+    }
+
+    if (response.ok && data.status === "ready" && data.data) {
+      return { ok: true, status: "ready", data: data.data as TripRequest };
+    }
+
+    return { ok: false, reason: "invalid" };
+  } catch (error) {
+    const timedOut =
+      error instanceof DOMException && error.name === "AbortError";
+    if (timedOut) {
+      console.warn(
+        `[QuoteEngine] Parser API timed out after ${PARSER_TIMEOUT_MS / 1000}s`,
+      );
+      return { ok: false, reason: "timeout" };
+    }
+    console.error("[QuoteEngine] Parser failed", error);
+    return { ok: false, reason: "error" };
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+}
+
 function drawAgencyHeader(
   doc: jsPDF,
   variant: "dark" | "light",
@@ -366,50 +422,37 @@ export function QuoteEngine() {
     } = await supabase.auth.getUser();
     const agentId = user?.id ?? "test-agent";
 
-    try {
-      const response = await fetch("/api/parser/parse", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: latestRequest,
-          agentId,
-          currentDate: new Date().toISOString().slice(0, 10),
-        }),
-      });
-      const data = await response.json();
+    const parserResult = await callParserApi(latestRequest, agentId);
 
-      if (data.status === "needs_input") {
-        setStepChips((current) =>
-          current.map((chips, index) =>
-            index === 0
-              ? [
-                  "Parser needs more details",
-                  ...(data.questions ?? []).slice(0, 2),
-                ]
-              : chips,
-          ),
-        );
-        setIsRunning(false);
-        return;
-      }
+    if (parserResult.ok && parserResult.status === "needs_input") {
+      setStepChips((current) =>
+        current.map((chips, index) =>
+          index === 0
+            ? [
+                "Parser needs more details",
+                ...parserResult.questions.slice(0, 2),
+              ]
+            : chips,
+        ),
+      );
+      setIsRunning(false);
+      return;
+    }
 
-      if (response.ok && data.status === "ready" && data.data) {
-        parsedInput = tripRequestToParsedTripInput(data.data as TripRequest);
-        parserSource = "parser";
-        setStepChips((current) =>
-          current.map((chips, index) =>
-            index === 0
-              ? [
-                  `Destino: ${data.data.destination}`,
-                  `Adultos: ${data.data.adults ?? 2}`,
-                  "TripRequest ready",
-                ]
-              : chips,
-          ),
-        );
-      }
-    } catch (error) {
-      console.error("[QuoteEngine] Parser failed", error);
+    if (parserResult.ok && parserResult.status === "ready") {
+      parsedInput = tripRequestToParsedTripInput(parserResult.data);
+      parserSource = "parser";
+      setStepChips((current) =>
+        current.map((chips, index) =>
+          index === 0
+            ? [
+                `Destino: ${parserResult.data.destination}`,
+                `Adultos: ${parserResult.data.adults ?? 2}`,
+                "TripRequest ready",
+              ]
+            : chips,
+        ),
+      );
     }
 
     if (!parsedInput) {
@@ -430,13 +473,17 @@ export function QuoteEngine() {
       }
       parsedInput = localParseToParsedTripInput(localParsed);
       parserSource = "local";
+      const fallbackLabel =
+        parserResult.ok === false && parserResult.reason === "timeout"
+          ? "Parser timeout (10s) · extracción local"
+          : "Extracción local (fallback)";
       setStepChips((current) =>
         current.map((chips, index) =>
           index === 0
             ? [
                 `Destino: ${localParsed.destination}`,
                 `${localParsed.adults} viajeros`,
-                "ExtracciÃ³n local (fallback)",
+                fallbackLabel,
               ]
             : chips,
         ),
