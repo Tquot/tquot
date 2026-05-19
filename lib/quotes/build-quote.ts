@@ -1,0 +1,371 @@
+/**
+ * Deterministic quote builder — pure logic and mock data, no AI or API calls.
+ */
+
+// ─────────────────────────────────────────────────────────────
+// Input
+// ─────────────────────────────────────────────────────────────
+
+export type HotelLevel = "budget" | "standard" | "premium" | "luxury";
+
+export interface ParsedTripInput {
+  origin: string;
+  destination: string;
+  dates: {
+    start: string;
+    end: string;
+  };
+  passengers: {
+    adults: number;
+    children: number;
+  };
+  budget?: number;
+  preferences: {
+    hotelLevel: HotelLevel;
+    directFlights: boolean;
+    accessibility: boolean;
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Output
+// ─────────────────────────────────────────────────────────────
+
+export type QuoteItemType = "flight" | "hotel" | "experience";
+export type QuoteItemSource = "mock" | "inventory" | "api";
+
+export interface QuoteItem {
+  id: string;
+  type: QuoteItemType;
+  title: string;
+  provider: string;
+  price: number;
+  markup: number;
+  finalPrice: number;
+  source: QuoteItemSource;
+}
+
+export interface QuoteSummary {
+  route: string;
+  durationDays: number;
+  passengers: {
+    adults: number;
+    children: number;
+    total: number;
+  };
+}
+
+export interface QuotePricing {
+  baseTotal: number;
+  margin: number;
+  finalTotal: number;
+  currency: "EUR";
+}
+
+export interface Quote {
+  id: string;
+  summary: QuoteSummary;
+  flights: QuoteItem[];
+  hotels: QuoteItem[];
+  experiences: QuoteItem[];
+  pricing: QuotePricing;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Public API
+// ─────────────────────────────────────────────────────────────
+
+export function buildQuote(input: ParsedTripInput): Quote {
+  const origin = normalizePlace(input.origin);
+  const destination = normalizePlace(input.destination);
+  const durationDays = computeDurationDays(input.dates.start, input.dates.end);
+  const nights = Math.max(1, durationDays - 1);
+  const pax = normalizePassengers(input.passengers);
+  const seed = hashKey(
+    `${origin}|${destination}|${input.dates.start}|${input.dates.end}|${pax.adults}|${pax.children}|${input.preferences.hotelLevel}|${input.preferences.directFlights}|${input.preferences.accessibility}`,
+  );
+
+  const flights = buildFlights({
+    origin,
+    destination,
+    pax,
+    directFlights: input.preferences.directFlights,
+    seed,
+  });
+
+  const hotels = buildHotels({
+    destination,
+    nights,
+    pax,
+    hotelLevel: input.preferences.hotelLevel,
+    accessibility: input.preferences.accessibility,
+    seed,
+  });
+
+  const experiences = buildExperiences({
+    destination,
+    durationDays,
+    pax,
+    seed,
+  });
+
+  const allItems = [...flights, ...hotels, ...experiences];
+  const baseTotal = sumPrices(allItems);
+  const marginPercent = getMarginPercent(baseTotal);
+  applyMargin(allItems, marginPercent);
+
+  const margin = sumMarkups(allItems);
+  const finalTotal = baseTotal + margin;
+
+  return {
+    id: buildQuoteId(input, origin, destination),
+    summary: {
+      route: `${origin} → ${destination}`,
+      durationDays,
+      passengers: {
+        adults: pax.adults,
+        children: pax.children,
+        total: pax.adults + pax.children,
+      },
+    },
+    flights,
+    hotels,
+    experiences,
+    pricing: {
+      baseTotal,
+      margin,
+      finalTotal,
+      currency: "EUR",
+    },
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// Mock line items
+// ─────────────────────────────────────────────────────────────
+
+function buildFlights(params: {
+  origin: string;
+  destination: string;
+  pax: { adults: number; children: number };
+  directFlights: boolean;
+  seed: number;
+}): QuoteItem[] {
+  const { origin, destination, pax, directFlights, seed } = params;
+  const legFare = 160 + (seed % 90);
+  const childFactor = 0.75;
+  const legBase = Math.round(
+    legFare * pax.adults + legFare * childFactor * pax.children,
+  );
+  const directSurcharge = directFlights ? 1.12 : 1;
+  const outboundBase = Math.round(legBase * directSurcharge);
+  const returnBase = Math.round(legBase * (directFlights ? 1.1 : 0.98));
+
+  const stopLabel = directFlights ? "directo" : "1 escala";
+  const airline = pickFrom(seed, ["Iberia", "Vueling", "Air Europa", "Lufthansa"]);
+
+  return [
+    draftItem({
+      id: "flight-out",
+      type: "flight",
+      title: `Vuelo ${stopLabel} ${origin} → ${destination}`,
+      provider: airline,
+      price: outboundBase,
+      source: itemSource(seed, 0),
+    }),
+    draftItem({
+      id: "flight-return",
+      type: "flight",
+      title: `Vuelo ${stopLabel} ${destination} → ${origin}`,
+      provider: airline,
+      price: returnBase,
+      source: itemSource(seed, 1),
+    }),
+  ];
+}
+
+function buildHotels(params: {
+  destination: string;
+  nights: number;
+  pax: { adults: number; children: number };
+  hotelLevel: HotelLevel;
+  accessibility: boolean;
+  seed: number;
+}): QuoteItem[] {
+  const { destination, nights, pax, hotelLevel, accessibility, seed } = params;
+  const rooms = Math.max(1, Math.ceil((pax.adults + pax.children) / 2));
+  const ratePerNight = Math.round(
+    HOTEL_RATE[hotelLevel] * (1 + (seed % 40) / 100),
+  );
+  const accessibilitySurcharge = accessibility ? 1.08 : 1;
+  const base = Math.round(ratePerNight * nights * rooms * accessibilitySurcharge);
+  const stars = HOTEL_STARS[hotelLevel];
+  const hotelName = pickFrom(seed + 3, [
+    `Hotel ${stars}★ ${destination} Centro`,
+    `Boutique ${destination}`,
+    `Resort ${destination}`,
+  ]);
+  const accessibilityNote = accessibility ? " · Accesible" : "";
+
+  return [
+    draftItem({
+      id: "hotel-main",
+      type: "hotel",
+      title: `${hotelName} — ${nights} ${nights === 1 ? "noche" : "noches"}${accessibilityNote}`,
+      provider: pickFrom(seed + 7, ["Booking Partner", "Hotelbeds", "Contrato directo"]),
+      price: base,
+      source: itemSource(seed, 2),
+    }),
+  ];
+}
+
+function buildExperiences(params: {
+  destination: string;
+  durationDays: number;
+  pax: { adults: number; children: number };
+  seed: number;
+}): QuoteItem[] {
+  const { destination, durationDays, pax, seed } = params;
+  const totalPax = pax.adults + pax.children;
+  const perPerson = 35 + (seed % 25);
+
+  const items: Omit<QuoteItem, "markup" | "finalPrice">[] = [
+    {
+      id: "exp-city-tour",
+      type: "experience",
+      title: `Tour guiado por ${destination}`,
+      provider: pickFrom(seed + 11, ["Civitatis", "GetYourGuide", "Operador local"]),
+      price: Math.round(perPerson * totalPax * 0.9),
+      source: itemSource(seed, 3),
+    },
+  ];
+
+  if (durationDays >= 4) {
+    items.push({
+      id: "exp-highlight",
+      type: "experience",
+      title: `Experiencia gastronómica en ${destination}`,
+      provider: pickFrom(seed + 13, ["Viator", "Proveedor local", "Inventario agencia"]),
+      price: Math.round((perPerson + 15) * Math.max(2, pax.adults)),
+      source: itemSource(seed, 4),
+    });
+  }
+
+  if (durationDays >= 7) {
+    items.push({
+      id: "exp-day-trip",
+      type: "experience",
+      title: `Excursión de día completo desde ${destination}`,
+      provider: pickFrom(seed + 17, ["Tour operador regional", "Inventario agencia"]),
+      price: Math.round((perPerson + 30) * totalPax),
+      source: "inventory",
+    });
+  }
+
+  return items.map((item) => draftItem(item));
+}
+
+// ─────────────────────────────────────────────────────────────
+// Pricing
+// ─────────────────────────────────────────────────────────────
+
+export function getMarginPercent(baseTotal: number): number {
+  if (baseTotal > 3000) return 12;
+  if (baseTotal > 1500) return 15;
+  return 18;
+}
+
+function applyMargin(items: QuoteItem[], marginPercent: number): void {
+  for (const item of items) {
+    item.markup = roundEur(item.price * (marginPercent / 100));
+    item.finalPrice = item.price + item.markup;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────
+
+const HOTEL_RATE: Record<HotelLevel, number> = {
+  budget: 72,
+  standard: 110,
+  premium: 165,
+  luxury: 240,
+};
+
+const HOTEL_STARS: Record<HotelLevel, number> = {
+  budget: 3,
+  standard: 4,
+  premium: 4,
+  luxury: 5,
+};
+
+type DraftItem = Omit<QuoteItem, "markup" | "finalPrice">;
+
+function draftItem(item: DraftItem): QuoteItem {
+  return { ...item, markup: 0, finalPrice: item.price };
+}
+
+function itemSource(seed: number, offset: number): QuoteItemSource {
+  const bucket = (seed + offset * 7) % 10;
+  if (bucket < 5) return "mock";
+  if (bucket < 8) return "inventory";
+  return "api";
+}
+
+function buildQuoteId(
+  input: ParsedTripInput,
+  origin: string,
+  destination: string,
+): string {
+  const key = `${origin}-${destination}-${input.dates.start}-${input.dates.end}`;
+  const h = hashKey(key).toString(16).padStart(8, "0").slice(0, 8);
+  return `TQ-${input.dates.start.replaceAll("-", "")}-${h}`;
+}
+
+function computeDurationDays(start: string, end: string): number {
+  const startMs = Date.parse(start);
+  const endMs = Date.parse(end);
+  if (Number.isNaN(startMs) || Number.isNaN(endMs)) return 1;
+  const diff = Math.ceil((endMs - startMs) / 86_400_000);
+  return Math.max(1, diff);
+}
+
+function normalizePlace(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function normalizePassengers(passengers: {
+  adults: number;
+  children: number;
+}): { adults: number; children: number } {
+  return {
+    adults: Math.max(1, passengers.adults),
+    children: Math.max(0, passengers.children),
+  };
+}
+
+function hashKey(value: string): number {
+  let hash = 2_166_136_261;
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16_777_619);
+  }
+  return hash >>> 0;
+}
+
+function pickFrom<T>(seed: number, options: T[]): T {
+  return options[seed % options.length];
+}
+
+function sumPrices(items: QuoteItem[]): number {
+  return items.reduce((sum, item) => sum + item.price, 0);
+}
+
+function sumMarkups(items: QuoteItem[]): number {
+  return items.reduce((sum, item) => sum + item.markup, 0);
+}
+
+function roundEur(value: number): number {
+  return Math.round(value);
+}
