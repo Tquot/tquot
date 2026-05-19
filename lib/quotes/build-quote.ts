@@ -79,6 +79,8 @@ export interface Quote {
 // ─────────────────────────────────────────────────────────────
 
 export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
+  console.log("[buildQuote] ParsedTripInput received", input);
+
   const origin = normalizePlace(input.origin);
   const destination = normalizePlace(input.destination);
   const durationDays = computeDurationDays(input.dates.start, input.dates.end);
@@ -186,6 +188,10 @@ async function searchFlightsApi(params: {
       adults: params.adults,
     },
   );
+  console.log("[buildQuote] /api/search-flights returned", {
+    request: params,
+    response: data,
+  });
   if (!data || data.fallback) return [];
   const flights = data.flights;
   return Array.isArray(flights) && flights.length > 0 ? flights : [];
@@ -206,6 +212,10 @@ async function searchHotelsApi(params: {
       adults: params.adults,
     },
   );
+  console.log("[buildQuote] /api/search-hotels returned", {
+    request: params,
+    response: data,
+  });
   if (!data || data.fallback) return [];
   const hotels = data.hotels;
   return Array.isArray(hotels) && hotels.length > 0 ? hotels : [];
@@ -272,6 +282,11 @@ async function buildFlightsFromApiOrMock(params: {
     }),
   ]);
 
+  console.log("[buildQuote] flights before mapping to QuoteItem", {
+    outbound: outboundFlights,
+    return: returnFlights,
+  });
+
   const items: QuoteItem[] = [];
 
   if (outboundFlights[0]) {
@@ -334,6 +349,8 @@ async function buildHotelsFromApiOrMock(params: {
     checkOut: dates.end,
     adults: pax.adults,
   });
+
+  console.log("[buildQuote] hotels before mapping to QuoteItem", apiHotels);
 
   if (apiHotels[0]) {
     return [mapApiHotelToQuoteItem(apiHotels[0], nights, "hotel-main")];
