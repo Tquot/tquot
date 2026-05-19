@@ -4,6 +4,7 @@
 
 import type { FlightOption } from "@/app/api/search-flights/route";
 import type { HotelOption } from "@/app/api/search-hotels/route";
+import { getCityIATA } from "@/lib/airports";
 
 // ─────────────────────────────────────────────────────────────
 // Input
@@ -267,16 +268,23 @@ async function buildFlightsFromApiOrMock(params: {
   const { origin, destination, dates, pax, directFlights, seed } = params;
   const adults = pax.adults;
 
+  const originIata = getCityIATA(origin);
+  const destinationIata = getCityIATA(destination);
+  console.log("[buildQuote] resolved IATA codes", {
+    origin: { city: origin, iata: originIata },
+    destination: { city: destination, iata: destinationIata },
+  });
+
   const [outboundFlights, returnFlights] = await Promise.all([
     searchFlightsApi({
-      origin,
-      destination,
+      origin: originIata,
+      destination: destinationIata,
       date: dates.start,
       adults,
     }),
     searchFlightsApi({
-      origin: destination,
-      destination: origin,
+      origin: destinationIata,
+      destination: originIata,
       date: dates.end,
       adults,
     }),
