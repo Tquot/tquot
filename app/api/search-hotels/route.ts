@@ -237,9 +237,28 @@ function getHotelItems(payload: unknown): unknown[] {
   );
 }
 
+function getHotelName(hotel: Record<string, unknown>) {
+  const headingSectionRaw = hotel.headingSection;
+  const headingFromArray = Array.isArray(headingSectionRaw)
+    ? asRecord(headingSectionRaw[0])
+    : asRecord(headingSectionRaw);
+
+  return getStringValue(
+    hotel.name,
+    headingFromArray.heading,
+    headingFromArray.title,
+    headingFromArray.text,
+    hotel.hotelName,
+    hotel.title,
+  );
+}
+
 function getPricePerNight(hotel: Record<string, unknown>) {
   const price = asRecord(hotel.price);
-  const lead = asRecord(price.lead);
+  const priceLead = asRecord(price.lead);
+  const priceInfo = asRecord(hotel.priceInfo);
+  const priceInfoLead = asRecord(priceInfo.lead);
+  const nightly = asRecord(hotel.nightly ?? price.nightly);
   const ratePlan = asRecord(hotel.ratePlan);
   const ratePlanPrice = asRecord(ratePlan.price);
   const rooms = firstArray(hotel.rooms);
@@ -249,8 +268,14 @@ function getPricePerNight(hotel: Record<string, unknown>) {
   const roomPrice = asRecord(firstRatePlan.price);
 
   const candidates = [
-    lead.formatted,
-    lead.amount,
+    priceLead.amount,
+    priceInfoLead.amount,
+    nightly.amount,
+    nightly.price,
+    nightly.value,
+    hotel.nightly,
+    priceLead.formatted,
+    priceInfoLead.formatted,
     price.formatted,
     price.current,
     price.amount,
@@ -259,7 +284,6 @@ function getPricePerNight(hotel: Record<string, unknown>) {
     roomPrice.current,
     roomPrice.formatted,
     hotel.pricePerNight,
-    hotel.nightly,
   ];
 
   for (const candidate of candidates) {
@@ -273,10 +297,17 @@ function getPricePerNight(hotel: Record<string, unknown>) {
 }
 
 function getStars(hotel: Record<string, unknown>) {
+  const propertyStarRating = asRecord(hotel.propertyStarRating);
+  const star = asRecord(hotel.star);
+
   return getStringValue(
     hotel.stars,
     hotel.starRating,
     hotel.star,
+    propertyStarRating.value,
+    propertyStarRating.rating,
+    star.value,
+    star.rating,
     hotel.propertyClass,
     hotel.hotelClass,
   );
@@ -284,17 +315,24 @@ function getStars(hotel: Record<string, unknown>) {
 
 function getRating(hotel: Record<string, unknown>) {
   const reviews = asRecord(hotel.reviews);
+  const reviewInfo = asRecord(hotel.reviewInfo);
   const guestReviews = asRecord(hotel.guestReviews);
   const reviewScore = asRecord(hotel.reviewScore);
 
   return getStringValue(
-    hotel.rating,
     reviews.score,
+    reviewInfo.score,
     reviews.overall,
+    reviewInfo.overall,
+    hotel.rating,
     guestReviews.rating,
     guestReviews.overall,
     reviewScore.score,
     reviewScore.overall,
+    hotel.starRating,
+    hotel.stars,
+    asRecord(hotel.propertyStarRating).value,
+    asRecord(hotel.propertyStarRating).rating,
   );
 }
 
@@ -393,16 +431,18 @@ function getHighlights(hotel: Record<string, unknown>) {
 function normalizeHotelOptions(payload: unknown): HotelOption[] {
   const hotels = getHotelItems(payload);
 
+  if (hotels.length > 0) {
+    console.log(
+      "[search-hotels] First hotel raw structure",
+      JSON.stringify(hotels[0], null, 2),
+    );
+  }
+
   return hotels.slice(0, 3).map((hotel): HotelOption => {
     const hotelObject = asRecord(hotel);
 
     return {
-      name: getStringValue(
-        hotelObject.name,
-        hotelObject.hotelName,
-        hotelObject.title,
-        asRecord(hotelObject.headingSection).title,
-      ),
+      name: getHotelName(hotelObject),
       pricePerNight: getPricePerNight(hotelObject),
       stars: getStars(hotelObject),
       rating: getRating(hotelObject),
