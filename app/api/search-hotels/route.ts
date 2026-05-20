@@ -215,17 +215,23 @@ function findRegion(
   };
 }
 
-function getHotelItems(payload: unknown) {
+function getHotelItems(payload: unknown): unknown[] {
   const response = asRecord(payload);
   const data = asRecord(response.data);
+  const propertySearchResults = asRecord(
+    response.propertySearchResults ?? response.PropertySearchResults,
+  );
+  const dataPropertySearchResults = asRecord(
+    data.propertySearchResults ?? data.PropertySearchResults,
+  );
 
   return firstArray(
-    data.properties,
-    data.hotels,
-    data.results,
-    data.result,
     response.properties,
-    response.hotels,
+    propertySearchResults.properties,
+    dataPropertySearchResults.properties,
+    data.properties,
+    response.results,
+    data.results,
   );
 }
 

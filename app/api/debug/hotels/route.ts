@@ -141,18 +141,28 @@ function findRegion(
   };
 }
 
-function countHotelsFromPayload(payload: unknown): number {
+function getHotelItems(payload: unknown): unknown[] {
   const response = asRecord(payload);
   const data = asRecord(response.data);
-  const hotels = firstArray(
-    data.properties,
-    data.hotels,
-    data.results,
-    data.result,
-    response.properties,
-    response.hotels,
+  const propertySearchResults = asRecord(
+    response.propertySearchResults ?? response.PropertySearchResults,
   );
-  return hotels.length;
+  const dataPropertySearchResults = asRecord(
+    data.propertySearchResults ?? data.PropertySearchResults,
+  );
+
+  return firstArray(
+    response.properties,
+    propertySearchResults.properties,
+    dataPropertySearchResults.properties,
+    data.properties,
+    response.results,
+    data.results,
+  );
+}
+
+function countHotelsFromPayload(payload: unknown): number {
+  return getHotelItems(payload).length;
 }
 
 export async function GET() {
@@ -185,7 +195,7 @@ export async function GET() {
         rapidApiKeyPresentInEnv: rapidApiKeyPresent,
         apiStatus: regionResponse.status,
         hotelCount: null,
-        rawBodyPreview: regionText.slice(0, 500),
+        rawBodyPreview: regionText.slice(0, 1000),
       });
     }
 
@@ -197,7 +207,7 @@ export async function GET() {
         rapidApiKeyPresentInEnv: rapidApiKeyPresent,
         apiStatus: regionResponse.status,
         hotelCount: null,
-        rawBodyPreview: regionText.slice(0, 500),
+        rawBodyPreview: regionText.slice(0, 1000),
       });
     }
 
@@ -208,7 +218,7 @@ export async function GET() {
         rapidApiKeyPresentInEnv: rapidApiKeyPresent,
         apiStatus: regionResponse.status,
         hotelCount: null,
-        rawBodyPreview: regionText.slice(0, 500),
+        rawBodyPreview: regionText.slice(0, 1000),
       });
     }
 
@@ -233,7 +243,7 @@ export async function GET() {
     });
 
     const hotelsText = await hotelsResponse.text();
-    const rawBodyPreview = hotelsText.slice(0, 500);
+    const rawBodyPreview = hotelsText.slice(0, 1000);
 
     let hotelCount: number | null;
     try {
