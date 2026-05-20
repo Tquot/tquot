@@ -49,7 +49,11 @@ export interface QuoteItem {
   source: QuoteItemSource;
   /** When true, shown as a selectable option but excluded from quote totals. */
   alternative?: boolean;
+  /** Per-line margin %; drives markup and finalPrice when edited in the UI. */
+  marginPercent?: number;
 }
+
+export type QuoteSelectionGroup = "flight-outbound" | "flight-return" | "hotel";
 
 export interface QuoteSummary {
   route: string;
@@ -264,8 +268,78 @@ function mapApiHotelToQuoteItem(
   });
 }
 
-function itemsForPricing(items: QuoteItem[]) {
+export function itemsForPricing(items: QuoteItem[]) {
   return items.filter((item) => !item.alternative);
+}
+
+export function getQuoteSelectionGroup(itemId: string): QuoteSelectionGroup | null {
+  if (itemId.startsWith("flight-out")) {
+    return "flight-outbound";
+  }
+
+  if (itemId.startsWith("flight-return")) {
+    return "flight-return";
+  }
+
+  if (itemId.startsWith("hotel-")) {
+    return "hotel";
+  }
+
+  return null;
+}
+
+export function getItemMarginPercent(item: QuoteItem): number {
+  if (item.marginPercent !== undefined && Number.isFinite(item.marginPercent)) {
+    return item.marginPercent;
+  }
+
+  if (item.price > 0) {
+    return Math.round((item.markup / item.price) * 1000) / 10;
+  }
+
+  return 0;
+}
+
+export function applyItemMargin(item: QuoteItem, marginPercent: number): void {
+  const percent = Math.max(0, Number.isFinite(marginPercent) ? marginPercent : 0);
+  item.marginPercent = percent;
+  item.markup = roundEur(item.price * (percent / 100));
+  item.finalPrice = item.price + item.markup;
+}
+
+export function selectPrimaryInGroup(quote: Quote, selectedId: string): void {
+  const group = getQuoteSelectionGroup(selectedId);
+  if (!group) {
+    return;
+  }
+
+  const applyToList = (items: QuoteItem[]) => {
+    for (const item of items) {
+      if (getQuoteSelectionGroup(item.id) !== group) {
+        continue;
+      }
+
+      item.alternative = item.id !== selectedId;
+    }
+  };
+
+  applyToList(quote.flights);
+  applyToList(quote.hotels);
+}
+
+export function pricedQuoteItemsFromQuote(quote: Quote): QuoteItem[] {
+  return [
+    ...itemsForPricing(quote.flights),
+    ...itemsForPricing(quote.hotels),
+    ...quote.experiences,
+  ];
+}
+
+export function syncQuotePricing(quote: Quote): void {
+  const pricedItems = pricedQuoteItemsFromQuote(quote);
+  quote.pricing.baseTotal = sumPrices(pricedItems);
+  quote.pricing.margin = sumMarkups(pricedItems);
+  quote.pricing.finalTotal = quote.pricing.baseTotal + quote.pricing.margin;
 }
 
 async function buildFlightsFromApiOrMock(params: {
@@ -539,8 +613,7 @@ export function getMarginPercent(baseTotal: number): number {
 
 function applyMargin(items: QuoteItem[], marginPercent: number): void {
   for (const item of items) {
-    item.markup = roundEur(item.price * (marginPercent / 100));
-    item.finalPrice = item.price + item.markup;
+    applyItemMargin(item, marginPercent);
   }
 }
 

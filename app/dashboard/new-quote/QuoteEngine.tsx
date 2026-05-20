@@ -5,7 +5,13 @@ import autoTable from "jspdf-autotable";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import {
+  applyItemMargin,
   buildQuote,
+  getItemMarginPercent,
+  itemsForPricing,
+  pricedQuoteItemsFromQuote,
+  selectPrimaryInGroup,
+  syncQuotePricing,
   type Quote,
   type QuoteItem,
   type QuoteItemSource,
@@ -93,10 +99,6 @@ function allQuoteItems(quote: Quote): QuoteItem[] {
   return [...quote.flights, ...quote.hotels, ...quote.experiences];
 }
 
-function pricedQuoteItems(quote: Quote): QuoteItem[] {
-  return allQuoteItems(quote).filter((item) => !item.alternative);
-}
-
 function cloneQuote(quote: Quote): Quote {
   return {
     ...quote,
@@ -106,13 +108,6 @@ function cloneQuote(quote: Quote): Quote {
     summary: { ...quote.summary, passengers: { ...quote.summary.passengers } },
     pricing: { ...quote.pricing },
   };
-}
-
-function syncQuotePricing(quote: Quote): void {
-  const items = pricedQuoteItems(quote);
-  quote.pricing.baseTotal = items.reduce((sum, item) => sum + item.price, 0);
-  quote.pricing.margin = items.reduce((sum, item) => sum + item.markup, 0);
-  quote.pricing.finalTotal = quote.pricing.baseTotal + quote.pricing.margin;
 }
 
 function addDays(date: Date, days: number) {
@@ -346,6 +341,37 @@ export function QuoteEngine() {
     "Revisar disponibilidad antes de confirmar. Validar condiciones de cancelaciÃ³n.",
   );
 
+  function handleSelectQuoteItem(itemId: string) {
+    setQuote((current) => {
+      if (!current) {
+        return current;
+      }
+
+      const next = cloneQuote(current);
+      selectPrimaryInGroup(next, itemId);
+      syncQuotePricing(next);
+      return next;
+    });
+  }
+
+  function handleQuoteItemMarginChange(itemId: string, marginPercent: number) {
+    setQuote((current) => {
+      if (!current) {
+        return current;
+      }
+
+      const next = cloneQuote(current);
+      const item = allQuoteItems(next).find((entry) => entry.id === itemId);
+      if (!item) {
+        return current;
+      }
+
+      applyItemMargin(item, marginPercent);
+      syncQuotePricing(next);
+      return next;
+    });
+  }
+
   function sendChatMessage() {
     const message = chatInput.trim();
     if (!message || !quote) return;
@@ -358,9 +384,8 @@ export function QuoteEngine() {
       setQuote((current) => {
         if (!current) return current;
         const next = cloneQuote(current);
-        for (const item of allQuoteItems(next)) {
-          item.markup = Math.round(item.markup * 0.85);
-          item.finalPrice = item.price + item.markup;
+        for (const item of pricedQuoteItemsFromQuote(next)) {
+          applyItemMargin(item, getItemMarginPercent(item) * 0.85);
         }
         syncQuotePricing(next);
         return next;
@@ -391,11 +416,10 @@ export function QuoteEngine() {
       setQuote((current) => {
         if (!current) return current;
         const next = cloneQuote(current);
-        for (const hotel of next.hotels) {
+        for (const hotel of itemsForPricing(next.hotels)) {
           hotel.price = Math.round(hotel.price * 1.18);
-          hotel.markup = Math.round(hotel.markup * 1.18);
-          hotel.finalPrice = hotel.price + hotel.markup;
-          hotel.title = `${hotel.title} Â· upgrade`;
+          applyItemMargin(hotel, getItemMarginPercent(hotel));
+          hotel.title = `${hotel.title} · upgrade`;
         }
         syncQuotePricing(next);
         return next;
@@ -635,7 +659,7 @@ export function QuoteEngine() {
 
     const doc = new jsPDF();
     const quoteReference = quote.id;
-    const items = allQuoteItems(quote);
+    const items = pricedQuoteItemsFromQuote(quote);
 
     doc.setFillColor(255, 255, 255);
     doc.rect(0, 0, 210, 297, "F");
@@ -860,13 +884,30 @@ export function QuoteEngine() {
 
             <div className="mb-6 grid gap-6 lg:grid-cols-3">
               {quote.flights.length > 0 ? (
-                <QuoteItemsSection eyebrow="Vuelos" title="Flights" items={quote.flights} />
+                <QuoteItemsSection
+                  eyebrow="Vuelos"
+                  title="Flights"
+                  items={quote.flights}
+                  onSelectItem={handleSelectQuoteItem}
+                  onMarginChange={handleQuoteItemMarginChange}
+                />
               ) : null}
               {quote.hotels.length > 0 ? (
-                <QuoteItemsSection eyebrow="Hoteles" title="Hotels" items={quote.hotels} />
+                <QuoteItemsSection
+                  eyebrow="Hoteles"
+                  title="Hotels"
+                  items={quote.hotels}
+                  onSelectItem={handleSelectQuoteItem}
+                  onMarginChange={handleQuoteItemMarginChange}
+                />
               ) : null}
               {quote.experiences.length > 0 ? (
-                <QuoteItemsSection eyebrow="Experiencias" title="Experiences" items={quote.experiences} />
+                <QuoteItemsSection
+                  eyebrow="Experiencias"
+                  title="Experiences"
+                  items={quote.experiences}
+                  onMarginChange={handleQuoteItemMarginChange}
+                />
               ) : null}
             </div>
 
