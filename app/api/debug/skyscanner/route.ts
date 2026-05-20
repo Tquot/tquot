@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 const FLIGHTS_SKY_API_URL =
   "https://flights-sky.p.rapidapi.com/flights/search-one-way";
 const FLIGHTS_SKY_RAPIDAPI_HOST = "flights-sky.p.rapidapi.com";
-const FLIGHTS_SKY_MARKET = "es-ES";
-const FLIGHTS_SKY_LOCALE = "en-US";
+const FLIGHTS_SKY_MARKET = "ES";
+const FLIGHTS_SKY_LOCALE = "en-GB";
 const FLIGHTS_SKY_CURRENCY = "EUR";
 
 function asRecord(value: unknown): Record<string, unknown> {
