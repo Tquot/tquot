@@ -9,6 +9,23 @@ const HOTELS_COM_LOCALE = "es_ES";
 const HOTELS_COM_DOMAIN = "ES";
 const HOTELS_COM_SORT_ORDER = "REVIEW";
 
+const RAW_BODY_PREVIEW_LENGTH = 3000;
+
+function getTopLevelResponseKeys(payload: unknown): string[] {
+  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+    return Object.keys(payload as Record<string, unknown>);
+  }
+
+  return [];
+}
+
+function parseJsonSafe(text: string): unknown | null {
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    return null;
+  }
+}
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
@@ -191,23 +208,25 @@ export async function GET() {
     const regionText = await regionResponse.text();
 
     if (!regionResponse.ok) {
+      const regionPayload = parseJsonSafe(regionText);
       return NextResponse.json({
         rapidApiKeyPresentInEnv: rapidApiKeyPresent,
         apiStatus: regionResponse.status,
         hotelCount: null,
-        rawBodyPreview: regionText.slice(0, 1000),
+        rawBodyPreview: regionText.slice(0, RAW_BODY_PREVIEW_LENGTH),
+        responseKeys: getTopLevelResponseKeys(regionPayload),
       });
     }
 
-    let regionPayload: unknown;
-    try {
-      regionPayload = regionText ? JSON.parse(regionText) : {};
-    } catch {
+    const regionPayload = parseJsonSafe(regionText);
+
+    if (regionPayload === null) {
       return NextResponse.json({
         rapidApiKeyPresentInEnv: rapidApiKeyPresent,
         apiStatus: regionResponse.status,
         hotelCount: null,
-        rawBodyPreview: regionText.slice(0, 1000),
+        rawBodyPreview: regionText.slice(0, RAW_BODY_PREVIEW_LENGTH),
+        responseKeys: [],
       });
     }
 
@@ -218,7 +237,8 @@ export async function GET() {
         rapidApiKeyPresentInEnv: rapidApiKeyPresent,
         apiStatus: regionResponse.status,
         hotelCount: null,
-        rawBodyPreview: regionText.slice(0, 1000),
+        rawBodyPreview: regionText.slice(0, RAW_BODY_PREVIEW_LENGTH),
+        responseKeys: getTopLevelResponseKeys(regionPayload),
       });
     }
 
@@ -243,21 +263,20 @@ export async function GET() {
     });
 
     const hotelsText = await hotelsResponse.text();
-    const rawBodyPreview = hotelsText.slice(0, 1000);
+    const rawBodyPreview = hotelsText.slice(0, RAW_BODY_PREVIEW_LENGTH);
 
-    let hotelCount: number | null;
-    try {
-      const hotelsPayload = hotelsText ? JSON.parse(hotelsText) : {};
-      hotelCount = hotelsResponse.ok ? countHotelsFromPayload(hotelsPayload) : null;
-    } catch {
-      hotelCount = null;
-    }
+    const hotelsPayload = parseJsonSafe(hotelsText);
+    const hotelCount =
+      hotelsPayload !== null && hotelsResponse.ok
+        ? countHotelsFromPayload(hotelsPayload)
+        : null;
 
     return NextResponse.json({
       rapidApiKeyPresentInEnv: rapidApiKeyPresent,
       apiStatus: hotelsResponse.status,
       hotelCount,
       rawBodyPreview,
+      responseKeys: getTopLevelResponseKeys(hotelsPayload),
     });
   } catch {
     return NextResponse.json({
@@ -265,6 +284,7 @@ export async function GET() {
       apiStatus: null,
       hotelCount: null,
       rawBodyPreview: "",
+      responseKeys: [],
     });
   }
 }
