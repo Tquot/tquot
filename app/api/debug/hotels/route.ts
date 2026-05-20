@@ -180,9 +180,15 @@ function getHotelItems(payload: unknown): unknown[] {
   );
 }
 
-function getFirstHotelRaw(payload: unknown): unknown | null {
-  const hotels = getHotelItems(payload);
-  return hotels.length > 0 ? hotels[0] : null;
+function getFirstPropertySearchListing(payload: unknown): unknown | null {
+  const response = asRecord(payload);
+  const data = asRecord(response.data);
+  const listings = firstArray(
+    response.propertySearchListings,
+    data.propertySearchListings,
+  );
+
+  return listings.length > 0 ? listings[0] : null;
 }
 
 function countHotelsFromPayload(payload: unknown): number {
@@ -281,7 +287,9 @@ export async function GET() {
         ? countHotelsFromPayload(hotelsPayload)
         : null;
     const firstHotelRaw =
-      hotelsPayload !== null ? getFirstHotelRaw(hotelsPayload) : null;
+      hotelsPayload !== null
+        ? getFirstPropertySearchListing(hotelsPayload)
+        : null;
 
     return NextResponse.json({
       rapidApiKeyPresentInEnv: rapidApiKeyPresent,
