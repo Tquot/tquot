@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { getCityIATA } from "@/lib/airports";
 
-const SKYSCANNER_API_URL =
-  "https://skyscanner80.p.rapidapi.com/api/v1/flights/search-one-way";
-const RAPIDAPI_HOST = "skyscanner80.p.rapidapi.com";
-const SKYSCANNER_MARKET = "ES";
-const SKYSCANNER_LOCALE = "en-GB";
-const SKYSCANNER_CURRENCY = "EUR";
+const FLIGHTS_SKY_API_URL =
+  "https://flights-sky.p.rapidapi.com/flights/search-one-way";
+const FLIGHTS_SKY_RAPIDAPI_HOST = "flights-sky.p.rapidapi.com";
+const FLIGHTS_SKY_MARKET = "es-ES";
+const FLIGHTS_SKY_LOCALE = "en-US";
+const FLIGHTS_SKY_CURRENCY = "EUR";
 
 type SearchFlightsRequest = {
   origin?: unknown;
@@ -468,14 +468,14 @@ export async function POST(request: Request) {
   const searchParams = new URLSearchParams({
     fromEntityId: originIata,
     toEntityId: destinationIata,
-    date: date.trim(),
+    departDate: date.trim(),
     adults: String(adultCount),
-    market: SKYSCANNER_MARKET,
-    locale: SKYSCANNER_LOCALE,
-    currency: SKYSCANNER_CURRENCY,
+    market: FLIGHTS_SKY_MARKET,
+    locale: FLIGHTS_SKY_LOCALE,
+    currency: FLIGHTS_SKY_CURRENCY,
   });
 
-  const requestUrl = `${SKYSCANNER_API_URL}?${searchParams}`;
+  const requestUrl = `${FLIGHTS_SKY_API_URL}?${searchParams}`;
   console.log("[search-flights] RapidAPI request", {
     url: requestUrl,
     params: Object.fromEntries(searchParams),
@@ -485,7 +485,7 @@ export async function POST(request: Request) {
     const response = await fetch(requestUrl, {
       method: "GET",
       headers: {
-        "x-rapidapi-host": RAPIDAPI_HOST,
+        "x-rapidapi-host": FLIGHTS_SKY_RAPIDAPI_HOST,
         "x-rapidapi-key": rapidApiKey,
       },
     });

@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 
-const SKYSCANNER_API_URL =
-  "https://skyscanner80.p.rapidapi.com/api/v1/flights/search-one-way";
-const RAPIDAPI_HOST = "skyscanner80.p.rapidapi.com";
-const SKYSCANNER_MARKET = "ES";
-const SKYSCANNER_LOCALE = "en-GB";
-const SKYSCANNER_CURRENCY = "EUR";
+const FLIGHTS_SKY_API_URL =
+  "https://flights-sky.p.rapidapi.com/flights/search-one-way";
+const FLIGHTS_SKY_RAPIDAPI_HOST = "flights-sky.p.rapidapi.com";
+const FLIGHTS_SKY_MARKET = "es-ES";
+const FLIGHTS_SKY_LOCALE = "en-US";
+const FLIGHTS_SKY_CURRENCY = "EUR";
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
@@ -29,20 +29,20 @@ export async function GET() {
   const searchParams = new URLSearchParams({
     fromEntityId: "MAD",
     toEntityId: "FCO",
-    date: "2026-09-15",
+    departDate: "2026-09-15",
     adults: "1",
-    market: SKYSCANNER_MARKET,
-    locale: SKYSCANNER_LOCALE,
-    currency: SKYSCANNER_CURRENCY,
+    market: FLIGHTS_SKY_MARKET,
+    locale: FLIGHTS_SKY_LOCALE,
+    currency: FLIGHTS_SKY_CURRENCY,
   });
 
-  const requestUrl = `${SKYSCANNER_API_URL}?${searchParams}`;
+  const requestUrl = `${FLIGHTS_SKY_API_URL}?${searchParams}`;
 
   try {
     const response = await fetch(requestUrl, {
       method: "GET",
       headers: {
-        "x-rapidapi-host": RAPIDAPI_HOST,
+        "x-rapidapi-host": FLIGHTS_SKY_RAPIDAPI_HOST,
         "x-rapidapi-key": rapidApiKey ?? "",
       },
     });
