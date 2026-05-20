@@ -49,6 +49,11 @@ function QuoteItemCard({ item }: { item: QuoteItem }) {
             <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8B9CB3]">
               {TYPE_LABELS[item.type]}
             </span>
+            {item.alternative ? (
+              <span className="rounded-full border border-amber-400/30 bg-amber-400/10 px-2 py-0.5 text-xs font-semibold text-amber-200">
+                Alternativa
+              </span>
+            ) : null}
             <span
               className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${sourceStyles[item.source]}`}
             >

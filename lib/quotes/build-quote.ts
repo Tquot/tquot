@@ -47,6 +47,8 @@ export interface QuoteItem {
   markup: number;
   finalPrice: number;
   source: QuoteItemSource;
+  /** When true, shown as a selectable option but excluded from quote totals. */
+  alternative?: boolean;
 }
 
 export interface QuoteSummary {
@@ -118,12 +120,13 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
     seed,
   });
 
-  const allItems = [...flights, ...hotels, ...experiences];
-  const baseTotal = sumPrices(allItems);
+  const selectableItems = [...flights, ...hotels, ...experiences];
+  const pricedItems = [...itemsForPricing(flights), ...itemsForPricing(hotels), ...experiences];
+  const baseTotal = sumPrices(pricedItems);
   const marginPercent = getMarginPercent(baseTotal);
-  applyMargin(allItems, marginPercent);
+  applyMargin(selectableItems, marginPercent);
 
-  const margin = sumMarkups(allItems);
+  const margin = sumMarkups(pricedItems);
   const finalTotal = baseTotal + margin;
 
   return {
@@ -226,6 +229,7 @@ function mapApiFlightToQuoteItem(
   flight: FlightOption,
   id: string,
   routeLabel: string,
+  alternative = false,
 ): QuoteItem {
   const isDirect = String(flight.stops) === "0";
   const stopLabel = isDirect ? "directo" : `${flight.stops} escala(s)`;
@@ -237,6 +241,7 @@ function mapApiFlightToQuoteItem(
     provider: flight.airline,
     price: parsePriceString(flight.price),
     source: "api",
+    alternative,
   });
 }
 
@@ -244,6 +249,7 @@ function mapApiHotelToQuoteItem(
   hotel: HotelOption,
   nights: number,
   id: string,
+  alternative = false,
 ): QuoteItem {
   const pricePerNight = parsePriceString(hotel.pricePerNight);
 
@@ -254,7 +260,12 @@ function mapApiHotelToQuoteItem(
     provider: "Booking.com",
     price: Math.round(pricePerNight * nights),
     source: "api",
+    alternative,
   });
+}
+
+function itemsForPricing(items: QuoteItem[]) {
+  return items.filter((item) => !item.alternative);
 }
 
 async function buildFlightsFromApiOrMock(params: {
@@ -297,42 +308,29 @@ async function buildFlightsFromApiOrMock(params: {
 
   const items: QuoteItem[] = [];
 
-  if (outboundFlights[0]) {
+  outboundFlights.slice(0, 3).forEach((flight, index) => {
     items.push(
       mapApiFlightToQuoteItem(
-        outboundFlights[0],
-        "flight-out",
+        flight,
+        `flight-out-${index + 1}`,
         `${origin} → ${destination}`,
+        index > 0,
       ),
     );
-  }
+  });
 
-  if (returnFlights[0]) {
+  returnFlights.slice(0, 3).forEach((flight, index) => {
     items.push(
       mapApiFlightToQuoteItem(
-        returnFlights[0],
-        "flight-return",
+        flight,
+        `flight-return-${index + 1}`,
         `${destination} → ${origin}`,
+        index > 0,
       ),
     );
-  }
+  });
 
   if (items.length > 0) {
-    const mockFlights = buildMockFlights({
-      origin,
-      destination,
-      pax,
-      directFlights,
-      seed,
-    });
-    if (!items.some((item) => item.id === "flight-out")) {
-      const mockOut = mockFlights.find((item) => item.id === "flight-out");
-      if (mockOut) items.unshift(mockOut);
-    }
-    if (!items.some((item) => item.id === "flight-return")) {
-      const mockReturn = mockFlights.find((item) => item.id === "flight-return");
-      if (mockReturn) items.push(mockReturn);
-    }
     return items;
   }
 
@@ -360,8 +358,10 @@ async function buildHotelsFromApiOrMock(params: {
 
   console.log("[buildQuote] hotels before mapping to QuoteItem", apiHotels);
 
-  if (apiHotels[0]) {
-    return [mapApiHotelToQuoteItem(apiHotels[0], nights, "hotel-main")];
+  if (apiHotels.length > 0) {
+    return apiHotels.slice(0, 3).map((hotel, index) =>
+      mapApiHotelToQuoteItem(hotel, nights, `hotel-${index + 1}`, index > 0),
+    );
   }
 
   return buildMockHotels({
@@ -396,26 +396,37 @@ function buildMockFlights(params: {
   const returnBase = Math.round(legBase * (directFlights ? 1.1 : 0.98));
 
   const stopLabel = directFlights ? "directo" : "1 escala";
-  const airline = pickFrom(seed, ["Iberia", "Vueling", "Air Europa", "Lufthansa"]);
+  const airlines = ["Iberia", "Vueling", "Air Europa", "Lufthansa"];
+  const items: QuoteItem[] = [];
 
-  return [
-    draftItem({
-      id: "flight-out",
-      type: "flight",
-      title: `Vuelo ${stopLabel} ${origin} → ${destination}`,
-      provider: airline,
-      price: outboundBase,
-      source: "mock",
-    }),
-    draftItem({
-      id: "flight-return",
-      type: "flight",
-      title: `Vuelo ${stopLabel} ${destination} → ${origin}`,
-      provider: airline,
-      price: returnBase,
-      source: "mock",
-    }),
-  ];
+  for (let index = 0; index < 3; index += 1) {
+    const airline = pickFrom(seed + index, airlines);
+    const outboundPrice = Math.round(outboundBase * (1 + index * 0.08));
+    const returnPrice = Math.round(returnBase * (1 + index * 0.06));
+
+    items.push(
+      draftItem({
+        id: `flight-out-${index + 1}`,
+        type: "flight",
+        title: `Vuelo ${stopLabel} ${origin} → ${destination} · opción ${index + 1}`,
+        provider: airline,
+        price: outboundPrice,
+        source: "mock",
+        alternative: index > 0,
+      }),
+      draftItem({
+        id: `flight-return-${index + 1}`,
+        type: "flight",
+        title: `Vuelo ${stopLabel} ${destination} → ${origin} · opción ${index + 1}`,
+        provider: airline,
+        price: returnPrice,
+        source: "mock",
+        alternative: index > 0,
+      }),
+    );
+  }
+
+  return items;
 }
 
 function buildMockHotels(params: {
@@ -434,23 +445,28 @@ function buildMockHotels(params: {
   const accessibilitySurcharge = accessibility ? 1.08 : 1;
   const base = Math.round(ratePerNight * nights * rooms * accessibilitySurcharge);
   const stars = HOTEL_STARS[hotelLevel];
-  const hotelName = pickFrom(seed + 3, [
+  const hotelNames = [
     `Hotel ${stars}★ ${destination} Centro`,
     `Boutique ${destination}`,
     `Resort ${destination}`,
-  ]);
+  ];
   const accessibilityNote = accessibility ? " · Accesible" : "";
 
-  return [
+  return hotelNames.map((name, index) =>
     draftItem({
-      id: "hotel-main",
+      id: `hotel-${index + 1}`,
       type: "hotel",
-      title: `${hotelName} — ${nights} ${nights === 1 ? "noche" : "noches"}${accessibilityNote}`,
-      provider: pickFrom(seed + 7, ["Booking Partner", "Hotelbeds", "Contrato directo"]),
-      price: base,
+      title: `${name} — ${nights} ${nights === 1 ? "noche" : "noches"}${accessibilityNote}`,
+      provider: pickFrom(seed + 7 + index, [
+        "Booking Partner",
+        "Hotelbeds",
+        "Contrato directo",
+      ]),
+      price: Math.round(base * (1 + index * 0.12)),
       source: "mock",
+      alternative: index > 0,
     }),
-  ];
+  );
 }
 
 function parsePriceString(value: string | number | undefined): number {

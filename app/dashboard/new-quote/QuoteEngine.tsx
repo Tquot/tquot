@@ -93,6 +93,10 @@ function allQuoteItems(quote: Quote): QuoteItem[] {
   return [...quote.flights, ...quote.hotels, ...quote.experiences];
 }
 
+function pricedQuoteItems(quote: Quote): QuoteItem[] {
+  return allQuoteItems(quote).filter((item) => !item.alternative);
+}
+
 function cloneQuote(quote: Quote): Quote {
   return {
     ...quote,
@@ -105,7 +109,7 @@ function cloneQuote(quote: Quote): Quote {
 }
 
 function syncQuotePricing(quote: Quote): void {
-  const items = allQuoteItems(quote);
+  const items = pricedQuoteItems(quote);
   quote.pricing.baseTotal = items.reduce((sum, item) => sum + item.price, 0);
   quote.pricing.margin = items.reduce((sum, item) => sum + item.markup, 0);
   quote.pricing.finalTotal = quote.pricing.baseTotal + quote.pricing.margin;
