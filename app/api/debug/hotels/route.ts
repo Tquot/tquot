@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
 
-const HOTELS_COM_REGIONS_URL =
-  "https://hotels-com-provider.p.rapidapi.com/v2/regions";
-const HOTELS_COM_SEARCH_URL =
-  "https://hotels-com-provider.p.rapidapi.com/v2/hotels/search";
-const RAPIDAPI_HOST = "hotels-com-provider.p.rapidapi.com";
-const HOTELS_COM_LOCALE = "es_ES";
-const HOTELS_COM_DOMAIN = "ES";
-const HOTELS_COM_SORT_ORDER = "REVIEW";
+const BOOKING_AUTOCOMPLETE_URL =
+  "https://booking-com18.p.rapidapi.com/stays/auto-complete";
+const BOOKING_SEARCH_URL = "https://booking-com18.p.rapidapi.com/stays/search";
+const RAPIDAPI_HOST = "booking-com18.p.rapidapi.com";
 
 const RAW_BODY_PREVIEW_LENGTH = 3000;
 
@@ -26,6 +22,7 @@ function parseJsonSafe(text: string): unknown | null {
     return null;
   }
 }
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
@@ -70,7 +67,7 @@ function cleanDestinationName(value: string) {
   );
 }
 
-function getRegionItems(payload: unknown) {
+function getAutocompleteItems(payload: unknown) {
   const response = asRecord(payload);
   const data = response.data;
 
@@ -80,28 +77,33 @@ function getRegionItems(payload: unknown) {
 
   const dataObject = asRecord(data);
   return firstArray(
-    dataObject.regions,
     dataObject.results,
     dataObject.result,
-    response.regions,
+    dataObject.destinations,
+    dataObject.suggestions,
+    response.results,
+    response.destinations,
   );
 }
 
-function getRegionName(region: Record<string, unknown>) {
+function getDestinationName(destination: Record<string, unknown>) {
   return getStringValue(
-    region.name,
-    region.fullName,
-    region.label,
-    region.shortName,
-    region.regionName,
-    region.city,
-    region.locality,
+    destination.label,
+    destination.name,
+    destination.city_name,
+    destination.cityName,
+    destination.region,
+    destination.country,
+    destination.display_name,
   );
 }
 
-function regionScore(region: Record<string, unknown>, requestedDestination: string) {
+function destinationScore(
+  destination: Record<string, unknown>,
+  requestedDestination: string,
+) {
   const requested = cleanDestinationName(requestedDestination).toLowerCase();
-  const name = getRegionName(region).toLowerCase();
+  const name = getDestinationName(destination).toLowerCase();
 
   if (name === requested) {
     return 3;
@@ -118,42 +120,77 @@ function regionScore(region: Record<string, unknown>, requestedDestination: stri
   return 0;
 }
 
-function findRegion(
+function getAutocompleteData(payload: unknown): Record<string, unknown>[] {
+  const response = asRecord(payload);
+  const data = response.data;
+
+  if (Array.isArray(data)) {
+    return data.map(asRecord);
+  }
+
+  return getAutocompleteItems(payload).map(asRecord);
+}
+
+function isCityResult(item: Record<string, unknown>) {
+  const type = getStringValue(item.type, item.dest_type, item.locationType).toLowerCase();
+  return type === "city";
+}
+
+function getLocationIdFromItem(item: Record<string, unknown>) {
+  return getOptionalString(item.id, item.locationId, item.dest_id, item.destId);
+}
+
+function findLocationId(
   payload: unknown,
   requestedDestination: string,
-): { regionId: string; name: string } | null {
-  const regions = getRegionItems(payload);
-  const validRegions = regions
-    .map((item) => {
-      const region = asRecord(item);
-      const regionId = getOptionalString(
-        region.region_id,
-        region.regionId,
-        region.gaiaId,
-        region.id,
-      );
+): { locationId: string; name: string } | null {
+  const items = getAutocompleteData(payload);
 
-      if (!regionId) {
+  const firstItem = items[0];
+  if (firstItem) {
+    const locationId = getLocationIdFromItem(firstItem);
+    if (locationId) {
+      return {
+        locationId,
+        name: getDestinationName(firstItem),
+      };
+    }
+  }
+
+  const cityItem = items.find(isCityResult);
+  if (cityItem) {
+    const locationId = getLocationIdFromItem(cityItem);
+    if (locationId) {
+      return {
+        locationId,
+        name: getDestinationName(cityItem),
+      };
+    }
+  }
+
+  const scored = items
+    .map((item) => {
+      const locationId = getLocationIdFromItem(item);
+      if (!locationId) {
         return null;
       }
 
       return {
-        regionId,
-        name: getRegionName(region),
-        score: regionScore(region, requestedDestination),
+        locationId,
+        name: getDestinationName(item),
+        score: destinationScore(item, requestedDestination),
       };
     })
-    .filter((region) => region !== null)
+    .filter((item) => item !== null)
     .sort((left, right) => right.score - left.score);
 
-  const bestMatch = validRegions[0];
-
+  const bestMatch = scored[0];
   if (!bestMatch) {
     return null;
   }
 
   return {
-    regionId: bestMatch.regionId,
+    locationId: bestMatch.locationId,
     name: bestMatch.name,
   };
 }
@@ -161,34 +198,20 @@ function findRegion(
 function getHotelItems(payload: unknown): unknown[] {
   const response = asRecord(payload);
   const data = asRecord(response.data);
-  const propertySearchResults = asRecord(
-    response.propertySearchResults ?? response.PropertySearchResults,
-  );
-  const dataPropertySearchResults = asRecord(
-    data.propertySearchResults ?? data.PropertySearchResults,
-  );
 
   return firstArray(
-    response.properties,
-    response.propertySearchListings,
-    data.properties,
-    data.propertySearchListings,
-    propertySearchResults.properties,
-    dataPropertySearchResults.properties,
-    response.results,
+    data.hotels,
+    data.result,
     data.results,
+    data.properties,
+    response.hotels,
+    response.results,
   );
 }
 
-function getFirstPropertyRaw(payload: unknown): unknown | null {
-  const response = asRecord(payload);
-  const properties = response.properties;
-
-  if (Array.isArray(properties) && properties.length > 0) {
-    return properties[0];
-  }
-
-  return null;
+function getFirstHotelRaw(payload: unknown): unknown | null {
+  const hotels = getHotelItems(payload);
+  return hotels.length > 0 ? hotels[0] : null;
 }
 
 function countHotelsFromPayload(payload: unknown): number {
@@ -203,14 +226,10 @@ export async function GET() {
   const key = rapidApiKey ?? "";
 
   try {
-    const regionParams = new URLSearchParams({
-      locale: HOTELS_COM_LOCALE,
-      domain: HOTELS_COM_DOMAIN,
-      query: "Rome",
-    });
-    const regionUrl = `${HOTELS_COM_REGIONS_URL}?${regionParams}`;
+    const autocompleteParams = new URLSearchParams({ query: "Rome" });
+    const autocompleteUrl = `${BOOKING_AUTOCOMPLETE_URL}?${autocompleteParams}`;
 
-    const regionResponse = await fetch(regionUrl, {
+    const autocompleteResponse = await fetch(autocompleteUrl, {
       method: "GET",
       headers: {
         "x-rapidapi-host": RAPIDAPI_HOST,
@@ -218,57 +237,60 @@ export async function GET() {
       },
     });
 
-    const regionText = await regionResponse.text();
+    const autocompleteText = await autocompleteResponse.text();
 
-    if (!regionResponse.ok) {
-      const regionPayload = parseJsonSafe(regionText);
+    if (!autocompleteResponse.ok) {
+      const autocompletePayload = parseJsonSafe(autocompleteText);
       return NextResponse.json({
         rapidApiKeyPresentInEnv: rapidApiKeyPresent,
-        apiStatus: regionResponse.status,
+        apiStatus: autocompleteResponse.status,
         hotelCount: null,
-        rawBodyPreview: regionText.slice(0, RAW_BODY_PREVIEW_LENGTH),
-        responseKeys: getTopLevelResponseKeys(regionPayload),
+        rawBodyPreview: autocompleteText.slice(0, RAW_BODY_PREVIEW_LENGTH),
+        responseKeys: getTopLevelResponseKeys(autocompletePayload),
         firstHotelRaw: null,
       });
     }
 
-    const regionPayload = parseJsonSafe(regionText);
+    const autocompletePayload = parseJsonSafe(autocompleteText);
 
-    if (regionPayload === null) {
+    if (autocompletePayload === null) {
       return NextResponse.json({
         rapidApiKeyPresentInEnv: rapidApiKeyPresent,
-        apiStatus: regionResponse.status,
+        apiStatus: autocompleteResponse.status,
         hotelCount: null,
-        rawBodyPreview: regionText.slice(0, RAW_BODY_PREVIEW_LENGTH),
+        rawBodyPreview: autocompleteText.slice(0, RAW_BODY_PREVIEW_LENGTH),
         responseKeys: [],
         firstHotelRaw: null,
       });
     }
 
-    const match = findRegion(regionPayload, "Rome");
+    const match = findLocationId(autocompletePayload, "Rome");
 
     if (!match) {
       return NextResponse.json({
         rapidApiKeyPresentInEnv: rapidApiKeyPresent,
-        apiStatus: regionResponse.status,
+        apiStatus: autocompleteResponse.status,
         hotelCount: null,
-        rawBodyPreview: regionText.slice(0, RAW_BODY_PREVIEW_LENGTH),
-        responseKeys: getTopLevelResponseKeys(regionPayload),
+        rawBodyPreview: autocompleteText.slice(0, RAW_BODY_PREVIEW_LENGTH),
+        responseKeys: getTopLevelResponseKeys(autocompletePayload),
         firstHotelRaw: null,
       });
     }
 
     const hotelParams = new URLSearchParams({
-      region_id: match.regionId,
-      checkin_date: "2026-09-15",
-      checkout_date: "2026-09-22",
-      adults_number: "1",
-      locale: HOTELS_COM_LOCALE,
-      domain: HOTELS_COM_DOMAIN,
-      sort_order: HOTELS_COM_SORT_ORDER,
+      locationId: match.locationId,
+      checkinDate: "2026-09-15",
+      checkoutDate: "2026-09-22",
+      adults: "1",
+      rooms: "1",
+      sortBy: "popularity",
+      languageCode: "es",
+      currencyCode: "EUR",
+      units: "metric",
+      temperature: "c",
     });
 
-    const hotelsUrl = `${HOTELS_COM_SEARCH_URL}?${hotelParams}`;
+    const hotelsUrl = `${BOOKING_SEARCH_URL}?${hotelParams}`;
 
     const hotelsResponse = await fetch(hotelsUrl, {
       method: "GET",
@@ -287,7 +309,7 @@ export async function GET() {
         ? countHotelsFromPayload(hotelsPayload)
         : null;
     const firstHotelRaw =
-      hotelsPayload !== null ? getFirstPropertyRaw(hotelsPayload) : null;
+      hotelsPayload !== null ? getFirstHotelRaw(hotelsPayload) : null;
 
     return NextResponse.json({
       rapidApiKeyPresentInEnv: rapidApiKeyPresent,

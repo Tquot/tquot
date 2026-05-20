@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
 
-const HOTELS_COM_REGIONS_URL =
-  "https://hotels-com-provider.p.rapidapi.com/v2/regions";
-const HOTELS_COM_SEARCH_URL =
-  "https://hotels-com-provider.p.rapidapi.com/v2/hotels/search";
-const RAPIDAPI_HOST = "hotels-com-provider.p.rapidapi.com";
-const HOTELS_COM_LOCALE = "es_ES";
-const HOTELS_COM_DOMAIN = "ES";
-const HOTELS_COM_SORT_ORDER = "REVIEW";
+const BOOKING_AUTOCOMPLETE_URL =
+  "https://booking-com18.p.rapidapi.com/stays/auto-complete";
+const BOOKING_SEARCH_URL = "https://booking-com18.p.rapidapi.com/stays/search";
+const RAPIDAPI_HOST = "booking-com18.p.rapidapi.com";
 
 type SearchHotelsRequest = {
   destination?: unknown;
@@ -27,8 +23,8 @@ export type HotelOption = {
   distanceFromCenter: string;
 };
 
-type RegionMatch = {
-  regionId: string;
+type LocationMatch = {
+  locationId: string;
   name: string;
 };
 
@@ -127,7 +123,7 @@ function getErrorMessage(payload: unknown, fallback: string) {
   );
 }
 
-function getRegionItems(payload: unknown) {
+function getAutocompleteItems(payload: unknown) {
   const response = asRecord(payload);
   const data = response.data;
 
@@ -137,28 +133,33 @@ function getRegionItems(payload: unknown) {
 
   const dataObject = asRecord(data);
   return firstArray(
-    dataObject.regions,
     dataObject.results,
     dataObject.result,
-    response.regions,
+    dataObject.destinations,
+    dataObject.suggestions,
+    response.results,
+    response.destinations,
   );
 }
 
-function getRegionName(region: Record<string, unknown>) {
+function getDestinationName(destination: Record<string, unknown>) {
   return getStringValue(
-    region.name,
-    region.fullName,
-    region.label,
-    region.shortName,
-    region.regionName,
-    region.city,
-    region.locality,
+    destination.label,
+    destination.name,
+    destination.city_name,
+    destination.cityName,
+    destination.region,
+    destination.country,
+    destination.display_name,
   );
 }
 
-function regionScore(region: Record<string, unknown>, requestedDestination: string) {
+function destinationScore(
+  destination: Record<string, unknown>,
+  requestedDestination: string,
+) {
   const requested = cleanDestinationName(requestedDestination).toLowerCase();
-  const name = getRegionName(region).toLowerCase();
+  const name = getDestinationName(destination).toLowerCase();
 
   if (name === requested) {
     return 3;
@@ -175,42 +176,77 @@ function regionScore(region: Record<string, unknown>, requestedDestination: stri
   return 0;
 }
 
-function findRegion(
+function getAutocompleteData(payload: unknown): Record<string, unknown>[] {
+  const response = asRecord(payload);
+  const data = response.data;
+
+  if (Array.isArray(data)) {
+    return data.map(asRecord);
+  }
+
+  return getAutocompleteItems(payload).map(asRecord);
+}
+
+function isCityResult(item: Record<string, unknown>) {
+  const type = getStringValue(item.type, item.dest_type, item.locationType).toLowerCase();
+  return type === "city";
+}
+
+function getLocationIdFromItem(item: Record<string, unknown>) {
+  return getOptionalString(item.id, item.locationId, item.dest_id, item.destId);
+}
+
+function findLocationId(
   payload: unknown,
   requestedDestination: string,
-): RegionMatch | null {
-  const regions = getRegionItems(payload);
-  const validRegions = regions
-    .map((item) => {
-      const region = asRecord(item);
-      const regionId = getOptionalString(
-        region.region_id,
-        region.regionId,
-        region.gaiaId,
-        region.id,
-      );
+): LocationMatch | null {
+  const items = getAutocompleteData(payload);
 
-      if (!regionId) {
+  const firstItem = items[0];
+  if (firstItem) {
+    const locationId = getLocationIdFromItem(firstItem);
+    if (locationId) {
+      return {
+        locationId,
+        name: getDestinationName(firstItem),
+      };
+    }
+  }
+
+  const cityItem = items.find(isCityResult);
+  if (cityItem) {
+    const locationId = getLocationIdFromItem(cityItem);
+    if (locationId) {
+      return {
+        locationId,
+        name: getDestinationName(cityItem),
+      };
+    }
+  }
+
+  const scored = items
+    .map((item) => {
+      const locationId = getLocationIdFromItem(item);
+      if (!locationId) {
         return null;
       }
 
       return {
-        regionId,
-        name: getRegionName(region),
-        score: regionScore(region, requestedDestination),
+        locationId,
+        name: getDestinationName(item),
+        score: destinationScore(item, requestedDestination),
       };
     })
-    .filter((region) => region !== null)
+    .filter((item) => item !== null)
     .sort((left, right) => right.score - left.score);
 
-  const bestMatch = validRegions[0];
-
+  const bestMatch = scored[0];
   if (!bestMatch) {
     return null;
   }
 
   return {
-    regionId: bestMatch.regionId,
+    locationId: bestMatch.locationId,
     name: bestMatch.name,
   };
 }
@@ -218,72 +254,36 @@ function findRegion(
 function getHotelItems(payload: unknown): unknown[] {
   const response = asRecord(payload);
   const data = asRecord(response.data);
-  const propertySearchResults = asRecord(
-    response.propertySearchResults ?? response.PropertySearchResults,
-  );
-  const dataPropertySearchResults = asRecord(
-    data.propertySearchResults ?? data.PropertySearchResults,
-  );
 
   return firstArray(
-    response.properties,
-    response.propertySearchListings,
-    data.properties,
-    data.propertySearchListings,
-    propertySearchResults.properties,
-    dataPropertySearchResults.properties,
-    response.results,
+    data.hotels,
+    data.result,
     data.results,
-  );
-}
-
-function getHotelName(hotel: Record<string, unknown>) {
-  const headingSectionRaw = hotel.headingSection;
-  const headingFromArray = Array.isArray(headingSectionRaw)
-    ? asRecord(headingSectionRaw[0])
-    : asRecord(headingSectionRaw);
-
-  return getStringValue(
-    hotel.name,
-    headingFromArray.heading,
-    headingFromArray.title,
-    headingFromArray.text,
-    hotel.hotelName,
-    hotel.title,
+    data.properties,
+    response.hotels,
+    response.results,
   );
 }
 
 function getPricePerNight(hotel: Record<string, unknown>) {
-  const price = asRecord(hotel.price);
-  const priceLead = asRecord(price.lead);
-  const priceInfo = asRecord(hotel.priceInfo);
-  const priceInfoLead = asRecord(priceInfo.lead);
-  const nightly = asRecord(hotel.nightly ?? price.nightly);
-  const ratePlan = asRecord(hotel.ratePlan);
-  const ratePlanPrice = asRecord(ratePlan.price);
-  const rooms = firstArray(hotel.rooms);
-  const firstRoom = asRecord(rooms[0]);
-  const roomRatePlans = firstArray(firstRoom.ratePlans);
-  const firstRatePlan = asRecord(roomRatePlans[0]);
-  const roomPrice = asRecord(firstRatePlan.price);
+  const property = asRecord(hotel.property);
+  const priceBreakdown = asRecord(hotel.priceBreakdown ?? property.priceBreakdown);
+  const grossPrice = asRecord(priceBreakdown.grossPrice);
+  const composite = asRecord(hotel.composite_price_breakdown);
+  const compositeGross = asRecord(composite.gross_amount);
 
   const candidates = [
-    priceLead.amount,
-    priceInfoLead.amount,
-    nightly.amount,
-    nightly.price,
-    nightly.value,
-    hotel.nightly,
-    priceLead.formatted,
-    priceInfoLead.formatted,
-    price.formatted,
-    price.current,
-    price.amount,
-    ratePlanPrice.current,
-    ratePlanPrice.formatted,
-    roomPrice.current,
-    roomPrice.formatted,
+    grossPrice.value,
+    grossPrice.amount,
+    grossPrice.formatted,
+    compositeGross.value,
+    compositeGross.amount,
+    priceBreakdown.displayPrice,
+    hotel.min_total_price,
+    hotel.price,
     hotel.pricePerNight,
+    property.min_total_price,
+    property.price,
   ];
 
   for (const candidate of candidates) {
@@ -297,125 +297,98 @@ function getPricePerNight(hotel: Record<string, unknown>) {
 }
 
 function getStars(hotel: Record<string, unknown>) {
-  const propertyStarRating = asRecord(hotel.propertyStarRating);
-  const star = asRecord(hotel.star);
+  const property = asRecord(hotel.property);
 
   return getStringValue(
     hotel.stars,
     hotel.starRating,
-    hotel.star,
-    propertyStarRating.value,
-    propertyStarRating.rating,
-    star.value,
-    star.rating,
-    hotel.propertyClass,
-    hotel.hotelClass,
+    hotel.class,
+    hotel.hotel_class,
+    property.propertyClass,
+    property.starRating,
+    property.class,
   );
 }
 
 function getRating(hotel: Record<string, unknown>) {
-  const reviews = asRecord(hotel.reviews);
-  const reviewInfo = asRecord(hotel.reviewInfo);
-  const guestReviews = asRecord(hotel.guestReviews);
-  const reviewScore = asRecord(hotel.reviewScore);
+  const property = asRecord(hotel.property);
+  const reviewScore = asRecord(hotel.reviewScore ?? property.reviewScore);
 
   return getStringValue(
-    reviews.score,
-    reviewInfo.score,
-    reviews.overall,
-    reviewInfo.overall,
     hotel.rating,
-    guestReviews.rating,
-    guestReviews.overall,
+    hotel.review_score,
+    hotel.reviewScore,
     reviewScore.score,
-    reviewScore.overall,
-    hotel.starRating,
-    hotel.stars,
-    asRecord(hotel.propertyStarRating).value,
-    asRecord(hotel.propertyStarRating).rating,
+    property.reviewScore,
+    property.review_score,
   );
 }
 
 function getAddress(hotel: Record<string, unknown>) {
-  const address = asRecord(hotel.address);
-  const neighborhood = asRecord(hotel.neighborhood);
-  const mapMarker = asRecord(hotel.mapMarker);
-  const location = asRecord(hotel.location);
-
-  const street = getOptionalString(
-    address.streetAddress,
-    address.lineOne,
-    address.line1,
-    location.address,
-    mapMarker.label,
-  );
-  const locality = getOptionalString(
-    address.locality,
-    address.city,
-    neighborhood.name,
-    location.city,
-  );
-
-  if (street && locality) {
-    return `${street}, ${locality}`;
-  }
+  const property = asRecord(hotel.property);
+  const location = asRecord(hotel.location ?? property.location);
 
   return getStringValue(
     hotel.address,
-    street,
-    locality,
-    neighborhood.name,
-    mapMarker.label,
+    property.address,
+    hotel.address_trans,
+    property.address_trans,
+    location.address,
+    location.city,
+    hotel.city,
+    property.city,
   );
 }
 
 function getRoomType(hotel: Record<string, unknown>) {
-  const rooms = firstArray(hotel.rooms);
-  const firstRoom = asRecord(rooms[0]);
-  const ratePlans = firstArray(firstRoom.ratePlans);
-  const firstRatePlan = asRecord(ratePlans[0]);
+  const property = asRecord(hotel.property);
+  const blocks = firstArray(hotel.block, hotel.rooms, property.rooms);
+  const firstRoom = asRecord(blocks[0]);
 
   return getStringValue(
     hotel.roomType,
+    hotel.room_name,
+    hotel.roomName,
     firstRoom.name,
-    firstRoom.description,
-    firstRatePlan.name,
-    firstRatePlan.description,
+    firstRoom.room_name,
+    property.roomType,
     "Habitación doble",
   );
 }
 
 function getDistanceFromCenter(hotel: Record<string, unknown>) {
-  const neighborhood = asRecord(hotel.neighborhood);
-  const destinationInfo = asRecord(hotel.destinationInfo);
+  const property = asRecord(hotel.property);
 
   return getStringValue(
     hotel.distanceFromCenter,
+    hotel.distance_to_cc,
     hotel.distance,
-    neighborhood.distance,
-    destinationInfo.distanceFromDestination,
-    destinationInfo.distanceFromCenter,
+    property.distanceFromCenter,
+    property.distance_to_cc,
+    property.distance,
     "Distance unavailable",
   );
 }
 
 function getHighlights(hotel: Record<string, unknown>) {
-  const amenities = firstArray(
-    hotel.amenities,
-    hotel.features,
+  const property = asRecord(hotel.property);
+  const badges = firstArray(
+    hotel.badges,
+    hotel.facilities,
     hotel.highlights,
-    hotel.propertyAmenities,
+    property.badges,
+    property.facilities,
+    property.highlights,
   );
 
-  const parsed = amenities
-    .map((item) => {
-      const amenity = asRecord(item);
+  const parsed = badges
+    .map((badge) => {
+      const badgeObject = asRecord(badge);
       return getStringValue(
-        amenity.text,
-        amenity.name,
-        amenity.title,
-        amenity.label,
-        item,
+        badgeObject.text,
+        badgeObject.name,
+        badgeObject.title,
+        badge,
       );
     })
     .filter((highlight) => highlight !== "Unknown")
@@ -431,18 +404,17 @@ function getHighlights(hotel: Record<string, unknown>) {
 function normalizeHotelOptions(payload: unknown): HotelOption[] {
   const hotels = getHotelItems(payload);
 
-  if (hotels.length > 0) {
-    console.log(
-      "[search-hotels] First hotel raw structure",
-      JSON.stringify(hotels[0], null, 2),
-    );
-  }
-
   return hotels.slice(0, 3).map((hotel): HotelOption => {
     const hotelObject = asRecord(hotel);
+    const property = asRecord(hotelObject.property);
 
     return {
-      name: getHotelName(hotelObject),
+      name: getStringValue(
+        hotelObject.name,
+        hotelObject.hotel_name,
+        property.name,
+        property.title,
+      ),
       pricePerNight: getPricePerNight(hotelObject),
       stars: getStars(hotelObject),
       rating: getRating(hotelObject),
@@ -584,46 +556,50 @@ export async function POST(request: Request) {
   }
 
   try {
-    const regionParams = new URLSearchParams({
-      locale: HOTELS_COM_LOCALE,
-      domain: HOTELS_COM_DOMAIN,
+    const autocompleteParams = new URLSearchParams({
       query: destination.trim(),
     });
-    const regionPayload = await rapidApiGet(
-      `${HOTELS_COM_REGIONS_URL}?${regionParams}`,
+    const destinationPayload = await rapidApiGet(
+      `${BOOKING_AUTOCOMPLETE_URL}?${autocompleteParams}`,
       rapidApiKey,
-      "searchRegions",
+      "autoComplete",
     );
-    const regionMatch = findRegion(regionPayload, destination);
+    const locationMatch = findLocationId(destinationPayload, destination);
 
-    if (!regionMatch) {
-      console.error("[search-hotels] No region match found", {
+    if (!locationMatch) {
+      console.error("[search-hotels] No location match found", {
         destination,
-        payload: regionPayload,
+        payload: destinationPayload,
       });
 
-      return fallbackHotels("Hotels.com returned no region match.", destination);
+      return fallbackHotels(
+        "Booking.com returned no location match.",
+        destination,
+      );
     }
 
-    console.log("[search-hotels] Selected Hotels.com region", {
+    console.log("[search-hotels] Selected Booking.com location", {
       requestedDestination: destination,
-      regionId: regionMatch.regionId,
-      matchedName: regionMatch.name,
+      locationId: locationMatch.locationId,
+      matchedName: locationMatch.name,
     });
 
     const hotelParams = new URLSearchParams({
-      region_id: regionMatch.regionId,
-      checkin_date: checkIn.trim(),
-      checkout_date: checkOut.trim(),
-      adults_number: String(adultCount),
-      locale: HOTELS_COM_LOCALE,
-      domain: HOTELS_COM_DOMAIN,
-      sort_order: HOTELS_COM_SORT_ORDER,
+      locationId: locationMatch.locationId,
+      checkinDate: checkIn.trim(),
+      checkoutDate: checkOut.trim(),
+      adults: String(adultCount),
+      rooms: "1",
+      sortBy: "popularity",
+      languageCode: "es",
+      currencyCode: "EUR",
+      units: "metric",
+      temperature: "c",
     });
     const hotelPayload = await rapidApiGet(
-      `${HOTELS_COM_SEARCH_URL}?${hotelParams}`,
+      `${BOOKING_SEARCH_URL}?${hotelParams}`,
       rapidApiKey,
-      "searchHotels",
+      "searchStays",
     );
     const hotels = normalizeHotelOptions(hotelPayload);
 
