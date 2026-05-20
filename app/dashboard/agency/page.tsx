@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useDashboardLanguage } from "../dashboard-language-provider";
+import { LocaleToggleButtons } from "../locale-toggle-buttons";
 import {
   type AgencyProfile,
   DEFAULT_AGENCY_PROFILE,
@@ -10,22 +11,22 @@ import {
   writeAgencyProfile,
 } from "./agency-profile";
 
-const fields: Array<{
-  key: keyof Omit<AgencyProfile, "logoBase64">;
-  label: string;
-  type?: string;
-}> = [
-  { key: "agencyName", label: "Agency name" },
-  { key: "email", label: "Email", type: "email" },
-  { key: "phone", label: "Phone" },
-  { key: "address", label: "Address" },
-  { key: "website", label: "Website", type: "url" },
-];
-
 export default function AgencyPage() {
-  const { locale, setLocale } = useDashboardLanguage();
+  const { t } = useDashboardLanguage();
   const [profile, setProfile] = useState<AgencyProfile>(DEFAULT_AGENCY_PROFILE);
   const [saved, setSaved] = useState(false);
+
+  const fields = useMemo(
+    () =>
+      [
+        { key: "agencyName" as const, label: t.agencyName },
+        { key: "email" as const, label: t.agencyEmail, type: "email" },
+        { key: "phone" as const, label: t.agencyPhone },
+        { key: "address" as const, label: t.agencyAddress },
+        { key: "website" as const, label: t.agencyWebsite, type: "url" },
+      ],
+    [t],
+  );
 
   useEffect(() => {
     setProfile(readAgencyProfile());
@@ -64,39 +65,19 @@ export default function AgencyPage() {
             href="/dashboard"
             className="text-sm text-[#8B9CB3] transition-colors hover:text-[#00C9A7]"
           >
-            ← {locale === "es" ? "Volver al panel" : "Back to dashboard"}
+            ← {t.backToDashboard}
           </Link>
-
-          <div className="flex rounded-full border border-white/10 bg-white/[0.04] p-0.5">
-            {(["es", "en"] as const).map((code) => (
-              <button
-                key={code}
-                type="button"
-                onClick={() => setLocale(code)}
-                className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide transition-colors ${
-                  locale === code
-                    ? "bg-[#00C9A7] text-[#03080F]"
-                    : "text-[#8B9CB3] hover:text-white"
-                }`}
-              >
-                {code}
-              </button>
-            ))}
-          </div>
+          <LocaleToggleButtons className="bg-white/[0.04]" />
         </div>
 
         <section className="mb-8">
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-[#00C9A7]">
-            {locale === "es" ? "Perfil de agencia" : "Agency profile"}
+            {t.agencyEyebrow}
           </p>
           <h1 className="mt-3 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            {locale === "es" ? "Datos para PDFs" : "PDF brand settings"}
+            {t.agencyPdfDataTitle}
           </h1>
-          <p className="mt-3 max-w-2xl text-[#8B9CB3]">
-            {locale === "es"
-              ? "Estos datos se guardan localmente y se usarán automáticamente en los PDFs de agente y cliente."
-              : "These details are saved locally and used automatically in agent and client PDFs."}
-          </p>
+          <p className="mt-3 max-w-2xl text-[#8B9CB3]">{t.agencyPdfDataSubtitle}</p>
         </section>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
@@ -119,7 +100,7 @@ export default function AgencyPage() {
 
             <label className="mt-5 block">
               <span className="mb-2 block text-sm font-medium text-[#E8EEF7]">
-                Logo upload
+                {t.agencyLogoUpload}
               </span>
               <input
                 type="file"
@@ -135,19 +116,17 @@ export default function AgencyPage() {
                 onClick={handleSave}
                 className="rounded-xl bg-[#00C9A7] px-8 py-3 text-sm font-semibold text-[#03080F] shadow-[0_0_32px_-8px_rgba(0,201,167,0.5)] transition-all hover:bg-[#00E5BB]"
               >
-                {locale === "es" ? "Guardar" : "Save"}
+                {t.agencySaveShort}
               </button>
               {saved ? (
-                <p className="text-sm font-medium text-[#00C9A7]">
-                  {locale === "es" ? "Guardado" : "Saved"}
-                </p>
+                <p className="text-sm font-medium text-[#00C9A7]">{t.agencySavedShort}</p>
               ) : null}
             </div>
           </section>
 
           <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 backdrop-blur-sm">
             <h2 className="mb-4 text-lg font-semibold text-white">
-              {locale === "es" ? "Vista previa cabecera PDF" : "PDF header preview"}
+              {t.agencyPdfHeaderPreview}
             </h2>
             <div className="rounded-2xl bg-white p-6 text-[#03080F] shadow-2xl">
               <div className="flex items-start gap-4 border-b border-slate-200 pb-5">
@@ -156,7 +135,7 @@ export default function AgencyPage() {
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={profile.logoBase64}
-                      alt="Agency logo preview"
+                      alt={t.agencyLogoUrl}
                       className="h-full w-full object-cover"
                     />
                   ) : (
@@ -165,7 +144,7 @@ export default function AgencyPage() {
                 </div>
                 <div>
                   <p className="text-xl font-bold">
-                    {profile.agencyName || "Agency name"}
+                    {profile.agencyName || t.agencyName}
                   </p>
                   <p className="mt-1 text-sm text-slate-600">{profile.email}</p>
                   <p className="text-sm text-slate-600">{profile.phone}</p>
@@ -176,7 +155,7 @@ export default function AgencyPage() {
                 </div>
               </div>
               <p className="mt-5 text-sm font-semibold uppercase tracking-[0.2em] text-[#00A98D]">
-                {locale === "es" ? "PROPUESTA DE VIAJE" : "TRAVEL PROPOSAL"}
+                {t.pdfClientProposal}
               </p>
             </div>
           </section>

@@ -8,7 +8,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { readLocale, writeLocale } from "./locale";
+import { LOCALE_CHANGE_EVENT, readLocale, writeLocale } from "./locale";
 import { type Locale, translations } from "./translations";
 
 type DashboardTranslation = (typeof translations)[Locale];
@@ -27,10 +27,20 @@ export function DashboardLanguageProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const [locale, setLocaleState] = useState<Locale>("es");
+  const [locale, setLocaleState] = useState<Locale>(() =>
+    typeof window !== "undefined" ? readLocale() : "es",
+  );
 
   useEffect(() => {
-    setLocaleState(readLocale());
+    const onLocaleChange = (event: Event) => {
+      const detail = (event as CustomEvent<Locale>).detail;
+      if (detail === "es" || detail === "en") {
+        setLocaleState(detail);
+      }
+    };
+
+    window.addEventListener(LOCALE_CHANGE_EVENT, onLocaleChange);
+    return () => window.removeEventListener(LOCALE_CHANGE_EVENT, onLocaleChange);
   }, []);
 
   const setLocale = useCallback((nextLocale: Locale) => {
@@ -65,3 +75,5 @@ export function useDashboardLanguage() {
 
   return context;
 }
+
+export type { DashboardTranslation };

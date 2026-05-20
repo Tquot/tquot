@@ -3,7 +3,7 @@
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   applyItemMargin,
   buildQuote,
@@ -26,7 +26,10 @@ import type { TripRequest } from "@/lib/parser/schema";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { readAgencyProfile } from "../agency/agency-profile";
 import { useDashboardLanguage } from "../dashboard-language-provider";
+import type { DashboardTranslation } from "../translations";
 import type { Locale } from "../translations";
+import { LocaleToggleButtons } from "../locale-toggle-buttons";
+import { formatMessage } from "../format-message";
 import { QuoteItemsSection } from "./quote-results";
 
 type StepStatus = "pending" | "active" | "done";
@@ -50,28 +53,27 @@ type ParsedRequest = {
   includeFlights: boolean;
 };
 
-const PROCESS_STEPS: ProcessStep[] = [
-  {
-    title: "ðŸ§  Parsing client request",
-    chips: ["Parser API", "TripRequest extracted"],
-  },
-  {
-    title: "ðŸ“‹ Mapping ParsedTripInput",
-    chips: ["Route & dates", "Passengers & preferences"],
-  },
-  {
-    title: "ðŸ’° Building deterministic quote",
-    chips: ["Flights", "Hotels", "Experiences", "Margins applied"],
-  },
-];
-
-const defaultStepChips = PROCESS_STEPS.map((step) => step.chips);
-
-const sourceStyles: Record<QuoteItemSource, string> = {
-  mock: "border-slate-400/30 bg-slate-400/10 text-slate-300",
-  inventory: "border-[#00C9A7]/30 bg-[#00C9A7]/10 text-[#00C9A7]",
-  api: "border-purple-400/30 bg-purple-400/10 text-purple-300",
-};
+function buildProcessSteps(t: DashboardTranslation): ProcessStep[] {
+  return [
+    {
+      title: t.stepParseTitle,
+      chips: [t.stepParseChip1, t.stepParseChip2],
+    },
+    {
+      title: t.stepMapTitle,
+      chips: [t.stepMapChip1, t.stepMapChip2],
+    },
+    {
+      title: t.stepBuildTitle,
+      chips: [
+        t.stepBuildChip1,
+        t.stepBuildChip2,
+        t.stepBuildChip3,
+        t.stepBuildChip4,
+      ],
+    },
+  ];
+}
 
 const sourcePdfColors: Record<QuoteItemSource, [number, number, number]> = {
   mock: [148, 163, 184],
@@ -79,19 +81,24 @@ const sourcePdfColors: Record<QuoteItemSource, [number, number, number]> = {
   api: [168, 85, 247],
 };
 
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("es-ES", {
+function formatCurrency(value: number, locale: Locale) {
+  return new Intl.NumberFormat(locale === "es" ? "es-ES" : "en-US", {
     style: "currency",
     currency: "EUR",
     maximumFractionDigits: 0,
   }).format(value);
 }
 
-function getStepStatus(index: number, activeStep: number, isRunning: boolean) {
+function getStepStatus(
+  index: number,
+  activeStep: number,
+  isRunning: boolean,
+  stepCount: number,
+) {
   if (!isRunning && activeStep < 0) return "pending";
   if (index < activeStep) return "done";
   if (index === activeStep && isRunning) return "active";
-  if (activeStep >= PROCESS_STEPS.length) return "done";
+  if (activeStep >= stepCount) return "done";
   return "pending";
 }
 
@@ -319,11 +326,14 @@ function drawAgencyHeader(
 }
 
 export function QuoteEngine() {
-  const { locale, setLocale, t } = useDashboardLanguage();
-  const requestInputRef = useRef<HTMLTextAreaElement>(null);
-  const [request, setRequest] = useState(
-    "Necesito un viaje para 2 adultos a Ribadesella, 3 noches, hotel con encanto, vuelos desde Madrid y una experiencia local.",
+  const { locale, t } = useDashboardLanguage();
+  const processSteps = useMemo(() => buildProcessSteps(t), [t]);
+  const defaultStepChips = useMemo(
+    () => processSteps.map((step) => step.chips),
+    [processSteps],
   );
+  const requestInputRef = useRef<HTMLTextAreaElement>(null);
+  const [request, setRequest] = useState(t.defaultQuoteRequest);
   const [activeStep, setActiveStep] = useState(-1);
   const [isRunning, setIsRunning] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
@@ -331,15 +341,30 @@ export function QuoteEngine() {
   const [stepChips, setStepChips] = useState(defaultStepChips);
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    {
-      role: "ai",
-      content:
-        'Puedes pedirme: "make cheaper", "add insurance" o "upgrade hotel".',
-    },
+    { role: "ai", content: t.chatWelcome },
   ]);
-  const [agentNotes, setAgentNotes] = useState(
-    "Revisar disponibilidad antes de confirmar. Validar condiciones de cancelaciÃ³n.",
-  );
+  const [agentNotes, setAgentNotes] = useState(t.defaultAgentNotes);
+
+  useEffect(() => {
+    if (!isRunning) {
+      setStepChips(defaultStepChips);
+    }
+  }, [defaultStepChips, isRunning]);
+
+  useEffect(() => {
+    setRequest(t.defaultQuoteRequest);
+    setAgentNotes(t.defaultAgentNotes);
+    setChatMessages((messages) => {
+      if (messages.length === 1 && messages[0]?.role === "ai") {
+        return [{ role: "ai", content: t.chatWelcome }];
+      }
+      return messages;
+    });
+  }, [
+    t.defaultQuoteRequest,
+    t.defaultAgentNotes,
+    t.chatWelcome,
+  ]);
 
   function handleSelectQuoteItem(itemId: string) {
     setQuote((current) => {
@@ -377,10 +402,9 @@ export function QuoteEngine() {
     if (!message || !quote) return;
 
     const normalized = message.toLowerCase();
-    let response =
-      "He revisado la cotizaciÃ³n. Puedes pedirme bajar precio, aÃ±adir seguro o mejorar hotel.";
+    let response = t.chatDefault;
 
-    if (/cheaper|barato|bajar|econ[oÃ³]mico|reduce/.test(normalized)) {
+    if (/cheaper|barato|bajar|economico|económico|reduce/.test(normalized)) {
       setQuote((current) => {
         if (!current) return current;
         const next = cloneQuote(current);
@@ -390,7 +414,7 @@ export function QuoteEngine() {
         syncQuotePricing(next);
         return next;
       });
-      response = "He reducido los mÃ¡rgenes para hacer la propuesta mÃ¡s econÃ³mica.";
+      response = t.chatCheaper;
     } else if (/insurance|seguro/.test(normalized)) {
       setQuote((current) => {
         if (!current || current.experiences.some((item) => item.id === "exp-insurance")) {
@@ -400,8 +424,8 @@ export function QuoteEngine() {
         const insurance: QuoteItem = {
           id: "exp-insurance",
           type: "experience",
-          title: "Seguro de viaje premium",
-          provider: "Proveedor corporativo",
+          title: t.insuranceTitle,
+          provider: t.insuranceProvider,
           price: 48,
           markup: 10,
           finalPrice: 58,
@@ -411,7 +435,7 @@ export function QuoteEngine() {
         syncQuotePricing(next);
         return next;
       });
-      response = "He aÃ±adido un seguro de viaje premium.";
+      response = t.chatInsuranceAdded;
     } else if (/upgrade|mejor|subir|hotel/.test(normalized)) {
       setQuote((current) => {
         if (!current) return current;
@@ -419,12 +443,12 @@ export function QuoteEngine() {
         for (const hotel of itemsForPricing(next.hotels)) {
           hotel.price = Math.round(hotel.price * 1.18);
           applyItemMargin(hotel, getItemMarginPercent(hotel));
-          hotel.title = `${hotel.title} · upgrade`;
+          hotel.title = `${hotel.title}${t.hotelUpgradeSuffix}`;
         }
         syncQuotePricing(next);
         return next;
       });
-      response = "He aplicado un upgrade de hotel y recalculado el precio.";
+      response = t.chatHotelUpgrade;
     }
 
     setChatMessages((messages) => [
@@ -459,10 +483,7 @@ export function QuoteEngine() {
       setStepChips((current) =>
         current.map((chips, index) =>
           index === 0
-            ? [
-                "Parser needs more details",
-                ...parserResult.questions.slice(0, 2),
-              ]
+            ? [t.chipParserNeedsDetails, ...parserResult.questions.slice(0, 2)]
             : chips,
         ),
       );
@@ -477,9 +498,13 @@ export function QuoteEngine() {
         current.map((chips, index) =>
           index === 0
             ? [
-                `Destino: ${parserResult.data.destination}`,
-                `Adultos: ${parserResult.data.adults ?? 2}`,
-                "TripRequest ready",
+                formatMessage(t.chipDestination, {
+                  value: parserResult.data.destination,
+                }),
+                formatMessage(t.chipAdults, {
+                  value: parserResult.data.adults ?? 2,
+                }),
+                t.chipTripRequestReady,
               ]
             : chips,
         ),
@@ -492,10 +517,7 @@ export function QuoteEngine() {
         setStepChips((current) =>
           current.map((chips, index) =>
             index === 0
-              ? [
-                  "Destination not detected",
-                  "Especifica destino: hoteles en Ribadesella / viaje a Roma",
-                ]
+              ? [t.chipDestinationNotDetected, t.chipSpecifyDestination]
               : chips,
           ),
         );
@@ -506,14 +528,16 @@ export function QuoteEngine() {
       parserSource = "local";
       const fallbackLabel =
         parserResult.ok === false && parserResult.reason === "timeout"
-          ? "Parser timeout (10s) · extracción local"
-          : "Extracción local (fallback)";
+          ? t.chipParserTimeout
+          : t.chipLocalFallback;
       setStepChips((current) =>
         current.map((chips, index) =>
           index === 0
             ? [
-                `Destino: ${localParsed.destination}`,
-                `${localParsed.adults} viajeros`,
+                formatMessage(t.chipDestination, {
+                  value: localParsed.destination,
+                }),
+                formatMessage(t.chipTravelers, { count: localParsed.adults }),
                 fallbackLabel,
               ]
             : chips,
@@ -528,9 +552,15 @@ export function QuoteEngine() {
       current.map((chips, index) =>
         index === 1
           ? [
-              `${parsedInput.origin} â†’ ${parsedInput.destination}`,
-              `${parsedInput.dates.start} â†’ ${parsedInput.dates.end}`,
-              `Fuente: ${parserSource}`,
+              formatMessage(t.chipRoute, {
+                origin: parsedInput.origin,
+                destination: parsedInput.destination,
+              }),
+              formatMessage(t.chipDates, {
+                start: parsedInput.dates.start,
+                end: parsedInput.dates.end,
+              }),
+              formatMessage(t.chipSource, { source: parserSource }),
             ]
           : chips,
       ),
@@ -544,17 +574,19 @@ export function QuoteEngine() {
       current.map((chips, index) =>
         index === 2
           ? [
-              `${built.flights.length} vuelos`,
-              `${built.hotels.length} hoteles`,
-              `${built.experiences.length} experiencias`,
-              formatCurrency(built.pricing.finalTotal),
+              formatMessage(t.chipFlightsCount, { count: built.flights.length }),
+              formatMessage(t.chipHotelsCount, { count: built.hotels.length }),
+              formatMessage(t.chipExperiencesCount, {
+                count: built.experiences.length,
+              }),
+              formatCurrency(built.pricing.finalTotal, locale),
             ]
           : chips,
       ),
     );
     await pipelineDelay();
 
-    setActiveStep(PROCESS_STEPS.length);
+    setActiveStep(processSteps.length);
     setIsRunning(false);
     setIsComplete(true);
   }
@@ -573,21 +605,35 @@ export function QuoteEngine() {
 
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(16);
-    doc.text("COTIZACION INTERNA - CONFIDENCIAL", 14, 54);
+    doc.text(t.pdfAgentTitle, 14, 54);
     doc.setFontSize(10);
     doc.setTextColor(139, 156, 179);
-    doc.text(`Referencia: ${quoteReference}`, 14, 62);
-    doc.text(`Generado: ${new Date().toLocaleString("es-ES")}`, 14, 68);
+    doc.text(formatMessage(t.pdfReference, { ref: quoteReference }), 14, 62);
+    doc.text(
+      formatMessage(t.pdfGenerated, {
+        date: new Date().toLocaleString(locale === "es" ? "es-ES" : "en-US"),
+      }),
+      14,
+      68,
+    );
 
     autoTable(doc, {
       startY: 80,
-      head: [["Linea", "Fuente", "Base", "Margen", "Cliente"]],
+      head: [
+        [
+          t.pdfTableLine,
+          t.pdfTableSource,
+          t.pdfTableBase,
+          t.pdfTableMargin,
+          t.pdfTableClient,
+        ],
+      ],
       body: items.map((item) => [
         `${item.title}\n${item.provider}`,
         `[${item.source}]`,
-        formatCurrency(item.price),
-        formatCurrency(item.markup),
-        formatCurrency(item.finalPrice),
+        formatCurrency(item.price, locale),
+        formatCurrency(item.markup, locale),
+        formatCurrency(item.finalPrice, locale),
       ]),
       theme: "grid",
       styles: {
@@ -624,34 +670,44 @@ export function QuoteEngine() {
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
-    doc.text("Totales internos", 20, finalY + 20);
+    doc.text(t.pdfInternalTotals, 20, finalY + 20);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(232, 238, 247);
-    doc.text(`Base: ${formatCurrency(quote.pricing.baseTotal)}`, 20, finalY + 29);
     doc.text(
-      `Margen: ${formatCurrency(quote.pricing.margin)}`,
+      formatMessage(t.pdfBase, {
+        value: formatCurrency(quote.pricing.baseTotal, locale),
+      }),
+      20,
+      finalY + 29,
+    );
+    doc.text(
+      formatMessage(t.pdfMargin, {
+        value: formatCurrency(quote.pricing.margin, locale),
+      }),
       76,
       finalY + 29,
     );
     doc.setTextColor(0, 201, 167);
     doc.setFont("helvetica", "bold");
     doc.text(
-      `Total cliente: ${formatCurrency(quote.pricing.finalTotal)}`,
+      formatMessage(t.pdfClientTotal, {
+        value: formatCurrency(quote.pricing.finalTotal, locale),
+      }),
       140,
       finalY + 29,
     );
 
     doc.setTextColor(245, 197, 24);
     doc.setFontSize(11);
-    doc.text("Notas para agente", 14, finalY + 55);
+    doc.text(t.pdfAgentNotes, 14, finalY + 55);
     doc.setTextColor(139, 156, 179);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
-    doc.text(agentNotes || "Sin notas adicionales.", 14, finalY + 63, {
+    doc.text(agentNotes || t.pdfNoNotes, 14, finalY + 63, {
       maxWidth: 180,
     });
 
-    doc.save(`${quoteReference}-agente.pdf`);
+    doc.save(formatMessage(t.pdfFilenameAgent, { ref: quoteReference }));
   }
 
   function generateClientPDF() {
@@ -668,19 +724,25 @@ export function QuoteEngine() {
 
     doc.setTextColor(3, 8, 15);
     doc.setFontSize(22);
-    doc.text("PROPUESTA DE VIAJE", 14, 54);
+    doc.text(t.pdfClientProposal, 14, 54);
     doc.setFontSize(10);
     doc.setTextColor(100, 116, 139);
-    doc.text(`Referencia: ${quoteReference}`, 14, 62);
-    doc.text(`Fecha: ${new Date().toLocaleDateString("es-ES")}`, 14, 68);
+    doc.text(formatMessage(t.pdfReference, { ref: quoteReference }), 14, 62);
+    doc.text(
+      formatMessage(t.pdfClientDate, {
+        date: new Date().toLocaleDateString(locale === "es" ? "es-ES" : "en-US"),
+      }),
+      14,
+      68,
+    );
 
     autoTable(doc, {
       startY: 82,
-      head: [["Servicio", "Proveedor", "Precio cliente"]],
+      head: [[t.pdfClientService, t.pdfClientProvider, t.pdfClientPrice]],
       body: items.map((item) => [
         item.title,
         item.provider,
-        formatCurrency(item.finalPrice),
+        formatCurrency(item.finalPrice, locale),
       ]),
       theme: "striped",
       styles: {
@@ -714,23 +776,18 @@ export function QuoteEngine() {
     doc.setTextColor(3, 8, 15);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
-    doc.text("Precio total cliente", 126, finalY + 22);
+    doc.text(t.pdfClientTotalLabel, 126, finalY + 22);
     doc.setTextColor(0, 145, 122);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(16);
-    doc.text(formatCurrency(quote.pricing.finalTotal), 126, finalY + 32);
+    doc.text(formatCurrency(quote.pricing.finalTotal, locale), 126, finalY + 32);
 
     doc.setTextColor(100, 116, 139);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    doc.text(
-      "Propuesta no vinculante. Precios sujetos a disponibilidad y pueden variar hasta confirmacion de reserva.",
-      14,
-      282,
-      { maxWidth: 182 },
-    );
+    doc.text(t.pdfDisclaimer, 14, 282, { maxWidth: 182 });
 
-    doc.save(`${quoteReference}-cliente.pdf`);
+    doc.save(formatMessage(t.pdfFilenameClient, { ref: quoteReference }));
   }
 
   return (
@@ -749,7 +806,7 @@ export function QuoteEngine() {
           href="/dashboard"
           className="mb-8 inline-flex items-center rounded-full border border-white/[0.07] bg-white/[0.03] px-4 py-2 text-sm text-[#8B9CB3] shadow-[0_12px_40px_rgba(0,0,0,0.25)] transition-colors hover:border-[#00C9A7]/30 hover:text-[#00C9A7]"
         >
-          â† {t.backToDashboard}
+          ← {t.backToDashboard}
         </Link>
 
         <section className="mb-8 overflow-hidden rounded-[2rem] border border-white/[0.08] bg-[linear-gradient(135deg,rgba(10,21,37,0.88),rgba(13,32,56,0.68))] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.45),0_0_60px_rgba(0,201,167,0.08)] backdrop-blur-xl sm:p-8">
@@ -762,31 +819,15 @@ export function QuoteEngine() {
               {t.newQuote}
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-7 text-[#8B9CB3]">
-              Pega una solicitud de cliente: el parser extrae el viaje,
-              buildQuote genera la cotizaciÃ³n determinista y puedes exportar PDF.
+              {t.quoteEngineSubtitle}
             </p>
           </div>
-          <div className="flex w-fit rounded-full border border-white/10 bg-[#03080F]/60 p-1 shadow-inner shadow-black/30">
-            {(["es", "en"] as Locale[]).map((code) => (
-              <button
-                key={code}
-                type="button"
-                onClick={() => setLocale(code)}
-                className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide transition-colors ${
-                  locale === code
-                    ? "bg-[#00C9A7] text-[#03080F]"
-                    : "text-[#8B9CB3] hover:text-white"
-                }`}
-              >
-                {code}
-              </button>
-            ))}
-          </div>
+          <LocaleToggleButtons />
           </div>
           <div className="mt-7 grid gap-3 sm:grid-cols-3">
-            <PremiumMetric label="Flujo" value="Parser â†’ buildQuote" />
-            <PremiumMetric label="Motor" value="Determinista" />
-            <PremiumMetric label="Salida" value="PDF agente / cliente" />
+            <PremiumMetric label={t.metricFlow} value={t.metricFlowValue} />
+            <PremiumMetric label={t.metricEngine} value={t.metricEngineValue} />
+            <PremiumMetric label={t.metricOutput} value={t.metricOutputValue} />
           </div>
         </section>
 
@@ -805,7 +846,7 @@ export function QuoteEngine() {
               onChange={(event) => setRequest(event.target.value)}
               rows={10}
               className="w-full resize-y rounded-2xl border border-white/10 bg-[#03080F]/70 px-4 py-4 text-[#E8EEF7] shadow-inner shadow-black/30 placeholder:text-[#8B9CB3]/50 outline-none transition-colors focus:border-[#00C9A7]/50 focus:ring-2 focus:ring-[#00C9A7]/20"
-              placeholder="Ej: 2 adultos a Ribadesella, 3 noches, hotel boutique, vuelos desde Madrid..."
+              placeholder={t.quoteEngineRequestPlaceholder}
             />
 
             <button
@@ -814,7 +855,7 @@ export function QuoteEngine() {
               disabled={!request.trim() || isRunning}
               className="mt-6 w-full rounded-2xl bg-[#00C9A7] px-8 py-4 text-sm font-bold text-[#03080F] shadow-[0_0_42px_-8px_rgba(0,201,167,0.7)] transition-all hover:-translate-y-0.5 hover:bg-[#00E5BB] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
             >
-              {isRunning ? "Procesando..." : t.generateQuote}
+              {isRunning ? t.processing : t.generateQuote}
             </button>
           </div>
 
@@ -822,19 +863,28 @@ export function QuoteEngine() {
             <div className="mb-5 flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#00C9A7]">
-                  Live pipeline
+                  {t.livePipeline}
                 </p>
                 <h2 className="mt-2 text-xl font-bold text-white">
-                  Proceso IA paso a paso
+                  {t.processStepByStep}
                 </h2>
               </div>
               <span className="rounded-full border border-[#00C9A7]/25 bg-[#00C9A7]/10 px-3 py-1 text-xs font-semibold text-[#00C9A7]">
-                {isRunning ? "En curso" : isComplete ? "Completado" : "Listo"}
+                {isRunning
+                  ? t.statusRunning
+                  : isComplete
+                    ? t.statusComplete
+                    : t.statusReady}
               </span>
             </div>
             <div className="space-y-3">
-              {PROCESS_STEPS.map((step, index) => {
-                const status = getStepStatus(index, activeStep, isRunning);
+              {processSteps.map((step, index) => {
+                const status = getStepStatus(
+                  index,
+                  activeStep,
+                  isRunning,
+                  processSteps.length,
+                );
                 return (
                   <ProcessStepCard
                     key={step.title}
@@ -842,6 +892,12 @@ export function QuoteEngine() {
                     status={status}
                     title={step.title}
                     chips={stepChips[index]}
+                    labels={{
+                      processing: t.stepProcessing,
+                      done: t.stepDone,
+                      pending: t.stepPending,
+                      searching: t.stepSearchingSource,
+                    }}
                   />
                 );
               })}
@@ -854,14 +910,18 @@ export function QuoteEngine() {
             <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#00C9A7]">
-                  Proposal workspace
+                  {t.proposalWorkspace}
                 </p>
                 <h2 className="mt-2 text-3xl font-black tracking-tight text-white">
-                  CotizaciÃ³n compilada
+                  {t.compiledQuote}
                 </h2>
                 <p className="mt-1 text-sm text-[#8B9CB3]">
-                  Ref: {quote.id} Â· {quote.summary.route} Â· {quote.summary.durationDays}{" "}
-                  dÃ­as Â· {quote.summary.passengers.total} viajeros
+                  {formatMessage(t.quoteRefSummary, {
+                    id: quote.id,
+                    route: quote.summary.route,
+                    days: quote.summary.durationDays,
+                    travelers: quote.summary.passengers.total,
+                  })}
                 </p>
               </div>
               <div className="flex gap-3">
@@ -870,14 +930,14 @@ export function QuoteEngine() {
                   onClick={generateAgentPDF}
                   className="rounded-2xl border border-[#00C9A7]/30 bg-[#00C9A7]/10 px-5 py-3 text-sm font-semibold text-[#00C9A7] transition-colors hover:bg-[#00C9A7]/15"
                 >
-                  PDF Agente
+                  {t.pdfAgent}
                 </button>
                 <button
                   type="button"
                   onClick={generateClientPDF}
                   className="rounded-2xl bg-[#00C9A7] px-5 py-3 text-sm font-bold text-[#03080F] shadow-[0_0_34px_-10px_rgba(0,201,167,0.9)] transition-colors hover:bg-[#00E5BB]"
                 >
-                  PDF Cliente
+                  {t.pdfClient}
                 </button>
               </div>
             </div>
@@ -885,8 +945,8 @@ export function QuoteEngine() {
             <div className="mb-6 grid gap-6 lg:grid-cols-3">
               {quote.flights.length > 0 ? (
                 <QuoteItemsSection
-                  eyebrow="Vuelos"
-                  title="Flights"
+                  eyebrow={t.sectionFlightsEyebrow}
+                  title={t.sectionFlightsTitle}
                   items={quote.flights}
                   onSelectItem={handleSelectQuoteItem}
                   onMarginChange={handleQuoteItemMarginChange}
@@ -894,8 +954,8 @@ export function QuoteEngine() {
               ) : null}
               {quote.hotels.length > 0 ? (
                 <QuoteItemsSection
-                  eyebrow="Hoteles"
-                  title="Hotels"
+                  eyebrow={t.sectionHotelsEyebrow}
+                  title={t.sectionHotelsTitle}
                   items={quote.hotels}
                   onSelectItem={handleSelectQuoteItem}
                   onMarginChange={handleQuoteItemMarginChange}
@@ -903,8 +963,8 @@ export function QuoteEngine() {
               ) : null}
               {quote.experiences.length > 0 ? (
                 <QuoteItemsSection
-                  eyebrow="Experiencias"
-                  title="Experiences"
+                  eyebrow={t.sectionExperiencesEyebrow}
+                  title={t.sectionExperiencesTitle}
                   items={quote.experiences}
                   onMarginChange={handleQuoteItemMarginChange}
                 />
@@ -914,7 +974,7 @@ export function QuoteEngine() {
             <div className="mt-6 grid gap-6 lg:grid-cols-2">
               <section className="rounded-3xl border border-white/[0.08] bg-[#03080F]/60 p-5 shadow-[0_16px_44px_rgba(0,0,0,0.22)]">
                 <h3 className="mb-3 text-lg font-semibold text-white">
-                  AI refinement chat
+                  {t.aiRefinementChat}
                 </h3>
                 <div className="mb-4 max-h-56 space-y-3 overflow-y-auto pr-1">
                   {chatMessages.map((message, index) => (
@@ -927,7 +987,7 @@ export function QuoteEngine() {
                       }`}
                     >
                       <span className="font-semibold">
-                        {message.role === "ai" ? "AI" : "Agent"}:
+                        {message.role === "ai" ? t.chatRoleAi : t.chatRoleAgent}:
                       </span>{" "}
                       {message.content}
                     </div>
@@ -948,14 +1008,14 @@ export function QuoteEngine() {
                     onClick={sendChatMessage}
                     className="rounded-2xl bg-[#00C9A7] px-4 py-3 text-sm font-bold text-[#03080F]"
                   >
-                    Send
+                    {t.send}
                   </button>
                 </div>
               </section>
 
               <section className="rounded-3xl border border-white/[0.08] bg-[#03080F]/60 p-5 shadow-[0_16px_44px_rgba(0,0,0,0.22)]">
                 <label className="mb-3 block text-lg font-semibold text-white">
-                  Agent notes
+                  {t.agentNotes}
                 </label>
                 <textarea
                   value={agentNotes}
@@ -967,12 +1027,23 @@ export function QuoteEngine() {
             </div>
 
             <div className="mt-6 grid gap-4 rounded-3xl border border-[#00C9A7]/20 bg-[linear-gradient(135deg,rgba(0,201,167,0.14),rgba(13,32,56,0.48))] p-5 shadow-[0_0_50px_-24px_rgba(0,201,167,0.9)] sm:grid-cols-3">
-              <TotalCard label="Base total" value={quote.pricing.baseTotal} />
-              <TotalCard label="Margin" value={quote.pricing.margin} />
               <TotalCard
-                label={`Final total (${quote.pricing.currency})`}
+                label={t.baseTotal}
+                value={quote.pricing.baseTotal}
+                locale={locale}
+              />
+              <TotalCard
+                label={t.margin}
+                value={quote.pricing.margin}
+                locale={locale}
+              />
+              <TotalCard
+                label={formatMessage(t.finalTotal, {
+                  currency: quote.pricing.currency,
+                })}
                 value={quote.pricing.finalTotal}
                 highlight
+                locale={locale}
               />
             </div>
           </section>
@@ -998,14 +1069,25 @@ function ProcessStepCard({
   status,
   title,
   chips,
+  labels,
 }: {
   index: number;
   status: StepStatus;
   title: string;
   chips: string[];
+  labels: {
+    processing: string;
+    done: string;
+    pending: string;
+    searching: string;
+  };
 }) {
   const statusLabel =
-    status === "active" ? "Procesando" : status === "done" ? "Hecho" : "Pendiente";
+    status === "active"
+      ? labels.processing
+      : status === "done"
+        ? labels.done
+        : labels.pending;
 
   return (
     <div
@@ -1029,7 +1111,7 @@ function ProcessStepCard({
           <div className="flex items-center justify-between gap-3">
             <p className="font-semibold text-white">{title}</p>
             <span className="hidden rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8B9CB3] sm:inline-flex">
-              {String(index + 1).padStart(2, "0")} Â· {statusLabel}
+              {String(index + 1).padStart(2, "0")} · {statusLabel}
             </span>
           </div>
           {status === "active" ? (
@@ -1042,7 +1124,7 @@ function ProcessStepCard({
                 />
               ))}
               <span className="ml-2 text-xs text-[#8B9CB3]">
-                Buscando la mejor fuente disponible
+                {labels.searching}
               </span>
             </div>
           ) : null}
@@ -1068,7 +1150,7 @@ function StepIndicator({ status }: { status: StepStatus }) {
   if (status === "done") {
     return (
       <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-400 text-xs font-bold text-[#03080F] shadow-[0_0_24px_rgba(52,211,153,0.35)]">
-        âœ“
+        ✓
       </span>
     );
   }
@@ -1089,10 +1171,12 @@ function TotalCard({
   label,
   value,
   highlight,
+  locale,
 }: {
   label: string;
   value: number;
   highlight?: boolean;
+  locale: Locale;
 }) {
   return (
     <div>
@@ -1102,7 +1186,7 @@ function TotalCard({
           highlight ? "text-[#00C9A7]" : "text-white"
         }`}
       >
-        {formatCurrency(value)}
+        {formatCurrency(value, locale)}
       </p>
     </div>
   );

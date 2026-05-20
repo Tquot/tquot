@@ -1,5 +1,10 @@
+"use client";
+
 import type { QuoteItem, QuoteItemSource } from "@/lib/quotes/build-quote";
 import { getItemMarginPercent, getQuoteSelectionGroup } from "@/lib/quotes/build-quote";
+import { useDashboardLanguage } from "../dashboard-language-provider";
+import { formatMessage } from "../format-message";
+import type { Locale } from "../translations";
 
 const sourceStyles: Record<QuoteItemSource, string> = {
   mock: "border-slate-400/30 bg-slate-400/10 text-slate-300",
@@ -7,18 +12,19 @@ const sourceStyles: Record<QuoteItemSource, string> = {
   api: "border-purple-400/30 bg-purple-400/10 text-purple-300",
 };
 
-const TYPE_LABELS: Record<QuoteItem["type"], string> = {
-  flight: "Vuelo",
-  hotel: "Hotel",
-  experience: "Experiencia",
-};
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("es-ES", {
+function formatCurrency(value: number, locale: Locale) {
+  return new Intl.NumberFormat(locale === "es" ? "es-ES" : "en-US", {
     style: "currency",
     currency: "EUR",
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+function pluralSuffix(locale: Locale, count: number) {
+  if (locale === "en") {
+    return count === 1 ? "" : "s";
+  }
+  return count === 1 ? "" : "es";
 }
 
 function SectionHeading({
@@ -50,10 +56,17 @@ function QuoteItemCard({
   onSelect?: (itemId: string) => void;
   onMarginChange?: (itemId: string, marginPercent: number) => void;
 }) {
+  const { locale, t } = useDashboardLanguage();
   const selectionGroup = getQuoteSelectionGroup(item.id);
   const isSelectable = selectionGroup !== null && Boolean(onSelect);
   const isSelected = isSelectable && !item.alternative;
   const marginPercent = getItemMarginPercent(item);
+
+  const typeLabels: Record<QuoteItem["type"], string> = {
+    flight: t.itemTypeFlight,
+    hotel: t.itemTypeHotel,
+    experience: t.itemTypeExperience,
+  };
 
   return (
     <article
@@ -86,7 +99,7 @@ function QuoteItemCard({
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8B9CB3]">
-              {TYPE_LABELS[item.type]}
+              {typeLabels[item.type]}
             </span>
             {isSelectable ? (
               <span
@@ -96,7 +109,7 @@ function QuoteItemCard({
                     : "border-amber-400/30 bg-amber-400/10 text-amber-200"
                 }`}
               >
-                {isSelected ? "Incluido" : "Alternativa"}
+                {isSelected ? t.itemIncluded : t.itemAlternative}
               </span>
             ) : null}
             <span
@@ -111,29 +124,35 @@ function QuoteItemCard({
         <p
           className={`text-xl font-black ${isSelected || !isSelectable ? "text-[#00C9A7]" : "text-[#8B9CB3]"}`}
         >
-          {formatCurrency(item.finalPrice)}
+          {formatCurrency(item.finalPrice, locale)}
         </p>
       </div>
 
       <div className="mb-3 grid grid-cols-3 gap-2 text-xs">
         <div>
-          <p className="text-[#4A6A85]">Base</p>
-          <p className="font-semibold text-[#E8EEF7]">{formatCurrency(item.price)}</p>
+          <p className="text-[#4A6A85]">{t.itemBase}</p>
+          <p className="font-semibold text-[#E8EEF7]">
+            {formatCurrency(item.price, locale)}
+          </p>
         </div>
         <div>
-          <p className="text-[#4A6A85]">Margen</p>
-          <p className="font-semibold text-[#F5C518]">{formatCurrency(item.markup)}</p>
+          <p className="text-[#4A6A85]">{t.itemMargin}</p>
+          <p className="font-semibold text-[#F5C518]">
+            {formatCurrency(item.markup, locale)}
+          </p>
         </div>
         <div className="text-right">
-          <p className="text-[#4A6A85]">Cliente</p>
-          <p className="font-semibold text-[#00C9A7]">{formatCurrency(item.finalPrice)}</p>
+          <p className="text-[#4A6A85]">{t.itemClient}</p>
+          <p className="font-semibold text-[#00C9A7]">
+            {formatCurrency(item.finalPrice, locale)}
+          </p>
         </div>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
         {onMarginChange ? (
           <label className="flex min-w-[7rem] flex-col gap-1 text-xs">
-            <span className="text-[#4A6A85]">Margen %</span>
+            <span className="text-[#4A6A85]">{t.itemMarginPercent}</span>
             <div className="flex items-center gap-1">
               <input
                 type="number"
@@ -164,7 +183,7 @@ function QuoteItemCard({
                 : "border border-white/10 bg-white/[0.06] text-[#E8EEF7] hover:border-[#00C9A7]/40 hover:text-[#00C9A7]"
             }`}
           >
-            {isSelected ? "Seleccionado" : "Usar en cotización"}
+            {isSelected ? t.itemSelected : t.itemUseInQuote}
           </button>
         ) : null}
       </div>
@@ -185,22 +204,27 @@ export function QuoteItemsSection({
   onSelectItem?: (itemId: string) => void;
   onMarginChange?: (itemId: string, marginPercent: number) => void;
 }) {
+  const { locale, t } = useDashboardLanguage();
   const selectableCount = items.filter((item) => getQuoteSelectionGroup(item.id)).length;
   const includedCount = items.filter(
     (item) => getQuoteSelectionGroup(item.id) && !item.alternative,
   ).length;
 
+  const subtitle =
+    selectableCount > 0
+      ? formatMessage(t.sectionSubtitleSelectable, {
+          included: includedCount,
+          total: items.length,
+          plural: pluralSuffix(locale, items.length),
+        })
+      : formatMessage(t.sectionSubtitleLines, {
+          total: items.length,
+          plural: pluralSuffix(locale, items.length),
+        });
+
   return (
     <section>
-      <SectionHeading
-        eyebrow={eyebrow}
-        title={title}
-        subtitle={
-          selectableCount > 0
-            ? `${includedCount} incluido(s) · ${items.length} opción${items.length === 1 ? "" : "es"}`
-            : `${items.length} línea${items.length === 1 ? "" : "s"}`
-        }
-      />
+      <SectionHeading eyebrow={eyebrow} title={title} subtitle={subtitle} />
       <div className="space-y-3">
         {items.map((item) => (
           <QuoteItemCard

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { logoutAction } from "./actions";
 import { useDashboardLanguage } from "./dashboard-language-provider";
+import { LocaleToggleButtons } from "./locale-toggle-buttons";
 import { type Locale, translations } from "./translations";
 
 const STAT_VALUES = ["0", "0", "1", "0"] as const;
@@ -21,7 +22,7 @@ function getGreeting(locale: Locale) {
 }
 
 export function LanguageToggle({ email }: LanguageToggleProps) {
-  const { locale, setLocale, t } = useDashboardLanguage();
+  const { locale, t } = useDashboardLanguage();
   const stats = [
     { id: "today", label: t.statsToday, value: STAT_VALUES[0] },
     { id: "month", label: t.statsMonth, value: STAT_VALUES[1] },
@@ -64,22 +65,7 @@ export function LanguageToggle({ email }: LanguageToggleProps) {
               {email}
             </span>
 
-            <div className="flex rounded-full border border-white/10 bg-white/[0.04] p-0.5">
-              {(["es", "en"] as Locale[]).map((code) => (
-                <button
-                  key={code}
-                  type="button"
-                  onClick={() => setLocale(code)}
-                  className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide transition-colors ${
-                    locale === code
-                      ? "bg-[#00C9A7] text-[#03080F]"
-                      : "text-[#8B9CB3] hover:text-white"
-                  }`}
-                >
-                  {code}
-                </button>
-              ))}
-            </div>
+            <LocaleToggleButtons className="bg-white/[0.04]" />
 
             <form action={logoutAction}>
               <button

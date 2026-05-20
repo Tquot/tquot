@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useDashboardLanguage } from "../dashboard-language-provider";
+import { LocaleToggleButtons } from "../locale-toggle-buttons";
 import {
   createInventoryItem,
   deleteInventoryItem,
@@ -77,7 +78,7 @@ function emptyForm(fields: Field[]) {
 }
 
 export function InventoryClient() {
-  const { locale, setLocale, t } = useDashboardLanguage();
+  const { locale, t } = useDashboardLanguage();
   const [activeCategory, setActiveCategory] =
     useState<InventoryCategory>("hotels");
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -117,7 +118,7 @@ export function InventoryClient() {
 
   async function handleAdd() {
     if (!name.trim()) {
-      setError(locale === "es" ? "El nombre es obligatorio." : "Name is required.");
+      setError(t.inventoryNameRequired);
       return;
     }
 
@@ -167,36 +168,17 @@ export function InventoryClient() {
           >
             ← {t.backToDashboard}
           </Link>
-          <div className="flex rounded-full border border-white/10 bg-white/[0.04] p-0.5">
-            {(["es", "en"] as const).map((code) => (
-              <button
-                key={code}
-                type="button"
-                onClick={() => setLocale(code)}
-                className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide transition-colors ${
-                  locale === code
-                    ? "bg-[#00C9A7] text-[#03080F]"
-                    : "text-[#8B9CB3] hover:text-white"
-                }`}
-              >
-                {code}
-              </button>
-            ))}
-          </div>
+          <LocaleToggleButtons className="bg-white/[0.04]" />
         </div>
 
         <section className="mb-8">
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-[#00C9A7]">
-            {locale === "es" ? "Inventario propio" : "Own inventory"}
+            {t.inventoryEyebrow}
           </p>
           <h1 className="mt-3 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            {locale === "es" ? "Inventario de agencia" : "Agency inventory"}
+            {t.inventoryTitle}
           </h1>
-          <p className="mt-3 max-w-2xl text-[#8B9CB3]">
-            {locale === "es"
-              ? "Gestiona hoteles, experiencias, proveedores y tour operadores propios para alimentar el motor de cotización."
-              : "Manage hotels, experiences, suppliers and tour operators used by the quote engine."}
-          </p>
+          <p className="mt-3 max-w-2xl text-[#8B9CB3]">{t.inventorySubtitle}</p>
         </section>
 
         <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 backdrop-blur-sm">
@@ -222,13 +204,7 @@ export function InventoryClient() {
               onClick={() => setIsAdding((current) => !current)}
               className="rounded-xl bg-[#00C9A7] px-5 py-2.5 text-sm font-semibold text-[#03080F] transition-colors hover:bg-[#00E5BB]"
             >
-              {isAdding
-                ? locale === "es"
-                  ? "Cerrar"
-                  : "Close"
-                : locale === "es"
-                  ? "Añadir nuevo"
-                  : "Add new"}
+              {isAdding ? t.inventoryClose : t.inventoryAddNew}
             </button>
           </div>
 
@@ -243,7 +219,7 @@ export function InventoryClient() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <label>
                   <span className="mb-2 block text-sm font-medium text-[#E8EEF7]">
-                    Name
+                    {t.inventoryNameLabel}
                   </span>
                   <input
                     value={name}
@@ -275,7 +251,7 @@ export function InventoryClient() {
                 onClick={handleAdd}
                 className="mt-5 rounded-xl bg-[#00C9A7] px-6 py-3 text-sm font-semibold text-[#03080F] transition-colors hover:bg-[#00E5BB]"
               >
-                {locale === "es" ? "Guardar item" : "Save item"}
+                {t.inventorySaveItem}
               </button>
             </div>
           ) : null}
@@ -284,17 +260,19 @@ export function InventoryClient() {
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="bg-white/[0.04] text-[#8B9CB3]">
                 <tr>
-                  <th className="px-4 py-3 font-medium">Name</th>
-                  <th className="px-4 py-3 font-medium">Details</th>
-                  <th className="px-4 py-3 font-medium">Created</th>
-                  <th className="px-4 py-3 text-right font-medium">Actions</th>
+                  <th className="px-4 py-3 font-medium">{t.inventoryNameLabel}</th>
+                  <th className="px-4 py-3 font-medium">{t.inventoryDetails}</th>
+                  <th className="px-4 py-3 font-medium">{t.inventoryCreated}</th>
+                  <th className="px-4 py-3 text-right font-medium">
+                    {t.inventoryActions}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.06]">
                 {isLoading ? (
                   <tr>
                     <td colSpan={4} className="px-4 py-8 text-center text-[#8B9CB3]">
-                      {locale === "es" ? "Cargando..." : "Loading..."}
+                      {t.inventoryLoading}
                     </td>
                   </tr>
                 ) : filteredItems.length > 0 ? (
@@ -324,7 +302,7 @@ export function InventoryClient() {
                           onClick={() => handleDelete(item.id)}
                           className="rounded-lg border border-[#FF6B35]/30 bg-[#FF6B35]/10 px-3 py-1.5 text-xs font-semibold text-[#FF6B35] transition-colors hover:bg-[#FF6B35]/15"
                         >
-                          Delete
+                          {t.inventoryDelete}
                         </button>
                       </td>
                     </tr>
@@ -332,9 +310,7 @@ export function InventoryClient() {
                 ) : (
                   <tr>
                     <td colSpan={4} className="px-4 py-8 text-center text-[#8B9CB3]">
-                      {locale === "es"
-                        ? "No hay items todavía."
-                        : "No items yet."}
+                      {t.inventoryEmpty}
                     </td>
                   </tr>
                 )}
