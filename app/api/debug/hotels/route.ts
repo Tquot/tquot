@@ -5,7 +5,7 @@ const HOTELS_COM_REGIONS_URL =
 const HOTELS_COM_SEARCH_URL =
   "https://hotels-com-provider.p.rapidapi.com/v2/hotels/search";
 const RAPIDAPI_HOST = "hotels-com-provider.p.rapidapi.com";
-const HOTELS_COM_LOCALE = "en_US";
+const HOTELS_COM_LOCALE = "es_ES";
 const HOTELS_COM_DOMAIN = "ES";
 const HOTELS_COM_SORT_ORDER = "REVIEW";
 
