@@ -180,6 +180,11 @@ function getHotelItems(payload: unknown): unknown[] {
   );
 }
 
+function getFirstHotelRaw(payload: unknown): unknown | null {
+  const hotels = getHotelItems(payload);
+  return hotels.length > 0 ? hotels[0] : null;
+}
+
 function countHotelsFromPayload(payload: unknown): number {
   return getHotelItems(payload).length;
 }
@@ -217,6 +222,7 @@ export async function GET() {
         hotelCount: null,
         rawBodyPreview: regionText.slice(0, RAW_BODY_PREVIEW_LENGTH),
         responseKeys: getTopLevelResponseKeys(regionPayload),
+        firstHotelRaw: null,
       });
     }
 
@@ -229,6 +235,7 @@ export async function GET() {
         hotelCount: null,
         rawBodyPreview: regionText.slice(0, RAW_BODY_PREVIEW_LENGTH),
         responseKeys: [],
+        firstHotelRaw: null,
       });
     }
 
@@ -241,6 +248,7 @@ export async function GET() {
         hotelCount: null,
         rawBodyPreview: regionText.slice(0, RAW_BODY_PREVIEW_LENGTH),
         responseKeys: getTopLevelResponseKeys(regionPayload),
+        firstHotelRaw: null,
       });
     }
 
@@ -272,6 +280,8 @@ export async function GET() {
       hotelsPayload !== null && hotelsResponse.ok
         ? countHotelsFromPayload(hotelsPayload)
         : null;
+    const firstHotelRaw =
+      hotelsPayload !== null ? getFirstHotelRaw(hotelsPayload) : null;
 
     return NextResponse.json({
       rapidApiKeyPresentInEnv: rapidApiKeyPresent,
@@ -279,6 +289,7 @@ export async function GET() {
       hotelCount,
       rawBodyPreview,
       responseKeys: getTopLevelResponseKeys(hotelsPayload),
+      firstHotelRaw,
     });
   } catch {
     return NextResponse.json({
@@ -287,6 +298,7 @@ export async function GET() {
       hotelCount: null,
       rawBodyPreview: "",
       responseKeys: [],
+      firstHotelRaw: null,
     });
   }
 }
