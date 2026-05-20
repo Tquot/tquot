@@ -251,77 +251,65 @@ function findLocationId(
   };
 }
 
+function countNights(checkIn: string, checkOut: string) {
+  const start = new Date(checkIn);
+  const end = new Date(checkOut);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return 1;
+  }
+
+  const diffMs = end.getTime() - start.getTime();
+  const nights = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+  return nights > 0 ? nights : 1;
+}
+
 function getHotelItems(payload: unknown): unknown[] {
   const response = asRecord(payload);
-  const data = asRecord(response.data);
+  const data = response.data;
 
+  if (Array.isArray(data) && data.length > 0) {
+    return data;
+  }
+
+  const dataObject = asRecord(data);
   return firstArray(
-    data.hotels,
-    data.result,
-    data.results,
-    data.properties,
+    dataObject.hotels,
+    dataObject.result,
+    dataObject.results,
     response.hotels,
     response.results,
   );
 }
 
-function getPricePerNight(hotel: Record<string, unknown>) {
-  const property = asRecord(hotel.property);
-  const priceBreakdown = asRecord(hotel.priceBreakdown ?? property.priceBreakdown);
+function getHotelName(hotel: Record<string, unknown>) {
+  return getStringValue(hotel.name);
+}
+
+function getPricePerNight(hotel: Record<string, unknown>, nights: number) {
+  const priceBreakdown = asRecord(hotel.priceBreakdown);
   const grossPrice = asRecord(priceBreakdown.grossPrice);
-  const composite = asRecord(hotel.composite_price_breakdown);
-  const compositeGross = asRecord(composite.gross_amount);
+  const totalValue = grossPrice.value;
 
-  const candidates = [
-    grossPrice.value,
-    grossPrice.amount,
-    grossPrice.formatted,
-    compositeGross.value,
-    compositeGross.amount,
-    priceBreakdown.displayPrice,
-    hotel.min_total_price,
-    hotel.price,
-    hotel.pricePerNight,
-    property.min_total_price,
-    property.price,
-  ];
-
-  for (const candidate of candidates) {
-    const parsed = cleanPrice(candidate);
-    if (parsed) {
-      return parsed;
-    }
+  if (typeof totalValue === "number" && Number.isFinite(totalValue) && nights > 0) {
+    return `${Math.round(totalValue / nights)} EUR`;
   }
 
-  return "Unknown";
+  const formatted = cleanPrice(grossPrice.amountRounded);
+  if (formatted) {
+    return formatted;
+  }
+
+  return cleanPrice(totalValue) || "Unknown";
 }
 
 function getStars(hotel: Record<string, unknown>) {
-  const property = asRecord(hotel.property);
-
-  return getStringValue(
-    hotel.stars,
-    hotel.starRating,
-    hotel.class,
-    hotel.hotel_class,
-    property.propertyClass,
-    property.starRating,
-    property.class,
-  );
+  return getStringValue(hotel.qualityClass, hotel.accuratePropertyClass);
 }
 
 function getRating(hotel: Record<string, unknown>) {
-  const property = asRecord(hotel.property);
-  const reviewScore = asRecord(hotel.reviewScore ?? property.reviewScore);
-
-  return getStringValue(
-    hotel.rating,
-    hotel.review_score,
-    hotel.reviewScore,
-    reviewScore.score,
-    property.reviewScore,
-    property.review_score,
-  );
+  return getStringValue(hotel.reviewScore);
 }
 
 function getAddress(hotel: Record<string, unknown>) {
@@ -401,21 +389,18 @@ function getHighlights(hotel: Record<string, unknown>) {
   return ["Centro ciudad", "Wifi gratis", "Buena ubicación"];
 }
 
-function normalizeHotelOptions(payload: unknown): HotelOption[] {
+function normalizeHotelOptions(
+  payload: unknown,
+  nights: number,
+): HotelOption[] {
   const hotels = getHotelItems(payload);
 
   return hotels.slice(0, 3).map((hotel): HotelOption => {
     const hotelObject = asRecord(hotel);
-    const property = asRecord(hotelObject.property);
 
     return {
-      name: getStringValue(
-        hotelObject.name,
-        hotelObject.hotel_name,
-        property.name,
-        property.title,
-      ),
-      pricePerNight: getPricePerNight(hotelObject),
+      name: getHotelName(hotelObject),
+      pricePerNight: getPricePerNight(hotelObject, nights),
       stars: getStars(hotelObject),
       rating: getRating(hotelObject),
       address: getAddress(hotelObject),
@@ -601,7 +586,8 @@ export async function POST(request: Request) {
       rapidApiKey,
       "searchStays",
     );
-    const hotels = normalizeHotelOptions(hotelPayload);
+    const nights = countNights(checkIn.trim(), checkOut.trim());
+    const hotels = normalizeHotelOptions(hotelPayload, nights);
 
     if (hotels.length === 0) {
       console.error("[search-hotels] RapidAPI returned no hotel options", {
