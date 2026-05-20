@@ -170,9 +170,11 @@ function getHotelItems(payload: unknown): unknown[] {
 
   return firstArray(
     response.properties,
+    response.propertySearchListings,
+    data.properties,
+    data.propertySearchListings,
     propertySearchResults.properties,
     dataPropertySearchResults.properties,
-    data.properties,
     response.results,
     data.results,
   );
