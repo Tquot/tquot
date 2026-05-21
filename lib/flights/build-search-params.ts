@@ -17,7 +17,7 @@ export function buildFlightSearchParams(
 ): FlightSearchParams | { error: string } {
   if (!trip._resolved.origin) return { error: "Origen sin resolver" };
   if (!trip._resolved.destination) return { error: "Destino sin resolver" };
-  if (!trip.dates.departureDate) {
+  if (!trip.departureDate) {
     return { error: "Fecha de salida obligatoria" };
   }
 
@@ -27,11 +27,11 @@ export function buildFlightSearchParams(
       trip._resolved.destination.cityKey,
       choices.destination
     ),
-    departureDate: trip.dates.departureDate,
-    returnDate: trip.dates.returnDate,
-    adults: trip.passengers.adults,
-    children: trip.passengers.children,
-    infants: trip.passengers.infants,
+    departureDate: trip.departureDate,
+    returnDate: trip.returnDate ?? null,
+    adults: trip.adults ?? 2,
+    children: trip.children ?? 0,
+    infants: 0,
   };
 }
 
