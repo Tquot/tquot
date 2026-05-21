@@ -33,51 +33,25 @@ export function enrichWithAirports(trip: TripRequest): EnrichedTripRequest {
   };
 }
 
-function resolveLocation(loc: TripRequest["origin"]): ResolvedLocation | null {
-  if (!loc) return null;
+function resolveLocation(loc: string | undefined): ResolvedLocation | null {
+  if (!loc?.trim()) return null;
 
-  // El parser ya devolvió IATA específico → respetar
-  if (loc.iataCode) {
-    const resolution = resolveCity(loc.iataCode);
-    if (resolution) {
-      return {
-        cityKey: resolution.cityKey,
-        cityDisplayName: resolution.cityDisplayName,
-        country: resolution.country,
-        airports: resolution.airports.map((a) => ({
-          iata: a.iata,
-          name: a.name,
-          city: a.city,
-        })),
-        isMultiAirport: resolution.isMultiAirport,
-        selectedIata: loc.iataCode,
-        needsAgentChoice: false,
-      };
-    }
-  }
+  const resolution = resolveCity(loc);
+  if (!resolution) return null;
 
-  // No hay IATA: resolver por ciudad
-  const queries = [loc.city, loc.raw].filter(Boolean) as string[];
-  for (const q of queries) {
-    const resolution = resolveCity(q);
-    if (resolution) {
-      return {
-        cityKey: resolution.cityKey,
-        cityDisplayName: resolution.cityDisplayName,
-        country: resolution.country,
-        airports: resolution.airports.map((a) => ({
-          iata: a.iata,
-          name: a.name,
-          city: a.city,
-        })),
-        isMultiAirport: resolution.isMultiAirport,
-        selectedIata: resolution.isMultiAirport
-          ? null
-          : resolution.airports[0].iata,
-        needsAgentChoice: resolution.isMultiAirport,
-      };
-    }
-  }
-
-  return null;
+  return {
+    cityKey: resolution.cityKey,
+    cityDisplayName: resolution.cityDisplayName,
+    country: resolution.country,
+    airports: resolution.airports.map((a) => ({
+      iata: a.iata,
+      name: a.name,
+      city: a.city,
+    })),
+    isMultiAirport: resolution.isMultiAirport,
+    selectedIata: resolution.isMultiAirport
+      ? null
+      : resolution.airports[0].iata,
+    needsAgentChoice: resolution.isMultiAirport,
+  };
 }
