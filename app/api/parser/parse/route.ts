@@ -16,12 +16,10 @@ const RequestBodySchema = z.object({
   agentId: z.string(),
   currentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
+/** Dev-only: unauthenticated requests from /test-parser use this agentId. */
 const TEST_AGENT_ID = "test-agent";
 
 export async function POST(req: NextRequest) {
-  const auth = await getAuthenticatedUser();
-  if (auth.response) return auth.response;
-
   let body: z.infer<typeof RequestBodySchema>;
   try {
     body = RequestBodySchema.parse(await req.json());
@@ -32,12 +30,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const anonymizedText = anonymizeForClaude(body.text);
+  const isTestAgent = body.agentId === TEST_AGENT_ID;
 
-  if (body.agentId !== TEST_AGENT_ID) {
+  if (!isTestAgent) {
+    const auth = await getAuthenticatedUser();
+    if (auth.response) return auth.response;
+
     const agentError = validateAgentId(body.agentId, auth.user.id);
     if (agentError) return agentError;
   }
+
+  const anonymizedText = anonymizeForClaude(body.text);
 
   const store = getSessionStore();
   const session = await store.create(body.agentId);
