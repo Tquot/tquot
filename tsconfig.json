@@ -23,5 +23,11 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "_tquot-pdf-pending", "tquot-parser", "tquot-app"]
+  "exclude": [
+    "node_modules",
+    "_tquot-pdf-pending",
+    "_tquot-airports-pending",
+    "tquot-parser",
+    "tquot-app"
+  ]
 }
