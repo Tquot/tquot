@@ -29,9 +29,9 @@ export function AgencyLogo({
   if (agency.logoUrl) {
     return (
       <View>
+        {/* eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop */}
         <Image
           src={agency.logoUrl}
-          alt=""
           style={{
             maxWidth,
             maxHeight,
