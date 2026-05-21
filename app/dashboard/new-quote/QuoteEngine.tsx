@@ -117,12 +117,6 @@ function cloneQuote(quote: Quote): Quote {
   };
 }
 
-function addDays(date: Date, days: number) {
-  const nextDate = new Date(date);
-  nextDate.setDate(nextDate.getDate() + days);
-  return nextDate.toISOString().slice(0, 10);
-}
-
 function cleanPlaceName(value: string) {
   return value
     .replace(/\s+/g, " ")

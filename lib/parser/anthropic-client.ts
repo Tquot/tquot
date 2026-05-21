@@ -57,7 +57,9 @@ export async function callStructured<S extends ZodTypeAny>(
         messages: [{ role: "user", content: userMessage }],
       });
 
-      const text = (((response as any).content ?? []) as ClaudeContentBlock[])
+      const text = ((
+        (response as Record<string, unknown>).content ?? []
+      ) as ClaudeContentBlock[])
         .filter((content) => content.type === "text" && typeof content.text === "string")
         .map((content) => content.text)
         .join("");

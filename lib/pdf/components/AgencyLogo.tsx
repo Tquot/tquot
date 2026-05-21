@@ -31,6 +31,7 @@ export function AgencyLogo({
       <View>
         <Image
           src={agency.logoUrl}
+          alt=""
           style={{
             maxWidth,
             maxHeight,
