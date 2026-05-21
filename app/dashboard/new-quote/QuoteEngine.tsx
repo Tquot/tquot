@@ -18,6 +18,7 @@ import {
 } from "@/lib/quotes/build-quote";
 import { tripRequestToParsedTripInput } from "@/lib/quotes/map-parser";
 import type { TripRequest } from "@/lib/parser/schema";
+import { enrichWithAirports } from "@/lib/parser/airport-resolution";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { readAgencyProfile } from "../agency/agency-profile";
 import { useDashboardLanguage } from "../dashboard-language-provider";
@@ -381,7 +382,8 @@ export function QuoteEngine() {
     }
 
     if (parserResult.ok && parserResult.status === "ready") {
-      parsedInput = tripRequestToParsedTripInput(parserResult.data);
+      const enrichedTrip = enrichWithAirports(parserResult.data);
+      parsedInput = tripRequestToParsedTripInput(enrichedTrip);
       setStepChips((current) =>
         current.map((chips, index) =>
           index === 0
