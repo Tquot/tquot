@@ -87,6 +87,18 @@ export const CITY_GROUPS: CityGroup[] = [
     country: "ES",
     airports: ["TFS", "TFN"],
   },
+  {
+    key: "madrid",
+    aliases: ["madrid"],
+    country: "ES",
+    airports: ["MAD"],
+  },
+  {
+    key: "bilbao",
+    aliases: ["bilbao"],
+    country: "ES",
+    airports: ["BIO"],
+  },
 
   // ─── Norteamérica ───
   {
