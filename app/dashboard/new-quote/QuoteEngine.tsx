@@ -16,12 +16,7 @@ import {
   type QuoteItem,
   type QuoteItemSource,
 } from "@/lib/quotes/build-quote";
-import {
-  addDaysIso,
-  localParseToParsedTripInput,
-  parseDatesFromText,
-  tripRequestToParsedTripInput,
-} from "@/lib/quotes/map-parser";
+import { tripRequestToParsedTripInput } from "@/lib/quotes/map-parser";
 import type { TripRequest } from "@/lib/parser/schema";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { readAgencyProfile } from "../agency/agency-profile";
@@ -42,15 +37,6 @@ type ProcessStep = {
 type ChatMessage = {
   role: "agent" | "ai";
   content: string;
-};
-
-type ParsedRequest = {
-  destination: string;
-  origin?: string;
-  checkIn: string;
-  checkOut: string;
-  adults: number;
-  includeFlights: boolean;
 };
 
 function buildProcessSteps(t: DashboardTranslation): ProcessStep[] {
@@ -114,96 +100,6 @@ function cloneQuote(quote: Quote): Quote {
     experiences: quote.experiences.map((item) => ({ ...item })),
     summary: { ...quote.summary, passengers: { ...quote.summary.passengers } },
     pricing: { ...quote.pricing },
-  };
-}
-
-function cleanPlaceName(value: string) {
-  return value
-    .replace(/\s+/g, " ")
-    .replace(
-      /\s+(?:del|al|desde|hasta|para|con|sin|check|entrada|salida|adultos|adulto|personas|persona|pax|noches?|nights?|hotel|hoteles|vuelo|vuelos|flight|flights|from|to|on|for|with|adults|people|travellers|travelers)\b.*$/iu,
-      "",
-    )
-    .replace(/\s+\d{1,4}.*$/u, "")
-    .replace(/[,.]$/, "")
-    .trim();
-}
-
-function matchKeyword(text: string, patterns: RegExp[]) {
-  for (const pattern of patterns) {
-    const match = text.match(pattern);
-    if (match?.[1]) return cleanPlaceName(match[1]);
-  }
-
-  return "";
-}
-
-function extractBareFlightRoute(text: string) {
-  const match = text.match(/\bvuelos?\s+([\p{L}\p{M}\s.'-]+)/iu);
-  if (!match?.[1]) {
-    return { origin: "", destination: "" };
-  }
-
-  const routeText = cleanPlaceName(match[1]);
-  const parts = routeText.split(/\s+/).filter(Boolean);
-
-  if (parts.length < 2) {
-    return { origin: "", destination: routeText };
-  }
-
-  return {
-    origin: parts[0],
-    destination: parts.slice(1).join(" "),
-  };
-}
-
-function parseRequest(text: string): ParsedRequest | null {
-  const today = new Date();
-  const sourceText = text.trim();
-  const bareFlightRoute = extractBareFlightRoute(sourceText);
-  const destination =
-    matchKeyword(sourceText, [
-      /\bhoteles?\s+en\s+([\p{L}\p{M}\s.'-]+)/iu,
-      /\bhoteles?\s+([\p{L}\p{M}\s.'-]+)/iu,
-      /\bhotel\s+([\p{L}\p{M}\s.'-]+)/iu,
-      /\bviaje\s+a\s+([\p{L}\p{M}\s.'-]+)/iu,
-      /\bvuelo\s+a\s+([\p{L}\p{M}\s.'-]+)/iu,
-      /\bvuelos?\s+a\s+([\p{L}\p{M}\s.'-]+)/iu,
-      /\b([\p{L}\p{M}\s.'-]+?)\s+\d+\s+noches?\b/iu,
-      /\bpara\s+([\p{L}\p{M}\s.'-]+)/iu,
-      /\ben\s+([\p{L}\p{M}\s.'-]+)/iu,
-      /\ba\s+([\p{L}\p{M}\s.'-]+)/iu,
-    ]) || bareFlightRoute.destination;
-
-  if (!destination) {
-    return null;
-  }
-
-  const origin = matchKeyword(sourceText, [
-    /\bdesde\s+([\p{L}\p{M}\s.'-]+?)\s+\b(?:a|hasta)\b/iu,
-    /\bde\s+([\p{L}\p{M}\s.'-]+?)\s+\ba\b/iu,
-    /\bfrom\s+([\p{L}\p{M}\s.'-]+?)\s+\bto\b/iu,
-  ]) || bareFlightRoute.origin;
-
-  const extractedDates = parseDatesFromText(sourceText);
-  const todayIso = today.toISOString().slice(0, 10);
-  const checkIn = extractedDates?.start ?? todayIso;
-  const checkOut = extractedDates?.end ?? addDaysIso(checkIn, 3);
-
-  const adultsMatch = sourceText.match(
-    /\b(\d+)\s*(?:adults?|adultos?|people|personas?|pax|travellers?|viajeros?)\b/i,
-  );
-  const includeFlights = /\b(?:vuelo|vuelos|flight|flights|volar|desde|from)\b/i.test(
-    sourceText,
-  );
-
-  return {
-    destination,
-    origin: origin || undefined,
-    checkIn,
-    checkOut,
-    adults: adultsMatch ? Number(adultsMatch[1]) : 2,
-    includeFlights,
   };
 }
 
@@ -462,8 +358,7 @@ export function QuoteEngine() {
     setStepChips(defaultStepChips);
     setActiveStep(0);
 
-    let parsedInput = null as ReturnType<typeof tripRequestToParsedTripInput>;
-    let parserSource = "local";
+    let parsedInput = null as ReturnType<typeof tripRequestToParsedTripInput> | null;
 
     const supabase = createBrowserSupabaseClient();
     const {
@@ -487,7 +382,6 @@ export function QuoteEngine() {
 
     if (parserResult.ok && parserResult.status === "ready") {
       parsedInput = tripRequestToParsedTripInput(parserResult.data);
-      parserSource = "parser";
       setStepChips((current) =>
         current.map((chips, index) =>
           index === 0
@@ -506,37 +400,17 @@ export function QuoteEngine() {
     }
 
     if (!parsedInput) {
-      const localParsed = parseRequest(latestRequest);
-      if (!localParsed) {
-        setStepChips((current) =>
-          current.map((chips, index) =>
-            index === 0
-              ? [t.chipDestinationNotDetected, t.chipSpecifyDestination]
-              : chips,
-          ),
-        );
-        setIsRunning(false);
-        return;
-      }
-      parsedInput = localParseToParsedTripInput(localParsed);
-      parserSource = "local";
-      const fallbackLabel =
+      const rephraseChip =
         parserResult.ok === false && parserResult.reason === "timeout"
-          ? t.chipParserTimeout
-          : t.chipLocalFallback;
+          ? t.chipParserTimeoutRephrase
+          : t.chipParserRephrase;
       setStepChips((current) =>
         current.map((chips, index) =>
-          index === 0
-            ? [
-                formatMessage(t.chipDestination, {
-                  value: localParsed.destination,
-                }),
-                formatMessage(t.chipTravelers, { count: localParsed.adults }),
-                fallbackLabel,
-              ]
-            : chips,
+          index === 0 ? [rephraseChip] : chips,
         ),
       );
+      setIsRunning(false);
+      return;
     }
 
     await pipelineDelay();
@@ -554,7 +428,7 @@ export function QuoteEngine() {
                 start: parsedInput.dates.start,
                 end: parsedInput.dates.end,
               }),
-              formatMessage(t.chipSource, { source: parserSource }),
+              t.chipParserSource,
             ]
           : chips,
       ),

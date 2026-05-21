@@ -96,15 +96,13 @@ const es = {
   chipTripRequestReady: "TripRequest listo",
   chipDestination: "Destino: {value}",
   chipAdults: "Adultos: {value}",
-  chipDestinationNotDetected: "Destino no detectado",
-  chipSpecifyDestination:
-    "Especifica destino: hoteles en Ribadesella / viaje a Roma",
-  chipTravelers: "{count} viajeros",
-  chipParserTimeout: "Parser timeout (10s) · extracción local",
-  chipLocalFallback: "Extracción local (fallback)",
+  chipParserRephrase:
+    "No se pudo interpretar la solicitud. Reformula el pedido con destino, fechas y número de viajeros.",
+  chipParserTimeoutRephrase:
+    "El parser tardó demasiado (10 s). Reformula el pedido de forma más breve y clara.",
   chipRoute: "{origin} → {destination}",
   chipDates: "{start} → {end}",
-  chipSource: "Fuente: {source}",
+  chipParserSource: "Fuente: Parser API",
   chipFlightsCount: "{count} vuelos",
   chipHotelsCount: "{count} hoteles",
   chipExperiencesCount: "{count} experiencias",
@@ -288,15 +286,13 @@ const en: Record<keyof typeof es, string> = {
   chipTripRequestReady: "TripRequest ready",
   chipDestination: "Destination: {value}",
   chipAdults: "Adults: {value}",
-  chipDestinationNotDetected: "Destination not detected",
-  chipSpecifyDestination:
-    "Specify destination: hotels in Ribadesella / trip to Rome",
-  chipTravelers: "{count} travelers",
-  chipParserTimeout: "Parser timeout (10s) · local extraction",
-  chipLocalFallback: "Local extraction (fallback)",
+  chipParserRephrase:
+    "Could not parse the request. Rephrase it with a clear destination, dates, and traveler count.",
+  chipParserTimeoutRephrase:
+    "The parser timed out (10s). Rephrase the request more briefly and clearly.",
   chipRoute: "{origin} → {destination}",
   chipDates: "{start} → {end}",
-  chipSource: "Source: {source}",
+  chipParserSource: "Source: Parser API",
   chipFlightsCount: "{count} flights",
   chipHotelsCount: "{count} hotels",
   chipExperiencesCount: "{count} experiences",
