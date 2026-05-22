@@ -99,6 +99,66 @@ export const CITY_GROUPS: CityGroup[] = [
     country: "ES",
     airports: ["BIO"],
   },
+  {
+    key: "ribadesella",
+    aliases: ["ribadesella"],
+    country: "ES",
+    airports: ["OVD"],
+  },
+  {
+    key: "gijon",
+    aliases: ["gijón", "gijon"],
+    country: "ES",
+    airports: ["OVD"],
+  },
+  {
+    key: "oviedo",
+    aliases: ["oviedo"],
+    country: "ES",
+    airports: ["OVD"],
+  },
+  {
+    key: "santander_city",
+    aliases: ["santander"],
+    country: "ES",
+    airports: ["SDR"],
+  },
+  {
+    key: "burgos",
+    aliases: ["burgos"],
+    country: "ES",
+    airports: ["RGS"],
+  },
+  {
+    key: "toledo",
+    aliases: ["toledo"],
+    country: "ES",
+    airports: ["MAD"],
+  },
+  {
+    key: "segovia",
+    aliases: ["segovia"],
+    country: "ES",
+    airports: ["MAD"],
+  },
+  {
+    key: "granada",
+    aliases: ["granada"],
+    country: "ES",
+    airports: ["GRX"],
+  },
+  {
+    key: "cordoba",
+    aliases: ["córdoba", "cordoba"],
+    country: "ES",
+    airports: ["SVQ"],
+  },
+  {
+    key: "ronda",
+    aliases: ["ronda"],
+    country: "ES",
+    airports: ["AGP"],
+  },
 
   // ─── Norteamérica ───
   {
