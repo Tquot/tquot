@@ -220,7 +220,7 @@ async function searchFlightsApi(params: {
   adults: number;
 }): Promise<FlightOption[]> {
   const data = await postSearchApi<{ flights?: FlightOption[]; fallback?: boolean }>(
-    "/api/search-flights",
+    "/api/search-flights-duffel",
     {
       origin: params.origin,
       destination: params.destination,
