@@ -404,6 +404,7 @@ export function QuoteEngine() {
 
   async function continueQuoteFromEnriched(enrichedTrip: EnrichedTripRequest) {
     const parsedInput = tripRequestToParsedTripInput(enrichedTrip);
+    if (!parsedInput) return;
     setEnrichedTrip(null);
     setAirportChoices({ origin: null, destination: null });
 
