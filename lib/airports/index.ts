@@ -71,7 +71,10 @@ function buildIndexes(): Indexes {
     airports.sort((a, b) => a.iata.localeCompare(b.iata));
 
     byCityKey.set(key, airports);
-    aliasToCityKey.set(normalize(airports[0].city), key);
+    const cityAlias = normalize(airports[0].city);
+    if (!aliasToCityKey.has(cityAlias)) {
+      aliasToCityKey.set(cityAlias, key);
+    }
     for (const ap of airports) airportToCityKey.set(ap.iata, key);
   }
 

@@ -49,7 +49,7 @@ export const CITY_GROUPS: CityGroup[] = [
     key: "berlin",
     aliases: ["berlin", "berlín"],
     country: "DE",
-    airports: ["BER"],
+    airports: ["TXL", "SXF"],
   },
   {
     key: "moscow",
