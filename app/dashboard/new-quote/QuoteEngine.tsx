@@ -19,7 +19,11 @@ import {
 } from "@/lib/quotes/build-quote";
 import { tripRequestToParsedTripInput } from "@/lib/quotes/map-parser";
 import type { TripRequest } from "@/lib/parser/schema";
-import { enrichWithAirports } from "@/lib/parser/airport-resolution";
+import {
+  enrichWithAirports,
+  type EnrichedTripRequest,
+} from "@/lib/parser/airport-resolution";
+import { AirportPicker } from "@/components/AirportPicker";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { readAgencyProfile } from "../agency/agency-profile";
 import { useDashboardLanguage } from "../dashboard-language-provider";
@@ -111,6 +115,39 @@ function pipelineDelay(ms = 600) {
 }
 
 const PARSER_TIMEOUT_MS = 10_000;
+
+type AirportChoice = string | "all";
+
+type AirportChoicesState = {
+  origin: AirportChoice | null;
+  destination: AirportChoice | null;
+};
+
+function needsAirportSelection(enriched: EnrichedTripRequest): boolean {
+  return (
+    enriched._resolved.origin?.needsAgentChoice === true ||
+    enriched._resolved.destination?.needsAgentChoice === true
+  );
+}
+
+function isAirportSelectionComplete(
+  enriched: EnrichedTripRequest,
+  choices: AirportChoicesState,
+): boolean {
+  if (
+    enriched._resolved.origin?.needsAgentChoice === true &&
+    choices.origin === null
+  ) {
+    return false;
+  }
+  if (
+    enriched._resolved.destination?.needsAgentChoice === true &&
+    choices.destination === null
+  ) {
+    return false;
+  }
+  return true;
+}
 
 type ParserApiResult =
   | { ok: true; status: "ready"; data: TripRequest }
@@ -237,6 +274,19 @@ export function QuoteEngine() {
     { role: "ai", content: t.chatWelcome },
   ]);
   const [agentNotes, setAgentNotes] = useState(t.defaultAgentNotes);
+  const [enrichedTrip, setEnrichedTrip] = useState<EnrichedTripRequest | null>(
+    null,
+  );
+  const [airportChoices, setAirportChoices] = useState<AirportChoicesState>({
+    origin: null,
+    destination: null,
+  });
+
+  const awaitingAirportChoice =
+    enrichedTrip !== null && needsAirportSelection(enrichedTrip);
+  const airportChoiceComplete =
+    enrichedTrip === null ||
+    isAirportSelectionComplete(enrichedTrip, airportChoices);
 
   useEffect(() => {
     if (!isRunning) {
@@ -352,70 +402,10 @@ export function QuoteEngine() {
     setChatInput("");
   }
 
-  async function runQuoteEngine() {
-    const latestRequest = requestInputRef.current?.value ?? request;
-    setRequest(latestRequest);
-    setIsRunning(true);
-    setIsComplete(false);
-    setQuote(null);
-    setStepChips(defaultStepChips);
-    setActiveStep(0);
-
-    let parsedInput = null as ReturnType<typeof tripRequestToParsedTripInput> | null;
-
-    const supabase = createBrowserSupabaseClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    const agentId = user?.id ?? "test-agent";
-
-    const parserResult = await callParserApi(latestRequest, agentId);
-
-    if (parserResult.ok && parserResult.status === "needs_input") {
-      setStepChips((current) =>
-        current.map((chips, index) =>
-          index === 0
-            ? [t.chipParserNeedsDetails, ...parserResult.questions.slice(0, 2)]
-            : chips,
-        ),
-      );
-      setIsRunning(false);
-      return;
-    }
-
-    if (parserResult.ok && parserResult.status === "ready") {
-      const enrichedTrip = enrichWithAirports(parserResult.data);
-      parsedInput = tripRequestToParsedTripInput(enrichedTrip);
-      setStepChips((current) =>
-        current.map((chips, index) =>
-          index === 0
-            ? [
-                formatMessage(t.chipDestination, {
-                  value: parserResult.data.destination,
-                }),
-                formatMessage(t.chipAdults, {
-                  value: parserResult.data.adults ?? 2,
-                }),
-                t.chipTripRequestReady,
-              ]
-            : chips,
-        ),
-      );
-    }
-
-    if (!parsedInput) {
-      const rephraseChip =
-        parserResult.ok === false && parserResult.reason === "timeout"
-          ? t.chipParserTimeoutRephrase
-          : t.chipParserRephrase;
-      setStepChips((current) =>
-        current.map((chips, index) =>
-          index === 0 ? [rephraseChip] : chips,
-        ),
-      );
-      setIsRunning(false);
-      return;
-    }
+  async function continueQuoteFromEnriched(enrichedTrip: EnrichedTripRequest) {
+    const parsedInput = tripRequestToParsedTripInput(enrichedTrip);
+    setEnrichedTrip(null);
+    setAirportChoices({ origin: null, destination: null });
 
     await pipelineDelay();
 
@@ -461,6 +451,89 @@ export function QuoteEngine() {
     setActiveStep(processSteps.length);
     setIsRunning(false);
     setIsComplete(true);
+  }
+
+  async function runQuoteEngine() {
+    const latestRequest = requestInputRef.current?.value ?? request;
+    setRequest(latestRequest);
+
+    if (awaitingAirportChoice && enrichedTrip) {
+      if (!airportChoiceComplete) return;
+      setIsRunning(true);
+      setIsComplete(false);
+      setQuote(null);
+      await continueQuoteFromEnriched(enrichedTrip);
+      return;
+    }
+
+    setIsRunning(true);
+    setIsComplete(false);
+    setQuote(null);
+    setEnrichedTrip(null);
+    setAirportChoices({ origin: null, destination: null });
+    setStepChips(defaultStepChips);
+    setActiveStep(0);
+
+    const supabase = createBrowserSupabaseClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const agentId = user?.id ?? "test-agent";
+
+    const parserResult = await callParserApi(latestRequest, agentId);
+
+    if (parserResult.ok && parserResult.status === "needs_input") {
+      setStepChips((current) =>
+        current.map((chips, index) =>
+          index === 0
+            ? [t.chipParserNeedsDetails, ...parserResult.questions.slice(0, 2)]
+            : chips,
+        ),
+      );
+      setIsRunning(false);
+      return;
+    }
+
+    if (parserResult.ok && parserResult.status === "ready") {
+      const enriched = enrichWithAirports(parserResult.data);
+      setStepChips((current) =>
+        current.map((chips, index) =>
+          index === 0
+            ? [
+                formatMessage(t.chipDestination, {
+                  value: parserResult.data.destination,
+                }),
+                formatMessage(t.chipAdults, {
+                  value: parserResult.data.adults ?? 2,
+                }),
+                t.chipTripRequestReady,
+              ]
+            : chips,
+        ),
+      );
+
+      if (needsAirportSelection(enriched)) {
+        setEnrichedTrip(enriched);
+        setAirportChoices({ origin: null, destination: null });
+        setActiveStep(0);
+        setIsRunning(false);
+        return;
+      }
+
+      await continueQuoteFromEnriched(enriched);
+      return;
+    }
+
+    const rephraseChip =
+      parserResult.ok === false && parserResult.reason === "timeout"
+        ? t.chipParserTimeoutRephrase
+        : t.chipParserRephrase;
+    setStepChips((current) =>
+      current.map((chips, index) =>
+        index === 0 ? [rephraseChip] : chips,
+      ),
+    );
+    setIsRunning(false);
   }
 
   function generateAgentPDF() {
@@ -715,16 +788,53 @@ export function QuoteEngine() {
               id="client-request"
               ref={requestInputRef}
               value={request}
-              onChange={(event) => setRequest(event.target.value)}
+              onChange={(event) => {
+                setRequest(event.target.value);
+                setEnrichedTrip(null);
+                setAirportChoices({ origin: null, destination: null });
+              }}
               rows={10}
               className="w-full resize-y rounded-2xl border border-white/10 bg-[#03080F]/70 px-4 py-4 text-[#E8EEF7] shadow-inner shadow-black/30 placeholder:text-[#8B9CB3]/50 outline-none transition-colors focus:border-[#00C9A7]/50 focus:ring-2 focus:ring-[#00C9A7]/20"
               placeholder={t.quoteEngineRequestPlaceholder}
             />
 
+            {awaitingAirportChoice && enrichedTrip ? (
+              <div className="mt-6 space-y-4">
+                {enrichedTrip._resolved.origin?.needsAgentChoice ? (
+                  <AirportPicker
+                    label="Origen"
+                    resolved={enrichedTrip._resolved.origin}
+                    onSelect={(iata) =>
+                      setAirportChoices((current) => ({
+                        ...current,
+                        origin: iata,
+                      }))
+                    }
+                  />
+                ) : null}
+                {enrichedTrip._resolved.destination?.needsAgentChoice ? (
+                  <AirportPicker
+                    label="Destino"
+                    resolved={enrichedTrip._resolved.destination}
+                    onSelect={(iata) =>
+                      setAirportChoices((current) => ({
+                        ...current,
+                        destination: iata,
+                      }))
+                    }
+                  />
+                ) : null}
+              </div>
+            ) : null}
+
             <button
               type="button"
               onClick={runQuoteEngine}
-              disabled={!request.trim() || isRunning}
+              disabled={
+                !request.trim() ||
+                isRunning ||
+                (awaitingAirportChoice && !airportChoiceComplete)
+              }
               className="mt-6 w-full rounded-2xl bg-[#00C9A7] px-8 py-4 text-sm font-bold text-[#03080F] shadow-[0_0_42px_-8px_rgba(0,201,167,0.7)] transition-all hover:-translate-y-0.5 hover:bg-[#00E5BB] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
             >
               {isRunning ? t.processing : t.generateQuote}
