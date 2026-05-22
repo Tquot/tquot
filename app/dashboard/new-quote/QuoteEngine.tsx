@@ -13,6 +13,7 @@ import {
   selectPrimaryInGroup,
   syncQuotePricing,
   type Quote,
+  type QuoteDataSource,
   type QuoteItem,
   type QuoteItemSource,
 } from "@/lib/quotes/build-quote";
@@ -815,22 +816,28 @@ export function QuoteEngine() {
 
             <div className="mb-6 grid gap-6 lg:grid-cols-3">
               {quote.flights.length > 0 ? (
-                <QuoteItemsSection
-                  eyebrow={t.sectionFlightsEyebrow}
-                  title={t.sectionFlightsTitle}
-                  items={quote.flights}
-                  onSelectItem={handleSelectQuoteItem}
-                  onMarginChange={handleQuoteItemMarginChange}
-                />
+                <div>
+                  <DataSourceBadge source={quote._meta.flightsSource} />
+                  <QuoteItemsSection
+                    eyebrow={t.sectionFlightsEyebrow}
+                    title={t.sectionFlightsTitle}
+                    items={quote.flights}
+                    onSelectItem={handleSelectQuoteItem}
+                    onMarginChange={handleQuoteItemMarginChange}
+                  />
+                </div>
               ) : null}
               {quote.hotels.length > 0 ? (
-                <QuoteItemsSection
-                  eyebrow={t.sectionHotelsEyebrow}
-                  title={t.sectionHotelsTitle}
-                  items={quote.hotels}
-                  onSelectItem={handleSelectQuoteItem}
-                  onMarginChange={handleQuoteItemMarginChange}
-                />
+                <div>
+                  <DataSourceBadge source={quote._meta.hotelsSource} />
+                  <QuoteItemsSection
+                    eyebrow={t.sectionHotelsEyebrow}
+                    title={t.sectionHotelsTitle}
+                    items={quote.hotels}
+                    onSelectItem={handleSelectQuoteItem}
+                    onMarginChange={handleQuoteItemMarginChange}
+                  />
+                </div>
               ) : null}
               {quote.experiences.length > 0 ? (
                 <QuoteItemsSection
@@ -841,11 +848,6 @@ export function QuoteEngine() {
                 />
               ) : null}
             </div>
-
-            <p className="mt-4 text-xs text-[#8B9CB3]">
-              fuente vuelos: {quote._meta.flightsSource} · fuente hoteles:{" "}
-              {quote._meta.hotelsSource}
-            </p>
 
             <div className="mt-6 grid gap-6 lg:grid-cols-2">
               <section className="rounded-3xl border border-white/[0.08] bg-[#03080F]/60 p-5 shadow-[0_16px_44px_rgba(0,0,0,0.22)]">
@@ -926,6 +928,22 @@ export function QuoteEngine() {
         ) : null}
       </main>
     </div>
+  );
+}
+
+function DataSourceBadge({ source }: { source: QuoteDataSource }) {
+  if (source === "real") {
+    return (
+      <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-400/35 bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold text-emerald-300">
+        ✓ Datos reales
+      </span>
+    );
+  }
+
+  return (
+    <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-amber-400/35 bg-amber-400/10 px-2.5 py-1 text-xs font-semibold text-amber-300">
+      ⚠ Datos de ejemplo
+    </span>
   );
 }
 
