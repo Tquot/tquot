@@ -497,6 +497,14 @@ export function QuoteEngine() {
 
     if (parserResult.ok && parserResult.status === "ready") {
       const enriched = enrichWithAirports(parserResult.data);
+      console.log("[QuoteEngine] enriched trip", {
+        origin: parserResult.data.origin,
+        destination: parserResult.data.destination,
+        needsOriginChoice: enriched._resolved.origin?.needsAgentChoice,
+        needsDestinationChoice: enriched._resolved.destination?.needsAgentChoice,
+        resolvedOrigin: enriched._resolved.origin,
+        resolvedDestination: enriched._resolved.destination,
+      });
       setStepChips((current) =>
         current.map((chips, index) =>
           index === 0
