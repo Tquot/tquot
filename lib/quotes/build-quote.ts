@@ -5,6 +5,8 @@
 import type { FlightOption } from "@/app/api/search-flights/route";
 import type { HotelOption } from "@/app/api/search-hotels/route";
 import { getCityIATA } from "@/lib/airports";
+import { buildFlightSearchParams } from "@/lib/flights/build-search-params";
+import type { EnrichedTripRequest } from "@/lib/parser/airport-resolution";
 
 // ─────────────────────────────────────────────────────────────
 // Input
@@ -20,6 +22,11 @@ export type AgencyMarginCategory =
   | "seguros";
 
 export type AgencyMargins = Partial<Record<AgencyMarginCategory, number>>;
+
+export type AirportFlightChoices = {
+  origin: string | "all";
+  destination: string | "all";
+};
 
 export interface ParsedTripInput {
   origin: string;
@@ -39,6 +46,8 @@ export interface ParsedTripInput {
     accessibility: boolean;
   };
   agencyMargins?: AgencyMargins;
+  enrichedTrip?: EnrichedTripRequest;
+  airportChoices?: AirportFlightChoices;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -131,6 +140,8 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
       pax,
       directFlights: input.preferences.directFlights,
       seed,
+      enrichedTrip: input.enrichedTrip,
+      airportChoices: input.airportChoices,
     }),
     buildHotelsFromApiOrMock({
       destination,
@@ -401,6 +412,53 @@ function quoteSectionSource(items: QuoteItem[]): QuoteDataSource {
   return items.every((item) => item.source === "api") ? "real" : "mock";
 }
 
+function defaultAirportChoicesFromEnriched(
+  trip: EnrichedTripRequest,
+): AirportFlightChoices {
+  const origin = trip._resolved.origin;
+  const destination = trip._resolved.destination;
+  return {
+    origin: origin?.selectedIata ?? origin?.airports[0]?.iata ?? "all",
+    destination:
+      destination?.selectedIata ?? destination?.airports[0]?.iata ?? "all",
+  };
+}
+
+function resolveFlightIataCodes(params: {
+  origin: string;
+  destination: string;
+  enrichedTrip?: EnrichedTripRequest;
+  airportChoices?: AirportFlightChoices;
+}): { originIata: string; destinationIata: string } {
+  if (params.enrichedTrip) {
+    const choices =
+      params.airportChoices ??
+      defaultAirportChoicesFromEnriched(params.enrichedTrip);
+    const flightParams = buildFlightSearchParams(params.enrichedTrip, choices);
+    if (!("error" in flightParams)) {
+      if (flightParams.origins.length > 1) {
+        // TODO: run parallel flight searches for each origin IATA
+      }
+      if (flightParams.destinations.length > 1) {
+        // TODO: run parallel flight searches for each destination IATA
+      }
+      return {
+        originIata: flightParams.origins[0],
+        destinationIata: flightParams.destinations[0],
+      };
+    }
+    console.warn(
+      "[buildQuote] buildFlightSearchParams failed, falling back to getCityIATA",
+      flightParams.error,
+    );
+  }
+
+  return {
+    originIata: getCityIATA(params.origin),
+    destinationIata: getCityIATA(params.destination),
+  };
+}
+
 async function buildFlightsFromApiOrMock(params: {
   origin: string;
   destination: string;
@@ -408,15 +466,22 @@ async function buildFlightsFromApiOrMock(params: {
   pax: { adults: number; children: number };
   directFlights: boolean;
   seed: number;
+  enrichedTrip?: EnrichedTripRequest;
+  airportChoices?: AirportFlightChoices;
 }): Promise<QuoteSectionBuildResult> {
   const { origin, destination, dates, pax, directFlights, seed } = params;
   const adults = pax.adults;
 
-  const originIata = getCityIATA(origin);
-  const destinationIata = getCityIATA(destination);
+  const { originIata, destinationIata } = resolveFlightIataCodes({
+    origin,
+    destination,
+    enrichedTrip: params.enrichedTrip,
+    airportChoices: params.airportChoices,
+  });
   console.log("[buildQuote] resolved IATA codes", {
     origin: { city: origin, iata: originIata },
     destination: { city: destination, iata: destinationIata },
+    airportChoices: params.airportChoices,
   });
 
   const [outboundFlights, returnFlights] = await Promise.all([

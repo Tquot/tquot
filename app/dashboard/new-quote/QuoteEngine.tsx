@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   applyItemMargin,
   buildQuote,
+  type AirportFlightChoices,
   getItemMarginPercent,
   itemsForPricing,
   pricedQuoteItemsFromQuote,
@@ -147,6 +148,24 @@ function isAirportSelectionComplete(
     return false;
   }
   return true;
+}
+
+function airportChoicesForBuild(
+  enriched: EnrichedTripRequest,
+  choices: AirportChoicesState,
+): AirportFlightChoices {
+  return {
+    origin:
+      choices.origin ??
+      enriched._resolved.origin?.selectedIata ??
+      enriched._resolved.origin?.airports[0]?.iata ??
+      "all",
+    destination:
+      choices.destination ??
+      enriched._resolved.destination?.selectedIata ??
+      enriched._resolved.destination?.airports[0]?.iata ??
+      "all",
+  };
 }
 
 type ParserApiResult =
@@ -403,6 +422,7 @@ export function QuoteEngine() {
   }
 
   async function continueQuoteFromEnriched(enrichedTrip: EnrichedTripRequest) {
+    const choicesForBuild = airportChoicesForBuild(enrichedTrip, airportChoices);
     const parsedInput = tripRequestToParsedTripInput(enrichedTrip);
     if (!parsedInput) return;
     setEnrichedTrip(null);
@@ -431,7 +451,11 @@ export function QuoteEngine() {
     await pipelineDelay();
 
     setActiveStep(2);
-    const built = await buildQuote(parsedInput);
+    const built = await buildQuote({
+      ...parsedInput,
+      enrichedTrip,
+      airportChoices: choicesForBuild,
+    });
     setQuote(built);
     setStepChips((current) =>
       current.map((chips, index) =>
