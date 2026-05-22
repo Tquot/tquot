@@ -101,6 +101,7 @@ function cloneQuote(quote: Quote): Quote {
     experiences: quote.experiences.map((item) => ({ ...item })),
     summary: { ...quote.summary, passengers: { ...quote.summary.passengers } },
     pricing: { ...quote.pricing },
+    _meta: { ...quote._meta },
   };
 }
 
@@ -840,6 +841,11 @@ export function QuoteEngine() {
                 />
               ) : null}
             </div>
+
+            <p className="mt-4 text-xs text-[#8B9CB3]">
+              fuente vuelos: {quote._meta.flightsSource} · fuente hoteles:{" "}
+              {quote._meta.hotelsSource}
+            </p>
 
             <div className="mt-6 grid gap-6 lg:grid-cols-2">
               <section className="rounded-3xl border border-white/[0.08] bg-[#03080F]/60 p-5 shadow-[0_16px_44px_rgba(0,0,0,0.22)]">

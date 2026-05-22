@@ -72,6 +72,21 @@ export interface QuotePricing {
   currency: "EUR";
 }
 
+export type QuoteDataSource = "real" | "mock";
+
+export interface QuoteSectionBuildResult {
+  items: QuoteItem[];
+  source: QuoteDataSource;
+  mockReason?: string;
+}
+
+export interface QuoteMeta {
+  flightsSource: QuoteDataSource;
+  hotelsSource: QuoteDataSource;
+  flightsMockReason?: string;
+  hotelsMockReason?: string;
+}
+
 export interface Quote {
   id: string;
   summary: QuoteSummary;
@@ -79,6 +94,7 @@ export interface Quote {
   hotels: QuoteItem[];
   experiences: QuoteItem[];
   pricing: QuotePricing;
+  _meta: QuoteMeta;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -97,7 +113,7 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
     `${origin}|${destination}|${input.dates.start}|${input.dates.end}|${pax.adults}|${pax.children}|${input.preferences.hotelLevel}|${input.preferences.directFlights}|${input.preferences.accessibility}`,
   );
 
-  const [flights, hotels] = await Promise.all([
+  const [flightsResult, hotelsResult] = await Promise.all([
     buildFlightsFromApiOrMock({
       origin,
       destination,
@@ -117,6 +133,9 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
     }),
   ]);
 
+  const flights = flightsResult.items;
+  const hotels = hotelsResult.items;
+
   const experiences = buildExperiences({
     destination,
     durationDays,
@@ -132,6 +151,9 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
 
   const margin = sumMarkups(pricedItems);
   const finalTotal = baseTotal + margin;
+
+  const flightsSource = quoteSectionSource(flights);
+  const hotelsSource = quoteSectionSource(hotels);
 
   return {
     id: buildQuoteId(input, origin, destination),
@@ -152,6 +174,16 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
       margin,
       finalTotal,
       currency: "EUR",
+    },
+    _meta: {
+      flightsSource,
+      hotelsSource,
+      ...(flightsSource === "mock" && flightsResult.mockReason
+        ? { flightsMockReason: flightsResult.mockReason }
+        : {}),
+      ...(hotelsSource === "mock" && hotelsResult.mockReason
+        ? { hotelsMockReason: hotelsResult.mockReason }
+        : {}),
     },
   };
 }
@@ -342,6 +374,10 @@ export function syncQuotePricing(quote: Quote): void {
   quote.pricing.finalTotal = quote.pricing.baseTotal + quote.pricing.margin;
 }
 
+function quoteSectionSource(items: QuoteItem[]): QuoteDataSource {
+  return items.every((item) => item.source === "api") ? "real" : "mock";
+}
+
 async function buildFlightsFromApiOrMock(params: {
   origin: string;
   destination: string;
@@ -349,7 +385,7 @@ async function buildFlightsFromApiOrMock(params: {
   pax: { adults: number; children: number };
   directFlights: boolean;
   seed: number;
-}): Promise<QuoteItem[]> {
+}): Promise<QuoteSectionBuildResult> {
   const { origin, destination, dates, pax, directFlights, seed } = params;
   const adults = pax.adults;
 
@@ -405,10 +441,14 @@ async function buildFlightsFromApiOrMock(params: {
   });
 
   if (items.length > 0) {
-    return items;
+    return { items, source: "real" };
   }
 
-  return buildMockFlights({ origin, destination, pax, directFlights, seed });
+  return {
+    items: buildMockFlights({ origin, destination, pax, directFlights, seed }),
+    source: "mock",
+    mockReason: "Flight search API returned no results",
+  };
 }
 
 async function buildHotelsFromApiOrMock(params: {
@@ -419,7 +459,7 @@ async function buildHotelsFromApiOrMock(params: {
   hotelLevel: HotelLevel;
   accessibility: boolean;
   seed: number;
-}): Promise<QuoteItem[]> {
+}): Promise<QuoteSectionBuildResult> {
   const { destination, dates, nights, pax, hotelLevel, accessibility, seed } =
     params;
 
@@ -433,19 +473,26 @@ async function buildHotelsFromApiOrMock(params: {
   console.log("[buildQuote] hotels before mapping to QuoteItem", apiHotels);
 
   if (apiHotels.length > 0) {
-    return apiHotels.slice(0, 3).map((hotel, index) =>
-      mapApiHotelToQuoteItem(hotel, nights, `hotel-${index + 1}`, index > 0),
-    );
+    return {
+      items: apiHotels.slice(0, 3).map((hotel, index) =>
+        mapApiHotelToQuoteItem(hotel, nights, `hotel-${index + 1}`, index > 0),
+      ),
+      source: "real",
+    };
   }
 
-  return buildMockHotels({
-    destination,
-    nights,
-    pax,
-    hotelLevel,
-    accessibility,
-    seed,
-  });
+  return {
+    items: buildMockHotels({
+      destination,
+      nights,
+      pax,
+      hotelLevel,
+      accessibility,
+      seed,
+    }),
+    source: "mock",
+    mockReason: "Hotel search API returned no results",
+  };
 }
 
 // ─────────────────────────────────────────────────────────────
