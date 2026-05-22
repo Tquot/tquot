@@ -24,11 +24,19 @@ export interface EnrichedTripRequest extends TripRequest {
 }
 
 export function enrichWithAirports(trip: TripRequest): EnrichedTripRequest {
+  const resolvedOrigin = resolveLocation(trip.origin);
+  const resolvedDestination = resolveLocation(trip.destination);
+  console.log("[enrichWithAirports]", {
+    origin: trip.origin,
+    destination: trip.destination,
+    resolvedOrigin,
+    resolvedDestination,
+  });
   return {
     ...trip,
     _resolved: {
-      origin: resolveLocation(trip.origin),
-      destination: resolveLocation(trip.destination),
+      origin: resolvedOrigin,
+      destination: resolvedDestination,
     },
   };
 }
