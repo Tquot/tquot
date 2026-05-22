@@ -12,6 +12,15 @@ import { getCityIATA } from "@/lib/airports";
 
 export type HotelLevel = "budget" | "standard" | "premium" | "luxury";
 
+export type AgencyMarginCategory =
+  | "vuelos"
+  | "hoteles"
+  | "experiencias"
+  | "transfers"
+  | "seguros";
+
+export type AgencyMargins = Partial<Record<AgencyMarginCategory, number>>;
+
 export interface ParsedTripInput {
   origin: string;
   destination: string;
@@ -29,6 +38,7 @@ export interface ParsedTripInput {
     directFlights: boolean;
     accessibility: boolean;
   };
+  agencyMargins?: AgencyMargins;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -146,8 +156,21 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
   const selectableItems = [...flights, ...hotels, ...experiences];
   const pricedItems = [...itemsForPricing(flights), ...itemsForPricing(hotels), ...experiences];
   const baseTotal = sumPrices(pricedItems);
-  const marginPercent = getMarginPercent(baseTotal);
-  applyMargin(selectableItems, marginPercent);
+
+  if (input.agencyMargins) {
+    for (const item of selectableItems) {
+      const category = marginCategoryForItemType(item.type);
+      applyItemMargin(
+        item,
+        category
+          ? getMarginPercent(baseTotal, input.agencyMargins, category)
+          : getMarginPercent(baseTotal),
+      );
+    }
+  } else {
+    const marginPercent = getMarginPercent(baseTotal);
+    applyMargin(selectableItems, marginPercent);
+  }
 
   const margin = sumMarkups(pricedItems);
   const finalTotal = baseTotal + margin;
@@ -652,7 +675,28 @@ function buildExperiences(params: {
 // Pricing
 // ─────────────────────────────────────────────────────────────
 
-export function getMarginPercent(baseTotal: number): number {
+export function marginCategoryForItemType(
+  type: QuoteItemType,
+): AgencyMarginCategory | null {
+  if (type === "flight") return "vuelos";
+  if (type === "hotel") return "hoteles";
+  if (type === "experience") return "experiencias";
+  return null;
+}
+
+export function getMarginPercent(
+  baseTotal: number,
+  agencyMargins?: AgencyMargins,
+  category?: AgencyMarginCategory,
+): number {
+  if (
+    category &&
+    agencyMargins?.[category] !== undefined &&
+    Number.isFinite(agencyMargins[category])
+  ) {
+    return agencyMargins[category]!;
+  }
+
   if (baseTotal > 3000) return 12;
   if (baseTotal > 1500) return 15;
   return 18;
