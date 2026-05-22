@@ -6,5 +6,9 @@ export async function GET(req: Request) {
   return Response.json({
     query: q,
     result: resolveCity(q),
+    london: {
+      query: "London",
+      result: resolveCity("London"),
+    },
   });
 }
