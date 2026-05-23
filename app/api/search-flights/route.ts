@@ -15,6 +15,12 @@ type SearchFlightsRequest = {
   adults?: unknown;
 };
 
+export type FlightLayover = {
+  airport: string;
+  iata: string;
+  duration: string;
+};
+
 export type FlightOption = {
   price: string;
   airline: string;
@@ -24,7 +30,40 @@ export type FlightOption = {
   duration: string;
   stops: number | string;
   stopoverLocation: string;
+  departureDate: string;
+  departureDateISO: string;
+  originIata: string;
+  destinationIata: string;
+  originCity: string;
+  destinationCity: string;
+  airlineLogoUrl: string;
+  cabinClass: string;
+  baggageIncluded: string;
+  layovers: FlightLayover[];
+  priceNumeric: number;
 };
+
+function parsePriceNumeric(price: string): number {
+  const match = price.match(/\d+(?:[.,]\d+)?/);
+  if (!match) return 0;
+  return Math.round(Number(match[0].replace(",", ".")));
+}
+
+function formatDepartureDateFromIso(iso: string): { display: string; isoDate: string } {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return { display: "", isoDate: "" };
+  }
+
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+
+  return {
+    display: `${day}/${month}/${year}`,
+    isoDate: `${year}-${month}-${day}`,
+  };
+}
 
 type Airport = {
   code: string;
@@ -268,18 +307,52 @@ function normalizeFlightOptions(payload: unknown): FlightOption[] {
     const itineraryObject = asRecord(itinerary);
     const leg = getFirstLeg(itineraryObject);
 
+    const price = getPrice(itineraryObject);
+    const departureIso =
+      typeof leg.departure === "string" ? leg.departure : "";
+    const { display: departureDate, isoDate: departureDateISO } =
+      formatDepartureDateFromIso(departureIso);
+    const segments = getSegments(leg);
+    const firstSegment = segments[0] ?? {};
+    const lastSegment = segments[segments.length - 1] ?? firstSegment;
+    const originAirport = asRecord(firstSegment.origin);
+    const destinationAirport = asRecord(lastSegment.destination);
+    const stopCount =
+      typeof leg.stopCount === "number" || typeof leg.stopCount === "string"
+        ? leg.stopCount
+        : "Unknown";
+
     return {
-      price: getPrice(itineraryObject),
+      price,
       airline: getAirline(leg),
       flightNumber: getFlightNumber(leg),
       departureTime: formatTime(leg.departure),
       arrivalTime: formatTime(leg.arrival),
       duration: formatDuration(leg.durationInMinutes),
-      stops:
-        typeof leg.stopCount === "number" || typeof leg.stopCount === "string"
-          ? leg.stopCount
-          : "Unknown",
+      stops: stopCount,
       stopoverLocation: getStopoverLocation(leg),
+      departureDate,
+      departureDateISO,
+      originIata: getStringValue(
+        originAirport.displayCode,
+        originAirport.iata,
+        firstSegment.originDisplayCode,
+      ),
+      destinationIata: getStringValue(
+        destinationAirport.displayCode,
+        destinationAirport.iata,
+        lastSegment.destinationDisplayCode,
+      ),
+      originCity: getStringValue(originAirport.city, originAirport.name),
+      destinationCity: getStringValue(
+        destinationAirport.city,
+        destinationAirport.name,
+      ),
+      airlineLogoUrl: "",
+      cabinClass: "economy",
+      baggageIncluded: "",
+      layovers: [],
+      priceNumeric: parsePriceNumeric(price),
     };
   });
 }
@@ -397,6 +470,10 @@ function createMockFlights(originValue: string, destinationValue: string): Fligh
     const durationMinutes = baseDuration + index * 25 + (stops ? 75 : 0);
     const price = seededNumber(`${routeSeed}-${airline.prefix}`, 120, 420) + index * 35;
 
+    const today = new Date();
+    const departureDateISO = today.toISOString().slice(0, 10);
+    const [year, month, day] = departureDateISO.split("-");
+
     return {
       price: `EUR ${price}`,
       airline: airline.airline,
@@ -406,6 +483,17 @@ function createMockFlights(originValue: string, destinationValue: string): Fligh
       duration: formatDuration(durationMinutes),
       stops,
       stopoverLocation: stops ? getMockStopover(origin, destination) : "Direct",
+      departureDate: `${day}/${month}/${year}`,
+      departureDateISO,
+      originIata: origin?.code ?? "",
+      destinationIata: destination?.code ?? "",
+      originCity: origin?.city ?? originValue,
+      destinationCity: destination?.city ?? destinationValue,
+      airlineLogoUrl: "",
+      cabinClass: "Economy",
+      baggageIncluded: "1 maleta de mano",
+      layovers: [],
+      priceNumeric: price,
     };
   });
 }

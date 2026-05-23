@@ -979,6 +979,7 @@ export function QuoteEngine() {
                     eyebrow={t.sectionFlightsEyebrow}
                     title={t.sectionFlightsTitle}
                     items={quote.flights}
+                    passengerCount={quote.summary.passengers.adults}
                     onSelectItem={handleSelectQuoteItem}
                     onMarginChange={handleQuoteItemMarginChange}
                   />

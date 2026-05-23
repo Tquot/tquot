@@ -63,6 +63,25 @@ export interface ParsedTripInput {
 export type QuoteItemType = "flight" | "hotel" | "experience";
 export type QuoteItemSource = "mock" | "inventory" | "api";
 
+export type QuoteItemFlightDetails = {
+  departureDate: string;
+  departureTime: string;
+  arrivalTime: string;
+  duration: string;
+  originIata: string;
+  destinationIata: string;
+  originCity: string;
+  destinationCity: string;
+  airline: string;
+  airlineLogoUrl: string;
+  flightNumber: string;
+  cabinClass: string;
+  baggageIncluded: string;
+  layovers: Array<{ airport: string; iata: string; duration: string }>;
+  stops: number;
+  priceNumeric: number;
+};
+
 export interface QuoteItem {
   id: string;
   type: QuoteItemType;
@@ -74,6 +93,8 @@ export interface QuoteItem {
   source: QuoteItemSource;
   /** Optional detail (e.g. inventory experience notes). */
   description?: string;
+  /** Rich flight display data from API search results. */
+  flightDetails?: QuoteItemFlightDetails;
   /** When true, shown as a selectable option but excluded from quote totals. */
   alternative?: boolean;
   /** Per-line margin %; drives markup and finalPrice when edited in the UI. */
@@ -329,6 +350,27 @@ async function searchHotelsApi(params: {
   return Array.isArray(hotels) && hotels.length > 0 ? hotels : [];
 }
 
+function flightDetailsFromOption(flight: FlightOption): QuoteItemFlightDetails {
+  return {
+    departureDate: flight.departureDate,
+    departureTime: flight.departureTime,
+    arrivalTime: flight.arrivalTime,
+    duration: flight.duration,
+    originIata: flight.originIata,
+    destinationIata: flight.destinationIata,
+    originCity: flight.originCity,
+    destinationCity: flight.destinationCity,
+    airline: flight.airline,
+    airlineLogoUrl: flight.airlineLogoUrl,
+    flightNumber: flight.flightNumber,
+    cabinClass: flight.cabinClass,
+    baggageIncluded: flight.baggageIncluded,
+    layovers: flight.layovers,
+    stops: Number(flight.stops) || 0,
+    priceNumeric: flight.priceNumeric,
+  };
+}
+
 function mapApiFlightToQuoteItem(
   flight: FlightOption,
   id: string,
@@ -337,14 +379,17 @@ function mapApiFlightToQuoteItem(
 ): QuoteItem {
   const isDirect = String(flight.stops) === "0";
   const stopLabel = isDirect ? "directo" : `${flight.stops} escala(s)`;
+  const price =
+    flight.priceNumeric > 0 ? flight.priceNumeric : parsePriceString(flight.price);
 
   return draftItem({
     id,
     type: "flight",
     title: `${flight.airline} ${flight.flightNumber} · ${stopLabel} · ${routeLabel}`,
     provider: flight.airline,
-    price: parsePriceString(flight.price),
+    price,
     source: "api",
+    flightDetails: flightDetailsFromOption(flight),
     alternative,
   });
 }
@@ -644,7 +689,7 @@ async function buildFlightsFromApiOrMock(params: {
 
   const items: QuoteItem[] = [];
 
-  outboundFlights.slice(0, 3).forEach((flight, index) => {
+  outboundFlights.slice(0, 10).forEach((flight, index) => {
     items.push(
       mapApiFlightToQuoteItem(
         flight,
@@ -655,7 +700,7 @@ async function buildFlightsFromApiOrMock(params: {
     );
   });
 
-  returnFlights.slice(0, 3).forEach((flight, index) => {
+  returnFlights.slice(0, 10).forEach((flight, index) => {
     items.push(
       mapApiFlightToQuoteItem(
         flight,

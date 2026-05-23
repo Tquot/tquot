@@ -1,4 +1,4 @@
-import type { FlightOption } from "@/app/api/search-flights/route";
+import type { FlightLayover, FlightOption } from "@/app/api/search-flights/route";
 import { getCityIATA } from "@/lib/airports";
 
 export const DUFFEL_OFFER_REQUESTS_URL =
@@ -65,6 +65,128 @@ function formatTime(value: unknown) {
   return value;
 }
 
+function formatDepartureDate(iso: unknown): { display: string; isoDate: string } {
+  if (typeof iso !== "string" || !iso.trim()) {
+    return { display: "", isoDate: "" };
+  }
+
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) {
+    return { display: "", isoDate: "" };
+  }
+
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+
+  return {
+    display: `${day}/${month}/${year}`,
+    isoDate: `${year}-${month}-${day}`,
+  };
+}
+
+function parseOfferPrice(amount: unknown): number {
+  const parsed = Number.parseFloat(String(amount ?? "").replace(",", "."));
+  return Number.isFinite(parsed) ? Math.round(parsed) : 0;
+}
+
+function formatBaggageIncluded(passengers: unknown): string {
+  const passengerList = asArray(passengers);
+  const firstPassenger = asRecord(passengerList[0]);
+  const baggages = asArray(firstPassenger.baggages);
+
+  if (baggages.length === 0) {
+    return "Sin equipaje incluido";
+  }
+
+  const labels: string[] = [];
+
+  for (const entry of baggages) {
+    const baggage = asRecord(entry);
+    const quantity = Number(baggage.quantity ?? 0);
+    if (!Number.isFinite(quantity) || quantity <= 0) continue;
+
+    const type = String(baggage.type ?? "");
+    if (type === "carry_on") {
+      labels.push(
+        `${quantity} maleta${quantity === 1 ? "" : "s"} de mano`,
+      );
+    } else if (type === "checked") {
+      labels.push(`${quantity} facturada${quantity === 1 ? "" : "s"}`);
+    }
+  }
+
+  return labels.length > 0 ? labels.join(" · ") : "Sin equipaje incluido";
+}
+
+function formatCabinClass(passengers: unknown): string {
+  const passengerList = asArray(passengers);
+  const firstPassenger = asRecord(passengerList[0]);
+  return getString(
+    firstPassenger.cabin_class_marketing_name,
+    firstPassenger.cabin_class,
+  );
+}
+
+function layoverFromStop(stop: Record<string, unknown>): FlightLayover {
+  const airport = asRecord(stop.airport);
+  return {
+    airport: getString(airport.city_name, airport.name),
+    iata: getString(airport.iata_code),
+    duration: formatIsoDuration(stop.duration),
+  };
+}
+
+function layoverDurationBetween(arrivingAt: unknown, departingAt: unknown): string {
+  if (typeof arrivingAt !== "string" || typeof departingAt !== "string") {
+    return "Unknown";
+  }
+
+  const arrivalMs = Date.parse(arrivingAt);
+  const departureMs = Date.parse(departingAt);
+  if (Number.isNaN(arrivalMs) || Number.isNaN(departureMs) || departureMs <= arrivalMs) {
+    return "Unknown";
+  }
+
+  const totalMinutes = Math.round((departureMs - arrivalMs) / 60_000);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours === 0) {
+    return `${minutes}m`;
+  }
+
+  return `${hours}h ${minutes}m`;
+}
+
+function collectLayovers(segments: Record<string, unknown>[]): FlightLayover[] {
+  const layovers: FlightLayover[] = [];
+
+  for (const segment of segments) {
+    for (const stop of asArray(segment.stops)) {
+      layovers.push(layoverFromStop(asRecord(stop)));
+    }
+  }
+
+  if (layovers.length > 0 || segments.length <= 1) {
+    return layovers;
+  }
+
+  for (let index = 0; index < segments.length - 1; index += 1) {
+    const current = segments[index];
+    const next = segments[index + 1];
+    const destination = asRecord(current.destination);
+
+    layovers.push({
+      airport: getString(destination.city_name, destination.name),
+      iata: getString(destination.iata_code),
+      duration: layoverDurationBetween(current.arriving_at, next.departing_at),
+    });
+  }
+
+  return layovers;
+}
+
 function mapOfferToFlightOption(offer: Record<string, unknown>): FlightOption {
   const slice = asRecord(asArray(offer.slices)[0]);
   const segments = asArray(slice.segments).map(asRecord);
@@ -73,13 +195,22 @@ function mapOfferToFlightOption(offer: Record<string, unknown>): FlightOption {
   const operatingCarrier = asRecord(firstSegment.operating_carrier);
   const marketingCarrier = asRecord(firstSegment.marketing_carrier);
   const owner = asRecord(offer.owner);
+  const origin = asRecord(firstSegment.origin);
+  const destination = asRecord(lastSegment.destination);
   const stops = Math.max(0, segments.length - 1);
+  const { display: departureDate, isoDate: departureDateISO } = formatDepartureDate(
+    firstSegment.departing_at,
+  );
 
   let stopoverLocation = "Direct";
   if (stops > 0) {
     const stopovers = segments.slice(0, -1).map((segment) => {
-      const destination = asRecord(segment.destination);
-      return getString(destination.city_name, destination.name, destination.iata_code);
+      const segmentDestination = asRecord(segment.destination);
+      return getString(
+        segmentDestination.city_name,
+        segmentDestination.name,
+        segmentDestination.iata_code,
+      );
     });
     stopoverLocation =
       stopovers.filter((stopover) => stopover !== "Unknown").join(", ") || "Unknown";
@@ -94,6 +225,7 @@ function mapOfferToFlightOption(offer: Record<string, unknown>): FlightOption {
     firstSegment.marketing_carrier_flight_number,
     firstSegment.operating_carrier_flight_number,
   );
+  const priceNumeric = parseOfferPrice(offer.total_amount);
 
   return {
     price: `${getString(offer.total_currency)} ${getString(offer.total_amount)}`,
@@ -109,7 +241,29 @@ function mapOfferToFlightOption(offer: Record<string, unknown>): FlightOption {
     duration: formatIsoDuration(slice.duration),
     stops,
     stopoverLocation,
+    departureDate,
+    departureDateISO,
+    originIata: getString(origin.iata_code),
+    destinationIata: getString(destination.iata_code),
+    originCity: getString(origin.city_name, origin.name),
+    destinationCity: getString(destination.city_name, destination.name),
+    airlineLogoUrl: getString(operatingCarrier.logo_symbol_url),
+    cabinClass: formatCabinClass(firstSegment.passengers),
+    baggageIncluded: formatBaggageIncluded(firstSegment.passengers),
+    layovers: collectLayovers(segments),
+    priceNumeric,
   };
+}
+
+function compareFlightOptions(left: FlightOption, right: FlightOption): number {
+  const leftDirect = Number(left.stops) === 0 ? 0 : 1;
+  const rightDirect = Number(right.stops) === 0 ? 0 : 1;
+
+  if (leftDirect !== rightDirect) {
+    return leftDirect - rightDirect;
+  }
+
+  return left.priceNumeric - right.priceNumeric;
 }
 
 export async function requestDuffelOfferSearch(
@@ -160,16 +314,9 @@ export function countDuffelFlights(payload: unknown): number {
 
 export function normalizeDuffelFlights(payload: unknown): FlightOption[] {
   const data = asRecord(asRecord(payload).data);
-  const offers = asArray(data.offers)
-    .map(asRecord)
-    .sort(
-      (left, right) =>
-        Number(left.total_amount ?? Number.POSITIVE_INFINITY) -
-        Number(right.total_amount ?? Number.POSITIVE_INFINITY),
-    )
-    .slice(0, 3);
+  const offers = asArray(data.offers).map(asRecord).map(mapOfferToFlightOption);
 
-  return offers.map(mapOfferToFlightOption);
+  return offers.sort(compareFlightOptions).slice(0, 10);
 }
 
 export function parseDuffelPayload(bodyText: string): unknown {
