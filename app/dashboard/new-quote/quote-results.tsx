@@ -120,6 +120,11 @@ function QuoteItemCard({
           </div>
           <h4 className="font-semibold text-white">{item.title}</h4>
           <p className="mt-1 text-sm text-[#8B9CB3]">{item.provider}</p>
+          {item.description ? (
+            <p className="mt-2 text-sm leading-relaxed text-[#8B9CB3]/90">
+              {item.description}
+            </p>
+          ) : null}
         </div>
         <p
           className={`text-xl font-black ${isSelected || !isSelectable ? "text-[#00C9A7]" : "text-[#8B9CB3]"}`}

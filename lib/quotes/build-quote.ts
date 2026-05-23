@@ -6,6 +6,11 @@ import type { FlightOption } from "@/app/api/search-flights/route";
 import type { HotelOption } from "@/app/api/search-hotels/route";
 import { getCityIATA } from "@/lib/airports";
 import { buildFlightSearchParams } from "@/lib/flights/build-search-params";
+import {
+  resolveInventoryNetPrice,
+  resolveInventoryProvider,
+} from "@/lib/inventory/inventory-utils";
+import type { InventoryQuoteRow } from "@/lib/inventory/search-for-quote";
 import type { EnrichedTripRequest } from "@/lib/parser/airport-resolution";
 
 // ─────────────────────────────────────────────────────────────
@@ -66,6 +71,8 @@ export interface QuoteItem {
   markup: number;
   finalPrice: number;
   source: QuoteItemSource;
+  /** Optional detail (e.g. inventory experience notes). */
+  description?: string;
   /** When true, shown as a selectable option but excluded from quote totals. */
   alternative?: boolean;
   /** Per-line margin %; drives markup and finalPrice when edited in the UI. */
@@ -102,8 +109,10 @@ export interface QuoteSectionBuildResult {
 export interface QuoteMeta {
   flightsSource: QuoteDataSource;
   hotelsSource: QuoteDataSource;
+  experiencesSource: QuoteDataSource;
   flightsMockReason?: string;
   hotelsMockReason?: string;
+  experiencesMockReason?: string;
 }
 
 export interface Quote {
@@ -132,7 +141,13 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
     `${origin}|${destination}|${input.dates.start}|${input.dates.end}|${pax.adults}|${pax.children}|${input.preferences.hotelLevel}|${input.preferences.directFlights}|${input.preferences.accessibility}`,
   );
 
-  const [flightsResult, hotelsResult] = await Promise.all([
+  const inventorySearch = fetchInventoryForQuote({
+    destination,
+    accessibility: input.preferences.accessibility,
+    hotelLevel: input.preferences.hotelLevel,
+  });
+
+  const [flightsResult, hotelsResult, experiencesResult] = await Promise.all([
     buildFlightsFromApiOrMock({
       origin,
       destination,
@@ -143,26 +158,34 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
       enrichedTrip: input.enrichedTrip,
       airportChoices: input.airportChoices,
     }),
-    buildHotelsFromApiOrMock({
-      destination,
-      dates: input.dates,
-      nights,
-      pax,
-      hotelLevel: input.preferences.hotelLevel,
-      accessibility: input.preferences.accessibility,
-      seed,
-    }),
+    inventorySearch.then((inventory) =>
+      buildHotelsFromInventoryOrApiOrMock({
+        destination,
+        dates: input.dates,
+        nights,
+        pax,
+        hotelLevel: input.preferences.hotelLevel,
+        accessibility: input.preferences.accessibility,
+        seed,
+        inventory,
+      }),
+    ),
+    inventorySearch.then((inventory) =>
+      buildExperiencesFromInventoryOrMock({
+        destination,
+        durationDays,
+        pax,
+        seed,
+        accessibility: input.preferences.accessibility,
+        hotelLevel: input.preferences.hotelLevel,
+        inventory,
+      }),
+    ),
   ]);
 
   const flights = flightsResult.items;
   const hotels = hotelsResult.items;
-
-  const experiences = buildExperiences({
-    destination,
-    durationDays,
-    pax,
-    seed,
-  });
+  const experiences = experiencesResult.items;
 
   const selectableItems = [...flights, ...hotels, ...experiences];
   const pricedItems = [...itemsForPricing(flights), ...itemsForPricing(hotels), ...experiences];
@@ -188,6 +211,7 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
 
   const flightsSource = quoteSectionSource(flights);
   const hotelsSource = quoteSectionSource(hotels);
+  const experiencesSource = quoteSectionSource(experiences);
 
   return {
     id: buildQuoteId(input, origin, destination),
@@ -212,11 +236,15 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
     _meta: {
       flightsSource,
       hotelsSource,
+      experiencesSource,
       ...(flightsSource === "mock" && flightsResult.mockReason
         ? { flightsMockReason: flightsResult.mockReason }
         : {}),
       ...(hotelsSource === "mock" && hotelsResult.mockReason
         ? { hotelsMockReason: hotelsResult.mockReason }
+        : {}),
+      ...(experiencesSource === "mock" && experiencesResult.mockReason
+        ? { experiencesMockReason: experiencesResult.mockReason }
         : {}),
     },
   };
@@ -409,7 +437,86 @@ export function syncQuotePricing(quote: Quote): void {
 }
 
 function quoteSectionSource(items: QuoteItem[]): QuoteDataSource {
-  return items.every((item) => item.source === "api") ? "real" : "mock";
+  if (items.length === 0) return "mock";
+  return items.every((item) => item.source === "mock") ? "mock" : "real";
+}
+
+type InventoryQuoteSearchResponse = {
+  hotels: InventoryQuoteRow[];
+  experiences: InventoryQuoteRow[];
+};
+
+async function fetchInventoryForQuote(params: {
+  destination: string;
+  accessibility: boolean;
+  hotelLevel: HotelLevel;
+}): Promise<InventoryQuoteSearchResponse | null> {
+  try {
+    const response = await fetch("/api/inventory/quote-search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    });
+    if (!response.ok) {
+      console.warn("[buildQuote] inventory quote-search failed", response.status);
+      return null;
+    }
+    return (await response.json()) as InventoryQuoteSearchResponse;
+  } catch (error) {
+    console.warn("[buildQuote] inventory quote-search error", error);
+    return null;
+  }
+}
+
+function mapInventoryHotelToQuoteItem(
+  row: InventoryQuoteRow,
+  nights: number,
+  id: string,
+  alternative = false,
+): QuoteItem {
+  const netPerNight = resolveInventoryNetPrice(row.data);
+  const stars = row.data.stars ? `${row.data.stars}★` : "";
+  const city = row.data.city || row.data.destination || "";
+  const locationBit = [stars, city].filter(Boolean).join(" · ");
+  const nightLabel = nights === 1 ? "noche" : "noches";
+
+  return draftItem({
+    id,
+    type: "hotel",
+    title: locationBit
+      ? `${row.name} — ${nights} ${nightLabel} · ${locationBit}`
+      : `${row.name} — ${nights} ${nightLabel}`,
+    provider: resolveInventoryProvider(row.data),
+    price: Math.max(netPerNight * nights, netPerNight),
+    source: "inventory",
+    alternative,
+  });
+}
+
+function mapInventoryExperienceToQuoteItem(
+  row: InventoryQuoteRow,
+  pax: { adults: number; children: number },
+  id: string,
+  alternative = false,
+): QuoteItem {
+  const totalPax = pax.adults + pax.children;
+  const unitPrice = resolveInventoryNetPrice(row.data);
+  const price =
+    unitPrice > 0
+      ? Math.round(unitPrice * Math.max(1, totalPax))
+      : Math.round(45 * totalPax);
+  const notes = row.data.notes?.trim();
+
+  return draftItem({
+    id,
+    type: "experience",
+    title: row.name,
+    provider: resolveInventoryProvider(row.data),
+    price,
+    source: "inventory",
+    description: notes || undefined,
+    alternative,
+  });
 }
 
 function defaultAirportChoicesFromEnriched(
@@ -539,7 +646,7 @@ async function buildFlightsFromApiOrMock(params: {
   };
 }
 
-async function buildHotelsFromApiOrMock(params: {
+async function buildHotelsFromInventoryOrApiOrMock(params: {
   destination: string;
   dates: { start: string; end: string };
   nights: number;
@@ -547,9 +654,28 @@ async function buildHotelsFromApiOrMock(params: {
   hotelLevel: HotelLevel;
   accessibility: boolean;
   seed: number;
+  inventory: InventoryQuoteSearchResponse | null;
 }): Promise<QuoteSectionBuildResult> {
-  const { destination, dates, nights, pax, hotelLevel, accessibility, seed } =
+  const { destination, dates, nights, pax, hotelLevel, accessibility, seed, inventory } =
     params;
+
+  if (inventory?.hotels.length) {
+    console.log("[buildQuote] INV-PROPIO hotels", {
+      count: inventory.hotels.length,
+      destination,
+    });
+    return {
+      items: inventory.hotels.map((row, index) =>
+        mapInventoryHotelToQuoteItem(
+          row,
+          nights,
+          `hotel-inv-${row.id.slice(0, 8)}`,
+          index > 0,
+        ),
+      ),
+      source: "real",
+    };
+  }
 
   const apiHotels = await searchHotelsApi({
     destination,
@@ -580,6 +706,42 @@ async function buildHotelsFromApiOrMock(params: {
     }),
     source: "mock",
     mockReason: "Hotel search API returned no results",
+  };
+}
+
+async function buildExperiencesFromInventoryOrMock(params: {
+  destination: string;
+  durationDays: number;
+  pax: { adults: number; children: number };
+  seed: number;
+  accessibility: boolean;
+  hotelLevel: HotelLevel;
+  inventory: InventoryQuoteSearchResponse | null;
+}): Promise<QuoteSectionBuildResult> {
+  const { destination, durationDays, pax, seed, inventory } = params;
+
+  if (inventory?.experiences.length) {
+    console.log("[buildQuote] INV-PROPIO experiences", {
+      count: inventory.experiences.length,
+      destination,
+    });
+    return {
+      items: inventory.experiences.map((row, index) =>
+        mapInventoryExperienceToQuoteItem(
+          row,
+          pax,
+          `exp-inv-${row.id.slice(0, 8)}`,
+          index > 0,
+        ),
+      ),
+      source: "real",
+    };
+  }
+
+  return {
+    items: buildExperiences({ destination, durationDays, pax, seed }),
+    source: "mock",
+    mockReason: "No agency inventory experiences for destination",
   };
 }
 
