@@ -677,6 +677,9 @@ async function buildFlightsFromApiOrMock(params: {
   };
 }
 
+const HOTEL_QUOTE_LIMIT = 10;
+const EXPERIENCE_QUOTE_LIMIT = 5;
+
 async function buildHotelsFromInventoryOrApiOrMock(params: {
   destination: string;
   dates: { start: string; end: string };
@@ -690,45 +693,53 @@ async function buildHotelsFromInventoryOrApiOrMock(params: {
   const { destination, dates, nights, pax, hotelLevel, accessibility, seed, inventory } =
     params;
 
-  if (inventory?.hotels.length) {
+  const inventoryRows = (inventory?.hotels ?? []).slice(0, HOTEL_QUOTE_LIMIT);
+  const items: QuoteItem[] = inventoryRows.map((row, index) =>
+    mapInventoryHotelToQuoteItem(
+      row,
+      nights,
+      `hotel-inv-${row.id.slice(0, 8)}`,
+      index > 0,
+    ),
+  );
+
+  if (inventoryRows.length > 0) {
     console.log("[buildQuote] INV-PROPIO hotels", {
-      count: inventory.hotels.length,
+      count: inventoryRows.length,
       destination,
-      rows: inventory.hotels.map((row) => ({
+      rows: inventoryRows.map((row) => ({
         id: row.id,
         category: row.category,
         name: row.name,
       })),
     });
-    return {
-      items: inventory.hotels.map((row, index) =>
-        mapInventoryHotelToQuoteItem(
-          row,
-          nights,
-          `hotel-inv-${row.id.slice(0, 8)}`,
-          index > 0,
-        ),
-      ),
-      source: "real",
-    };
   }
 
-  const apiHotels = await searchHotelsApi({
-    destination,
-    checkIn: dates.start,
-    checkOut: dates.end,
-    adults: pax.adults,
-  });
+  if (items.length < HOTEL_QUOTE_LIMIT) {
+    const apiHotels = await searchHotelsApi({
+      destination,
+      checkIn: dates.start,
+      checkOut: dates.end,
+      adults: pax.adults,
+    });
 
-  console.log("[buildQuote] hotels before mapping to QuoteItem", apiHotels);
+    console.log("[buildQuote] hotels before mapping to QuoteItem", apiHotels);
 
-  if (apiHotels.length > 0) {
-    return {
-      items: apiHotels.slice(0, 3).map((hotel, index) =>
-        mapApiHotelToQuoteItem(hotel, nights, `hotel-${index + 1}`, index > 0),
-      ),
-      source: "real",
-    };
+    const remaining = HOTEL_QUOTE_LIMIT - items.length;
+    for (const [index, hotel] of apiHotels.slice(0, remaining).entries()) {
+      items.push(
+        mapApiHotelToQuoteItem(
+          hotel,
+          nights,
+          `hotel-api-${index + 1}`,
+          items.length > 0,
+        ),
+      );
+    }
+  }
+
+  if (items.length > 0) {
+    return { items, source: "real" };
   }
 
   return {
@@ -739,9 +750,9 @@ async function buildHotelsFromInventoryOrApiOrMock(params: {
       hotelLevel,
       accessibility,
       seed,
-    }),
+    }).slice(0, HOTEL_QUOTE_LIMIT),
     source: "mock",
-    mockReason: "Hotel search API returned no results",
+    mockReason: "No inventory or API hotel results for destination",
   };
 }
 
@@ -756,28 +767,47 @@ async function buildExperiencesFromInventoryOrMock(params: {
 }): Promise<QuoteSectionBuildResult> {
   const { destination, durationDays, pax, seed, inventory } = params;
 
-  if (inventory?.experiences.length) {
+  const inventoryRows = (inventory?.experiences ?? []).slice(
+    0,
+    EXPERIENCE_QUOTE_LIMIT,
+  );
+  const items: QuoteItem[] = inventoryRows.map((row, index) =>
+    mapInventoryExperienceToQuoteItem(
+      row,
+      pax,
+      `exp-inv-${row.id.slice(0, 8)}`,
+      index > 0,
+    ),
+  );
+
+  if (inventoryRows.length > 0) {
     console.log("[buildQuote] INV-PROPIO experiences", {
-      count: inventory.experiences.length,
+      count: inventoryRows.length,
       destination,
     });
-    return {
-      items: inventory.experiences.map((row, index) =>
-        mapInventoryExperienceToQuoteItem(
-          row,
-          pax,
-          `exp-inv-${row.id.slice(0, 8)}`,
-          index > 0,
-        ),
-      ),
-      source: "real",
-    };
   }
 
+  if (items.length < EXPERIENCE_QUOTE_LIMIT) {
+    const mockItems = buildExperiences({ destination, durationDays, pax, seed });
+    const remaining = EXPERIENCE_QUOTE_LIMIT - items.length;
+
+    for (const mock of mockItems.slice(0, remaining)) {
+      items.push({
+        ...mock,
+        id: `exp-mock-${items.length + 1}`,
+        alternative: items.length > 0,
+      });
+    }
+  }
+
+  const allMock = items.every((item) => item.source === "mock");
+
   return {
-    items: buildExperiences({ destination, durationDays, pax, seed }),
-    source: "mock",
-    mockReason: "No agency inventory experiences for destination",
+    items,
+    source: allMock ? "mock" : "real",
+    ...(allMock
+      ? { mockReason: "No agency inventory experiences for destination" }
+      : {}),
   };
 }
 
