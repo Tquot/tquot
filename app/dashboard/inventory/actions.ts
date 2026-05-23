@@ -72,6 +72,57 @@ export async function createInventoryItem(input: {
   return { item: data as InventoryItem, error: "" };
 }
 
+export type InventoryBatchRow = {
+  category: InventoryCategory;
+  name: string;
+  data: Record<string, string>;
+};
+
+export async function createInventoryItemsBatch(rows: InventoryBatchRow[]) {
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      items: [] as InventoryItem[],
+      created: 0,
+      error: "Not authenticated.",
+    };
+  }
+
+  if (rows.length === 0) {
+    return { items: [] as InventoryItem[], created: 0, error: "" };
+  }
+
+  const payload = rows.map((row) => ({
+    user_id: user.id,
+    category: row.category,
+    name: row.name.trim(),
+    data: row.data,
+  }));
+
+  const { data, error } = await supabase
+    .from("inventory")
+    .insert(payload)
+    .select("id,user_id,category,name,data,created_at");
+
+  if (error) {
+    return {
+      items: [] as InventoryItem[],
+      created: 0,
+      error: error.message,
+    };
+  }
+
+  return {
+    items: (data ?? []) as InventoryItem[],
+    created: data?.length ?? 0,
+    error: "",
+  };
+}
+
 export async function deleteInventoryItem(id: string) {
   const supabase = await createServerSupabaseClient();
   const {

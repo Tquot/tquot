@@ -170,6 +170,20 @@ const es = {
   inventoryCreated: "Creado",
   inventoryActions: "Acciones",
   inventoryDelete: "Eliminar",
+  inventoryImport: "Importar Excel/CSV",
+  inventoryImporting: "Analizando archivo...",
+  inventoryImportTitle: "Importar inventario",
+  inventoryImportSummary:
+    "{mapped} filas listas · {skipped} omitidas · {total} en archivo",
+  inventoryImportUnmapped: "Columnas no mapeadas",
+  inventoryImportPreview: "Vista previa (5 primeras filas)",
+  inventoryImportDetails: "Campos",
+  inventoryImportCategory: "Categoría",
+  inventoryImportConfirm: "Importar {count} filas",
+  inventoryImportConfirming: "Importando...",
+  inventoryImportCancel: "Cancelar",
+  inventoryImportNoRows: "No hay filas válidas para importar.",
+  inventoryImportError: "No se pudo importar el archivo.",
   defaultQuoteRequest:
     "2 adultos, viaje a Ribadesella del 15 al 18 de junio. Hotel boutique con desayuno. Vuelos desde Madrid.",
   defaultAgentNotes:
@@ -359,6 +373,20 @@ const en: Record<keyof typeof es, string> = {
   inventoryCreated: "Created",
   inventoryActions: "Actions",
   inventoryDelete: "Delete",
+  inventoryImport: "Import Excel/CSV",
+  inventoryImporting: "Parsing file...",
+  inventoryImportTitle: "Import inventory",
+  inventoryImportSummary:
+    "{mapped} rows ready · {skipped} skipped · {total} in file",
+  inventoryImportUnmapped: "Unmapped columns",
+  inventoryImportPreview: "Preview (first 5 rows)",
+  inventoryImportDetails: "Fields",
+  inventoryImportCategory: "Category",
+  inventoryImportConfirm: "Import {count} rows",
+  inventoryImportConfirming: "Importing...",
+  inventoryImportCancel: "Cancel",
+  inventoryImportNoRows: "No valid rows to import.",
+  inventoryImportError: "Could not import file.",
   defaultQuoteRequest:
     "2 adults, trip to Ribadesella June 15–18. Boutique hotel with breakfast. Flights from Madrid.",
   defaultAgentNotes:

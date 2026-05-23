@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDashboardLanguage } from "../dashboard-language-provider";
 import { LocaleToggleButtons } from "../locale-toggle-buttons";
+import type { ImportParseResponse } from "@/lib/inventory/types";
 import {
   createInventoryItem,
   deleteInventoryItem,
@@ -11,6 +12,7 @@ import {
   type InventoryCategory,
   type InventoryItem,
 } from "./actions";
+import { InventoryImportDialog } from "./inventory-import-dialog";
 
 type Field = {
   key: string;
@@ -89,6 +91,12 @@ export function InventoryClient() {
   const [isAdding, setIsAdding] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isImporting, setIsImporting] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importFileName, setImportFileName] = useState("");
+  const [importParseResult, setImportParseResult] =
+    useState<ImportParseResponse | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const category = categories.find((item) => item.id === activeCategory) ?? categories[0];
   const filteredItems = useMemo(
@@ -153,6 +161,56 @@ export function InventoryClient() {
     setItems((current) => current.filter((item) => item.id !== id));
   }
 
+  function openFilePicker() {
+    fileInputRef.current?.click();
+  }
+
+  async function handleImportFile(file: File) {
+    setIsImporting(true);
+    setError("");
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("defaultCategory", activeCategory);
+
+    try {
+      const response = await fetch("/api/inventory/import", {
+        method: "POST",
+        body: formData,
+      });
+      const data = (await response.json()) as ImportParseResponse & {
+        error?: string;
+      };
+
+      if (!response.ok) {
+        setError(data.error ?? t.inventoryImportError);
+        return;
+      }
+
+      setImportFileName(file.name);
+      setImportParseResult(data);
+      setImportDialogOpen(true);
+    } catch {
+      setError(t.inventoryImportError);
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  }
+
+  function closeImportDialog() {
+    setImportDialogOpen(false);
+    setImportParseResult(null);
+    setImportFileName("");
+  }
+
+  async function handleImportComplete() {
+    await refreshItems();
+    closeImportDialog();
+  }
+
   return (
     <div className="relative min-h-screen bg-[#03080F] px-6 py-10 text-[#E8EEF7]">
       <div
@@ -199,13 +257,33 @@ export function InventoryClient() {
                 </button>
               ))}
             </div>
-            <button
-              type="button"
-              onClick={() => setIsAdding((current) => !current)}
-              className="rounded-xl bg-[#00C9A7] px-5 py-2.5 text-sm font-semibold text-[#03080F] transition-colors hover:bg-[#00E5BB]"
-            >
-              {isAdding ? t.inventoryClose : t.inventoryAddNew}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void handleImportFile(file);
+                }}
+              />
+              <button
+                type="button"
+                onClick={openFilePicker}
+                disabled={isImporting}
+                className="rounded-xl border border-[#00C9A7]/35 bg-[#00C9A7]/10 px-5 py-2.5 text-sm font-semibold text-[#00C9A7] transition-colors hover:bg-[#00C9A7]/15 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isImporting ? t.inventoryImporting : t.inventoryImport}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAdding((current) => !current)}
+                className="rounded-xl bg-[#00C9A7] px-5 py-2.5 text-sm font-semibold text-[#03080F] transition-colors hover:bg-[#00E5BB]"
+              >
+                {isAdding ? t.inventoryClose : t.inventoryAddNew}
+              </button>
+            </div>
           </div>
 
           {error ? (
@@ -319,6 +397,14 @@ export function InventoryClient() {
           </div>
         </section>
       </main>
+
+      <InventoryImportDialog
+        open={importDialogOpen}
+        fileName={importFileName}
+        parseResult={importParseResult}
+        onClose={closeImportDialog}
+        onImported={handleImportComplete}
+      />
     </div>
   );
 }
