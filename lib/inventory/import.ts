@@ -20,42 +20,79 @@ const DATA_FIELDS: InventoryImportField[] = [
   "accessible",
 ];
 
-const CATEGORY_ALIASES: Record<InventoryCategory, string[]> = {
-  hotels: [
-    "hotel",
-    "hoteles",
-    "hotels",
-    "alojamiento",
-    "accommodation",
-    "lodging",
-  ],
-  experiences: [
-    "experience",
-    "experiencias",
-    "experiencia",
-    "actividad",
-    "activities",
-    "activity",
-  ],
-  suppliers: [
-    "supplier",
-    "proveedor",
-    "proveedores",
-    "suppliers",
-    "vendor",
-    "vendors",
-  ],
-  tour_operators: [
-    "tour operator",
-    "tour operators",
-    "tour_operators",
-    "tour operator",
-    "operador",
-    "operadores",
-    "touroperator",
-    "dmc",
-  ],
-};
+/** Maps "Tipo" / "Type" / "Categoría" cell values → Supabase category. Order matters. */
+const TIPO_VALUE_TO_CATEGORY: Array<{
+  category: InventoryCategory;
+  keys: string[];
+}> = [
+  {
+    category: "tour_operators",
+    keys: [
+      "tour operator",
+      "tour operators",
+      "tour operador",
+      "tour operadores",
+      "touroperator",
+    ],
+  },
+  {
+    category: "hotels",
+    keys: [
+      "hotel",
+      "hoteles",
+      "hotels",
+      "alojamiento",
+      "accommodation",
+      "lodging",
+      "lodge",
+      "resort",
+      "hostel",
+      "posada",
+      "apartamento",
+      "apartment",
+    ],
+  },
+  {
+    category: "experiences",
+    keys: [
+      "experiencia",
+      "experience",
+      "tour",
+      "actividad",
+      "activity",
+      "excursion",
+      "entrada",
+      "ticket",
+      "transfer",
+      "traslado",
+      "transport",
+      "transporte",
+      "seguro",
+      "insurance",
+    ],
+  },
+  {
+    category: "suppliers",
+    keys: [
+      "proveedor",
+      "proveedores",
+      "supplier",
+      "suppliers",
+      "vendor",
+      "vendors",
+      "dmc",
+    ],
+  },
+];
+
+function normalizeTipoToken(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 export type ParsedSpreadsheet = {
   headers: string[];
@@ -195,20 +232,18 @@ function normalizeCategory(
   fallback: InventoryCategory,
 ): InventoryCategory {
   if (!raw?.trim()) return fallback;
-  const normalized = raw
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
 
-  for (const [category, aliases] of Object.entries(CATEGORY_ALIASES) as Array<
-    [InventoryCategory, string[]]
-  >) {
-    if (normalized === category.replace("_", " ") || normalized === category) {
-      return category;
+  const normalized = normalizeTipoToken(raw);
+
+  for (const rule of TIPO_VALUE_TO_CATEGORY) {
+    if (rule.keys.some((key) => normalized === key)) {
+      return rule.category;
     }
-    if (aliases.some((alias) => normalized.includes(alias))) {
-      return category;
+  }
+
+  for (const rule of TIPO_VALUE_TO_CATEGORY) {
+    if (rule.keys.some((key) => normalized.includes(key))) {
+      return rule.category;
     }
   }
 

@@ -75,6 +75,9 @@ export async function searchInventoryForQuote(
     );
   }
 
+  logRawInventorySample("hotels-query", hotelsQuery.data);
+  logRawInventorySample("experiences-query", experiencesQuery.data);
+
   const hotels = scoreAndRankRows(
     (hotelsQuery.data ?? []).map(toInventoryQuoteRow),
     destinationNorm,
@@ -90,7 +93,44 @@ export async function searchInventoryForQuote(
     MAX_INVENTORY_QUOTE_EXPERIENCES,
   );
 
+  console.log("[inventory/search-for-quote] scored result categories", {
+    destination: params.destination,
+    hotels: hotels.map((row) => ({
+      id: row.id,
+      category: row.category,
+      name: row.name,
+    })),
+    experiences: experiences.map((row) => ({
+      id: row.id,
+      category: row.category,
+      name: row.name,
+    })),
+  });
+
   return { hotels, experiences };
+}
+
+function logRawInventorySample(
+  label: string,
+  rows: Array<{
+    id: string;
+    category: string;
+    name: string;
+    data: Record<string, string> | null;
+  }> | null,
+) {
+  const sample = (rows ?? []).slice(0, 5).map((row) => ({
+    id: row.id,
+    category: row.category,
+    categoryJson: JSON.stringify(row.category),
+    name: row.name,
+    dataCity: row.data?.city ?? null,
+    dataDestination: row.data?.destination ?? null,
+  }));
+  console.log(`[inventory/search-for-quote] raw ${label} before scoring (first 5)`, {
+    total: rows?.length ?? 0,
+    sample,
+  });
 }
 
 function toInventoryQuoteRow(raw: {

@@ -694,6 +694,11 @@ async function buildHotelsFromInventoryOrApiOrMock(params: {
     console.log("[buildQuote] INV-PROPIO hotels", {
       count: inventory.hotels.length,
       destination,
+      rows: inventory.hotels.map((row) => ({
+        id: row.id,
+        category: row.category,
+        name: row.name,
+      })),
     });
     return {
       items: inventory.hotels.map((row, index) =>

@@ -38,21 +38,42 @@ const SYSTEM_PROMPT = `You map spreadsheet column headers to a fixed inventory s
 
 Internal fields (use exactly these keys in columnMapping values):
 - name: product or hotel name (e.g. "Hotel name", "Nombre hotel", "Nombre", "Producto")
-- category: type row — hotels, experiences, suppliers, tour_operators (e.g. "Categoría", "Tipo", "Category")
+- category: row type column — map headers "Tipo", "Type", "Categoría", "Category", "Clase" here (NOT "Proveedor" unless it only contains type labels)
 - price_net: net price (e.g. "Precio neto", "Net price", "PVP neto", "Coste neto")
 - commission_percent: commission % (e.g. "Comisión", "Commission", "Comisión %")
-- provider: supplier or provider name (e.g. "Proveedor", "Provider", "Operador")
+- provider: supplier or operator name column (e.g. "Proveedor", "Provider", "Operador") — only when the column holds company names, not product type
 - destination: city or destination (e.g. "Destino", "Ciudad", "Destination", "City")
 - notes: free text notes (e.g. "Notas", "Observaciones", "Comments")
 - accessible: accessibility yes/no (e.g. "Accesible", "Accessible", "PMR")
 - ignore: column has no mapping
 
-Rules:
-- Map each source header from the spreadsheet to exactly one internal field or "ignore".
-- Recognize Spanish and English header variants and abbreviations.
+Header mapping rules:
+- Map each source header to exactly one internal field or "ignore".
+- Prefer mapping "Tipo" / "Type" to category (not to ignore).
+- Recognize Spanish and English header variants.
 - Put headers you cannot map confidently in unmappedColumns AND map them to "ignore" in columnMapping.
-- If there is no category column, set categoryDefault to the best guess from sample data or the user hint.
-- categoryDefault must be one of: hotels, experiences, suppliers, tour_operators.`;
+
+Category column — cell values (use when reading sampleRows to set categoryDefault):
+The category column contains product TYPE labels, not destination names. Interpret sample cell values using this table (Spanish and English, case-insensitive):
+
+→ hotels:
+  Hotel, Hotels, Hoteles, Alojamiento, Accommodation, Lodge, Resort, Hostel, Posada, Apartamento (lodging)
+
+→ experiences:
+  Experiencia, Experience, Tour, Actividad, Activity, Excursión, Excursion, Entrada, Ticket,
+  Transfer, Traslado, Transport, Transporte,
+  Seguro, Insurance
+
+→ suppliers:
+  Proveedor, Supplier, DMC, Vendor
+
+→ tour_operators:
+  Tour operador, Tour Operator, Operador, Operator (only when clearly a tour operator company type, not "Tour" activity)
+
+If there is no category/Tipo column, set categoryDefault from the dominant type in sampleRows or the user hint.
+categoryDefault must be one of: hotels, experiences, suppliers, tour_operators.
+
+Do NOT put provider company names into category — provider belongs in the provider field.`;
 
 export async function mapColumnsWithClaude(params: {
   headers: string[];
