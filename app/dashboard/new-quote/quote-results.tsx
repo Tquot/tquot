@@ -8,6 +8,7 @@ import { getItemMarginPercent, getQuoteSelectionGroup } from "@/lib/quotes/build
 import { useDashboardLanguage } from "../dashboard-language-provider";
 import { formatMessage } from "../format-message";
 import type { Locale } from "../translations";
+import type { DashboardTranslation } from "../translations";
 import { useState } from "react";
 
 const sourceStyles: Record<QuoteItemSource, string> = {
@@ -464,6 +465,155 @@ function QuoteItemCard({
   );
 }
 
+type QuoteItemListProps = {
+  onSelectItem?: (itemId: string) => void;
+  onToggleItem?: (itemId: string) => void;
+  onMarginChange?: (itemId: string, marginPercent: number) => void;
+  selectionMode?: "exclusive" | "independent";
+  passengerCount?: number;
+};
+
+function isOutboundFlight(item: QuoteItem) {
+  return item.id.startsWith("flight-out-");
+}
+
+function isReturnFlight(item: QuoteItem) {
+  return item.id.startsWith("flight-return-");
+}
+
+function splitFlightsByDirection(items: QuoteItem[]) {
+  return {
+    outbound: items.filter(isOutboundFlight),
+    returnFlights: items.filter(isReturnFlight),
+    other: items.filter(
+      (item) => !isOutboundFlight(item) && !isReturnFlight(item),
+    ),
+  };
+}
+
+function renderQuoteItemList(items: QuoteItem[], props: QuoteItemListProps) {
+  const {
+    onSelectItem,
+    onToggleItem,
+    onMarginChange,
+    selectionMode = "exclusive",
+    passengerCount,
+  } = props;
+
+  return items.map((item) =>
+    item.type === "flight" && item.flightDetails ? (
+      <FlightQuoteItemCard
+        key={item.id}
+        item={item}
+        passengerCount={passengerCount}
+        onSelect={onSelectItem}
+        onMarginChange={onMarginChange}
+      />
+    ) : (
+      <QuoteItemCard
+        key={item.id}
+        item={item}
+        onSelect={onSelectItem}
+        onToggle={onToggleItem}
+        onMarginChange={onMarginChange}
+        selectionMode={selectionMode}
+      />
+    ),
+  );
+}
+
+function buildSectionSubtitle(
+  items: QuoteItem[],
+  selectionMode: "exclusive" | "independent",
+  locale: Locale,
+  t: DashboardTranslation,
+) {
+  const isIndependent = selectionMode === "independent";
+  const selectableCount = isIndependent
+    ? items.length
+    : items.filter((item) => getQuoteSelectionGroup(item.id)).length;
+  const includedCount = isIndependent
+    ? items.filter((item) => !item.alternative).length
+    : items.filter(
+        (item) => getQuoteSelectionGroup(item.id) && !item.alternative,
+      ).length;
+
+  return selectableCount > 0
+    ? formatMessage(t.sectionSubtitleSelectable, {
+        included: includedCount,
+        total: items.length,
+        plural: pluralSuffix(locale, items.length),
+      })
+    : formatMessage(t.sectionSubtitleLines, {
+        total: items.length,
+        plural: pluralSuffix(locale, items.length),
+      });
+}
+
+function FlightDirectionGroup({
+  heading,
+  items,
+  ...cardProps
+}: QuoteItemListProps & {
+  heading: string;
+  items: QuoteItem[];
+}) {
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-3">
+      <h4 className="text-sm font-bold uppercase tracking-wide text-[#E8EEF7]">
+        {heading}
+      </h4>
+      <div className="space-y-3">{renderQuoteItemList(items, cardProps)}</div>
+    </div>
+  );
+}
+
+export function FlightQuoteItemsSection({
+  eyebrow,
+  title,
+  items,
+  onSelectItem,
+  onMarginChange,
+  passengerCount,
+}: {
+  eyebrow: string;
+  title: string;
+  items: QuoteItem[];
+  onSelectItem?: (itemId: string) => void;
+  onMarginChange?: (itemId: string, marginPercent: number) => void;
+  passengerCount?: number;
+}) {
+  const { locale, t } = useDashboardLanguage();
+  const { outbound, returnFlights, other } = splitFlightsByDirection(items);
+  const cardProps = { onSelectItem, onMarginChange, passengerCount };
+  const subtitle = buildSectionSubtitle(items, "exclusive", locale, t);
+
+  return (
+    <section>
+      <SectionHeading eyebrow={eyebrow} title={title} subtitle={subtitle} />
+      <div className="space-y-6">
+        <FlightDirectionGroup
+          heading="Vuelo de ida"
+          items={outbound}
+          {...cardProps}
+        />
+        <FlightDirectionGroup
+          heading="Vuelo de vuelta"
+          items={returnFlights}
+          {...cardProps}
+        />
+        {other.length > 0 ? (
+          <div className="space-y-3">{renderQuoteItemList(other, cardProps)}</div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 export function QuoteItemsSection({
   eyebrow,
   title,
@@ -484,52 +634,19 @@ export function QuoteItemsSection({
   passengerCount?: number;
 }) {
   const { locale, t } = useDashboardLanguage();
-  const isIndependent = selectionMode === "independent";
-  const selectableCount = isIndependent
-    ? items.length
-    : items.filter((item) => getQuoteSelectionGroup(item.id)).length;
-  const includedCount = isIndependent
-    ? items.filter((item) => !item.alternative).length
-    : items.filter(
-        (item) => getQuoteSelectionGroup(item.id) && !item.alternative,
-      ).length;
-
-  const subtitle =
-    selectableCount > 0
-      ? formatMessage(t.sectionSubtitleSelectable, {
-          included: includedCount,
-          total: items.length,
-          plural: pluralSuffix(locale, items.length),
-        })
-      : formatMessage(t.sectionSubtitleLines, {
-          total: items.length,
-          plural: pluralSuffix(locale, items.length),
-        });
+  const subtitle = buildSectionSubtitle(items, selectionMode, locale, t);
 
   return (
     <section>
       <SectionHeading eyebrow={eyebrow} title={title} subtitle={subtitle} />
       <div className="space-y-3">
-        {items.map((item) =>
-          item.type === "flight" && item.flightDetails ? (
-            <FlightQuoteItemCard
-              key={item.id}
-              item={item}
-              passengerCount={passengerCount}
-              onSelect={onSelectItem}
-              onMarginChange={onMarginChange}
-            />
-          ) : (
-            <QuoteItemCard
-              key={item.id}
-              item={item}
-              onSelect={onSelectItem}
-              onToggle={onToggleItem}
-              onMarginChange={onMarginChange}
-              selectionMode={selectionMode}
-            />
-          ),
-        )}
+        {renderQuoteItemList(items, {
+          onSelectItem,
+          onToggleItem,
+          onMarginChange,
+          selectionMode,
+          passengerCount,
+        })}
       </div>
     </section>
   );

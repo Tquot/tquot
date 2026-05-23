@@ -33,7 +33,7 @@ import type { DashboardTranslation } from "../translations";
 import type { Locale } from "../translations";
 import { LocaleToggleButtons } from "../locale-toggle-buttons";
 import { formatMessage } from "../format-message";
-import { QuoteItemsSection } from "./quote-results";
+import { FlightQuoteItemsSection, QuoteItemsSection } from "./quote-results";
 
 type StepStatus = "pending" | "active" | "done";
 
@@ -975,7 +975,7 @@ export function QuoteEngine() {
               {quote.flights.length > 0 ? (
                 <div>
                   <DataSourceBadge source={quote._meta.flightsSource} />
-                  <QuoteItemsSection
+                  <FlightQuoteItemsSection
                     eyebrow={t.sectionFlightsEyebrow}
                     title={t.sectionFlightsTitle}
                     items={quote.flights}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ResolvedLocation } from "@/lib/parser/airport-resolution";
 
 interface AirportPickerProps {
@@ -16,9 +16,13 @@ export function AirportPicker({
   onSelect,
   defaultMode = "single",
 }: AirportPickerProps) {
-  const [selected, setSelected] = useState<string>(
-    defaultMode === "all" ? "all" : resolved.airports[0].iata
-  );
+  const initialSelected =
+    defaultMode === "all" ? "all" : (resolved.airports[0]?.iata ?? "all");
+  const [selected, setSelected] = useState(initialSelected);
+
+  useEffect(() => {
+    onSelect(initialSelected);
+  }, [initialSelected]);
 
   if (!resolved.isMultiAirport) {
     return (
@@ -34,8 +38,10 @@ export function AirportPicker({
   }
 
   function handleChange(value: string) {
-    setSelected(value);
     onSelect(value);
+    if (value !== selected) {
+      setSelected(value);
+    }
   }
 
   return (
@@ -51,6 +57,7 @@ export function AirportPicker({
 
       <div className="mt-3 space-y-2">
         <label
+          onClick={() => handleChange("all")}
           className={`flex cursor-pointer items-center gap-3 rounded-md border p-3 transition ${
             selected === "all"
               ? "border-amber-600 bg-white"
@@ -63,6 +70,7 @@ export function AirportPicker({
             value="all"
             checked={selected === "all"}
             onChange={(e) => handleChange(e.target.value)}
+            onClick={() => handleChange("all")}
             className="h-4 w-4"
           />
           <div className="flex-1">
@@ -78,6 +86,7 @@ export function AirportPicker({
         {resolved.airports.map((ap, idx) => (
           <label
             key={ap.iata}
+            onClick={() => handleChange(ap.iata)}
             className={`flex cursor-pointer items-center gap-3 rounded-md border p-3 transition ${
               selected === ap.iata
                 ? "border-amber-600 bg-white"
@@ -90,6 +99,7 @@ export function AirportPicker({
               value={ap.iata}
               checked={selected === ap.iata}
               onChange={(e) => handleChange(e.target.value)}
+              onClick={() => handleChange(ap.iata)}
               className="h-4 w-4"
             />
             <div className="flex-1">
