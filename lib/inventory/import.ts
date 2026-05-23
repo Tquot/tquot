@@ -9,7 +9,7 @@ import type {
 } from "./types";
 
 export const MAX_IMPORT_FILE_BYTES = 5 * 1024 * 1024;
-export const MAX_IMPORT_ROWS = 500;
+export const MAX_IMPORT_ROWS = 5000;
 
 const DATA_FIELDS: InventoryImportField[] = [
   "price_net",

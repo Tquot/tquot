@@ -17,6 +17,16 @@ type InventoryImportDialogProps = {
   onImported: () => void;
 };
 
+const BATCH_CHUNK_SIZE = 500;
+
+function chunkRows<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
 const categoryLabels: Record<InventoryCategory, { es: string; en: string }> = {
   hotels: { es: "Hoteles", en: "Hotels" },
   experiences: { es: "Experiencias", en: "Experiences" },
@@ -33,6 +43,10 @@ export function InventoryImportDialog({
 }: InventoryImportDialogProps) {
   const { locale, t } = useDashboardLanguage();
   const [isConfirming, setIsConfirming] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
   const [error, setError] = useState("");
 
   if (!open || !parseResult) return null;
@@ -42,22 +56,30 @@ export function InventoryImportDialog({
   async function handleConfirm() {
     setIsConfirming(true);
     setError("");
+    setBatchProgress(null);
 
-    const result = await createInventoryItemsBatch(
-      mappedRows.map((row) => ({
-        category: row.category,
-        name: row.name,
-        data: row.data,
-      })),
-    );
+    const payload = mappedRows.map((row) => ({
+      category: row.category,
+      name: row.name,
+      data: row.data,
+    }));
+    const chunks = chunkRows(payload, BATCH_CHUNK_SIZE);
 
-    setIsConfirming(false);
+    for (let index = 0; index < chunks.length; index++) {
+      setBatchProgress({ current: index + 1, total: chunks.length });
 
-    if (result.error) {
-      setError(result.error);
-      return;
+      const result = await createInventoryItemsBatch(chunks[index]);
+
+      if (result.error) {
+        setError(result.error);
+        setIsConfirming(false);
+        setBatchProgress(null);
+        return;
+      }
     }
 
+    setIsConfirming(false);
+    setBatchProgress(null);
     onImported();
     onClose();
   }
@@ -181,11 +203,16 @@ export function InventoryImportDialog({
             disabled={isConfirming || mappedRows.length === 0}
             className="rounded-xl bg-[#00C9A7] px-5 py-2.5 text-sm font-semibold text-[#03080F] transition-colors hover:bg-[#00E5BB] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isConfirming
-              ? t.inventoryImportConfirming
-              : formatMessage(t.inventoryImportConfirm, {
-                  count: String(mappedRows.length),
-                })}
+            {isConfirming && batchProgress
+              ? formatMessage(t.inventoryImportBatchProgress, {
+                  current: String(batchProgress.current),
+                  total: String(batchProgress.total),
+                })
+              : isConfirming
+                ? t.inventoryImportConfirming
+                : formatMessage(t.inventoryImportConfirm, {
+                    count: String(mappedRows.length),
+                  })}
           </button>
         </div>
       </div>

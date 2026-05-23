@@ -141,3 +141,30 @@ export async function deleteInventoryItem(id: string) {
 
   return { error: error?.message ?? "" };
 }
+
+export async function deleteInventoryItemsBatch(ids: string[]) {
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { deleted: 0, error: "Not authenticated." };
+  }
+
+  if (ids.length === 0) {
+    return { deleted: 0, error: "" };
+  }
+
+  const { error } = await supabase
+    .from("inventory")
+    .delete()
+    .eq("user_id", user.id)
+    .in("id", ids);
+
+  if (error) {
+    return { deleted: 0, error: error.message };
+  }
+
+  return { deleted: ids.length, error: "" };
+}

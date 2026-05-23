@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDashboardLanguage } from "../dashboard-language-provider";
+import { formatMessage } from "../format-message";
 import { LocaleToggleButtons } from "../locale-toggle-buttons";
 import type { ImportParseResponse } from "@/lib/inventory/types";
 import {
   createInventoryItem,
   deleteInventoryItem,
+  deleteInventoryItemsBatch,
   getInventoryItems,
   type InventoryCategory,
   type InventoryItem,
@@ -97,11 +99,23 @@ export function InventoryClient() {
   const [importParseResult, setImportParseResult] =
     useState<ImportParseResponse | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [isDeletingSelected, setIsDeletingSelected] = useState(false);
 
   const category = categories.find((item) => item.id === activeCategory) ?? categories[0];
   const filteredItems = useMemo(
     () => items.filter((item) => item.category === activeCategory),
     [activeCategory, items],
+  );
+  const selectedInViewCount = useMemo(
+    () => filteredItems.filter((item) => selectedIds.has(item.id)).length,
+    [filteredItems, selectedIds],
+  );
+  const allInViewSelected =
+    filteredItems.length > 0 &&
+    filteredItems.every((item) => selectedIds.has(item.id));
+  const someInViewSelected = filteredItems.some((item) =>
+    selectedIds.has(item.id),
   );
 
   useEffect(() => {
@@ -114,6 +128,35 @@ export function InventoryClient() {
     setName("");
     setFormData(emptyForm(next.fields));
     setIsAdding(false);
+    setSelectedIds(new Set());
+  }
+
+  function toggleSelectItem(id: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function toggleSelectAllInView() {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (allInViewSelected) {
+        for (const item of filteredItems) {
+          next.delete(item.id);
+        }
+      } else {
+        for (const item of filteredItems) {
+          next.add(item.id);
+        }
+      }
+      return next;
+    });
   }
 
   async function refreshItems() {
@@ -159,6 +202,39 @@ export function InventoryClient() {
     }
 
     setItems((current) => current.filter((item) => item.id !== id));
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
+  }
+
+  async function handleDeleteSelected() {
+    const ids = filteredItems
+      .filter((item) => selectedIds.has(item.id))
+      .map((item) => item.id);
+    if (ids.length === 0) return;
+
+    setIsDeletingSelected(true);
+    setError("");
+
+    const result = await deleteInventoryItemsBatch(ids);
+    setIsDeletingSelected(false);
+
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+
+    const idSet = new Set(ids);
+    setItems((current) => current.filter((item) => !idSet.has(item.id)));
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      for (const id of ids) {
+        next.delete(id);
+      }
+      return next;
+    });
   }
 
   function openFilePicker() {
@@ -334,10 +410,46 @@ export function InventoryClient() {
             </div>
           ) : null}
 
+          {selectedInViewCount > 0 ? (
+            <div className="mb-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => void handleDeleteSelected()}
+                disabled={isDeletingSelected}
+                className="rounded-xl border border-[#FF6B35]/35 bg-[#FF6B35]/10 px-5 py-2.5 text-sm font-semibold text-[#FF6B35] transition-colors hover:bg-[#FF6B35]/15 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isDeletingSelected
+                  ? t.inventoryDeletingSelected
+                  : formatMessage(t.inventoryDeleteSelected, {
+                      count: String(selectedInViewCount),
+                    })}
+              </button>
+            </div>
+          ) : null}
+
           <div className="overflow-hidden rounded-2xl border border-white/[0.06]">
-            <table className="w-full min-w-[760px] text-left text-sm">
+            <table className="w-full min-w-[820px] text-left text-sm">
               <thead className="bg-white/[0.04] text-[#8B9CB3]">
                 <tr>
+                  <th className="w-12 px-4 py-3">
+                    <label className="flex cursor-pointer items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={allInViewSelected}
+                        ref={(input) => {
+                          if (input) {
+                            input.indeterminate =
+                              someInViewSelected && !allInViewSelected;
+                          }
+                        }}
+                        onChange={toggleSelectAllInView}
+                        disabled={isLoading || filteredItems.length === 0}
+                        className="h-4 w-4 rounded border-white/20 bg-[#03080F]/60 accent-[#00C9A7]"
+                        aria-label={t.inventorySelectAll}
+                      />
+                      <span className="sr-only">{t.inventorySelectAll}</span>
+                    </label>
+                  </th>
                   <th className="px-4 py-3 font-medium">{t.inventoryNameLabel}</th>
                   <th className="px-4 py-3 font-medium">{t.inventoryDetails}</th>
                   <th className="px-4 py-3 font-medium">{t.inventoryCreated}</th>
@@ -349,13 +461,22 @@ export function InventoryClient() {
               <tbody className="divide-y divide-white/[0.06]">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-[#8B9CB3]">
+                    <td colSpan={5} className="px-4 py-8 text-center text-[#8B9CB3]">
                       {t.inventoryLoading}
                     </td>
                   </tr>
                 ) : filteredItems.length > 0 ? (
                   filteredItems.map((item) => (
                     <tr key={item.id} className="bg-[#03080F]/30">
+                      <td className="px-4 py-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(item.id)}
+                          onChange={() => toggleSelectItem(item.id)}
+                          className="h-4 w-4 rounded border-white/20 bg-[#03080F]/60 accent-[#00C9A7]"
+                          aria-label={item.name}
+                        />
+                      </td>
                       <td className="px-4 py-4 font-medium text-white">{item.name}</td>
                       <td className="px-4 py-4 text-[#8B9CB3]">
                         <div className="flex flex-wrap gap-2">
@@ -387,7 +508,7 @@ export function InventoryClient() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-[#8B9CB3]">
+                    <td colSpan={5} className="px-4 py-8 text-center text-[#8B9CB3]">
                       {t.inventoryEmpty}
                     </td>
                   </tr>
