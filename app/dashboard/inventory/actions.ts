@@ -156,15 +156,23 @@ export async function deleteInventoryItemsBatch(ids: string[]) {
     return { deleted: 0, error: "" };
   }
 
-  const { error } = await supabase
-    .from("inventory")
-    .delete()
-    .eq("user_id", user.id)
-    .in("id", ids);
+  const DELETE_BATCH_SIZE = 100;
+  let deleted = 0;
 
-  if (error) {
-    return { deleted: 0, error: error.message };
+  for (let i = 0; i < ids.length; i += DELETE_BATCH_SIZE) {
+    const batch = ids.slice(i, i + DELETE_BATCH_SIZE);
+    const { error } = await supabase
+      .from("inventory")
+      .delete()
+      .eq("user_id", user.id)
+      .in("id", batch);
+
+    if (error) {
+      return { deleted, error: error.message };
+    }
+
+    deleted += batch.length;
   }
 
-  return { deleted: ids.length, error: "" };
+  return { deleted, error: "" };
 }
