@@ -284,9 +284,11 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
 async function postSearchApi<T>(
   path: string,
   body: Record<string, unknown>,
+  apiOrigin = "",
 ): Promise<T | null> {
   try {
-    const response = await fetch(path, {
+    const url = apiOrigin ? `${apiOrigin.replace(/\/$/, "")}${path}` : path;
+    const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -326,12 +328,15 @@ async function searchFlightsApi(params: {
   return Array.isArray(flights) && flights.length > 0 ? flights : [];
 }
 
-async function searchHotelsApi(params: {
-  destination: string;
-  checkIn: string;
-  checkOut: string;
-  adults: number;
-}): Promise<HotelOption[]> {
+async function searchHotelsApi(
+  params: {
+    destination: string;
+    checkIn: string;
+    checkOut: string;
+    adults: number;
+  },
+  apiOrigin = "",
+): Promise<HotelOption[]> {
   const data = await postSearchApi<{ hotels?: HotelOption[]; fallback?: boolean }>(
     "/api/search-hotels",
     {
@@ -340,6 +345,7 @@ async function searchHotelsApi(params: {
       checkOut: params.checkOut,
       adults: params.adults,
     },
+    apiOrigin,
   );
   console.log("[buildQuote] /api/search-hotels returned", {
     request: params,
@@ -734,9 +740,19 @@ async function buildHotelsFromInventoryOrApiOrMock(params: {
   accessibility: boolean;
   seed: number;
   inventory: InventoryQuoteSearchResponse | null;
+  apiOrigin?: string;
 }): Promise<QuoteSectionBuildResult> {
-  const { destination, dates, nights, pax, hotelLevel, accessibility, seed, inventory } =
-    params;
+  const {
+    destination,
+    dates,
+    nights,
+    pax,
+    hotelLevel,
+    accessibility,
+    seed,
+    inventory,
+    apiOrigin = "",
+  } = params;
 
   const inventoryRows = (inventory?.hotels ?? []).slice(0, HOTEL_QUOTE_LIMIT);
   const items: QuoteItem[] = inventoryRows.map((row, index) =>
@@ -761,12 +777,15 @@ async function buildHotelsFromInventoryOrApiOrMock(params: {
   }
 
   if (items.length < HOTEL_QUOTE_LIMIT) {
-    const apiHotels = await searchHotelsApi({
-      destination,
-      checkIn: dates.start,
-      checkOut: dates.end,
-      adults: pax.adults,
-    });
+    const apiHotels = await searchHotelsApi(
+      {
+        destination,
+        checkIn: dates.start,
+        checkOut: dates.end,
+        adults: pax.adults,
+      },
+      apiOrigin,
+    );
 
     console.log("[buildQuote] hotels before mapping to QuoteItem", apiHotels);
 
@@ -854,6 +873,32 @@ async function buildExperiencesFromInventoryOrMock(params: {
       ? { mockReason: "No agency inventory experiences for destination" }
       : {}),
   };
+}
+
+export async function rebuildHotelsSection(
+  input: ParsedTripInput,
+  inventory: InventoryQuoteSearchResponse | null,
+  apiOrigin = "",
+): Promise<QuoteSectionBuildResult> {
+  const destination = normalizePlace(input.destination);
+  const durationDays = computeDurationDays(input.dates.start, input.dates.end);
+  const nights = Math.max(1, durationDays - 1);
+  const pax = normalizePassengers(input.passengers);
+  const seed = hashKey(
+    `${normalizePlace(input.origin)}|${destination}|${input.dates.start}|${input.dates.end}|${pax.adults}|${pax.children}|${input.preferences.hotelLevel}|${input.preferences.directFlights}|${input.preferences.accessibility}`,
+  );
+
+  return buildHotelsFromInventoryOrApiOrMock({
+    destination,
+    dates: input.dates,
+    nights,
+    pax,
+    hotelLevel: input.preferences.hotelLevel,
+    accessibility: input.preferences.accessibility,
+    seed,
+    inventory,
+    apiOrigin,
+  });
 }
 
 // ─────────────────────────────────────────────────────────────

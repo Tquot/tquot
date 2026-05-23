@@ -9,16 +9,21 @@ import {
   buildQuote,
   type AirportFlightChoices,
   getItemMarginPercent,
+  getMarginPercent,
   itemsForPricing,
+  marginCategoryForItemType,
   pricedQuoteItemsFromQuote,
   selectPrimaryInGroup,
   syncQuotePricing,
   toggleExperienceInQuote,
+  type ParsedTripInput,
   type Quote,
   type QuoteDataSource,
   type QuoteItem,
   type QuoteItemSource,
 } from "@/lib/quotes/build-quote";
+import type { RefineAction, RefineApplyResult, RefineQuotePatch } from "@/lib/quotes/refine/types";
+import { isServerRefinementAction } from "@/lib/quotes/refine/utils";
 import { tripRequestToParsedTripInput } from "@/lib/quotes/map-parser";
 import type { TripRequest } from "@/lib/parser/schema";
 import {
@@ -223,6 +228,93 @@ async function callParserApi(
   }
 }
 
+function reapplyQuoteMargins(quote: Quote, tripInput: ParsedTripInput | null) {
+  const pricedItems = pricedQuoteItemsFromQuote(quote);
+  const baseTotal = pricedItems.reduce((sum, item) => sum + item.price, 0);
+
+  for (const item of allQuoteItems(quote)) {
+    const category = marginCategoryForItemType(item.type);
+    applyItemMargin(
+      item,
+      tripInput?.agencyMargins && category
+        ? getMarginPercent(baseTotal, tripInput.agencyMargins, category)
+        : getMarginPercent(baseTotal),
+    );
+  }
+
+  syncQuotePricing(quote);
+}
+
+function isDirectFlight(item: QuoteItem): boolean {
+  if (item.flightDetails) {
+    return item.flightDetails.stops === 0;
+  }
+  return /\bdirecto\b|0 escala|\bDirect\b/i.test(item.title);
+}
+
+function filterDirectFlights(quote: Quote): { next: Quote; message: string } {
+  const cloned = cloneQuote(quote);
+  const outbound = cloned.flights.filter((item) => item.id.startsWith("flight-out-"));
+  const returnLeg = cloned.flights.filter((item) =>
+    item.id.startsWith("flight-return-"),
+  );
+  const other = cloned.flights.filter(
+    (item) =>
+      !item.id.startsWith("flight-out-") && !item.id.startsWith("flight-return-"),
+  );
+
+  const directOutbound = outbound.filter(isDirectFlight);
+  const directReturn = returnLeg.filter(isDirectFlight);
+
+  if (directOutbound.length === 0 && directReturn.length === 0) {
+    return {
+      next: cloned,
+      message: "No hay vuelos directos en la cotización actual.",
+    };
+  }
+
+  const nextOutbound = (directOutbound.length > 0 ? directOutbound : outbound).map(
+    (item, index) => ({ ...item, alternative: index > 0 }),
+  );
+  const nextReturn = (directReturn.length > 0 ? directReturn : returnLeg).map(
+    (item, index) => ({ ...item, alternative: index > 0 }),
+  );
+
+  cloned.flights = [...nextOutbound, ...nextReturn, ...other];
+
+  const warnings: string[] = [];
+  if (directOutbound.length === 0) {
+    warnings.push("ida");
+  }
+  if (directReturn.length === 0) {
+    warnings.push("vuelta");
+  }
+
+  const message =
+    warnings.length > 0
+      ? `He filtrado vuelos directos donde era posible. Sin opciones directas en: ${warnings.join(" y ")}.`
+      : "He dejado solo vuelos directos en la cotización.";
+
+  return { next: cloned, message };
+}
+
+function mergeRefinePatch(quote: Quote, patch: RefineQuotePatch): Quote {
+  const next = cloneQuote(quote);
+  if (patch.hotels) {
+    next.hotels = patch.hotels.map((item) => ({ ...item }));
+  }
+  if (patch.experiences) {
+    next.experiences = patch.experiences.map((item) => ({ ...item }));
+  }
+  if (patch.flights) {
+    next.flights = patch.flights.map((item) => ({ ...item }));
+  }
+  if (patch._meta) {
+    next._meta = { ...next._meta, ...patch._meta };
+  }
+  return next;
+}
+
 function drawAgencyHeader(
   doc: jsPDF,
   variant: "dark" | "light",
@@ -288,6 +380,8 @@ export function QuoteEngine() {
   const [isRunning, setIsRunning] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [quote, setQuote] = useState<Quote | null>(null);
+  const [tripInput, setTripInput] = useState<ParsedTripInput | null>(null);
+  const [isRefining, setIsRefining] = useState(false);
   const [stepChips, setStepChips] = useState(defaultStepChips);
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
@@ -374,65 +468,117 @@ export function QuoteEngine() {
   }
 
   function sendChatMessage() {
+    void sendChatMessageAsync();
+  }
+
+  async function sendChatMessageAsync() {
     const message = chatInput.trim();
-    if (!message || !quote) return;
+    if (!message || !quote || !tripInput || isRefining) return;
 
-    const normalized = message.toLowerCase();
-    let response = t.chatDefault;
-
-    if (/cheaper|barato|bajar|economico|económico|reduce/.test(normalized)) {
-      setQuote((current) => {
-        if (!current) return current;
-        const next = cloneQuote(current);
-        for (const item of pricedQuoteItemsFromQuote(next)) {
-          applyItemMargin(item, getItemMarginPercent(item) * 0.85);
-        }
-        syncQuotePricing(next);
-        return next;
-      });
-      response = t.chatCheaper;
-    } else if (/insurance|seguro/.test(normalized)) {
-      setQuote((current) => {
-        if (!current || current.experiences.some((item) => item.id === "exp-insurance")) {
-          return current;
-        }
-        const next = cloneQuote(current);
-        const insurance: QuoteItem = {
-          id: "exp-insurance",
-          type: "experience",
-          title: t.insuranceTitle,
-          provider: t.insuranceProvider,
-          price: 48,
-          markup: 10,
-          finalPrice: 58,
-          source: "inventory",
-        };
-        next.experiences = [...next.experiences, insurance];
-        syncQuotePricing(next);
-        return next;
-      });
-      response = t.chatInsuranceAdded;
-    } else if (/upgrade|mejor|subir|hotel/.test(normalized)) {
-      setQuote((current) => {
-        if (!current) return current;
-        const next = cloneQuote(current);
-        for (const hotel of itemsForPricing(next.hotels)) {
-          hotel.price = Math.round(hotel.price * 1.18);
-          applyItemMargin(hotel, getItemMarginPercent(hotel));
-          hotel.title = `${hotel.title}${t.hotelUpgradeSuffix}`;
-        }
-        syncQuotePricing(next);
-        return next;
-      });
-      response = t.chatHotelUpgrade;
-    }
-
-    setChatMessages((messages) => [
-      ...messages,
-      { role: "agent", content: message },
-      { role: "ai", content: response },
-    ]);
+    setIsRefining(true);
     setChatInput("");
+    setChatMessages((messages) => [...messages, { role: "agent", content: message }]);
+
+    const supabase = createBrowserSupabaseClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const agentId = user?.id ?? "test-agent";
+
+    try {
+      const classifyResponse = await fetch("/api/quote/refine", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentQuote: quote,
+          message,
+          tripInput,
+          agentId,
+        }),
+      });
+
+      const classifyData = await classifyResponse.json();
+      if (!classifyResponse.ok) {
+        throw new Error(classifyData.error ?? "Refinement request failed");
+      }
+
+      const action = classifyData.action as RefineAction;
+      let response = t.chatDefault;
+
+      if (action.action === "explain") {
+        response = action.params.text;
+      } else if (action.action === "unknown") {
+        response = action.params.text;
+      } else if (action.action === "cheaper") {
+        setQuote((current) => {
+          if (!current) return current;
+          const next = cloneQuote(current);
+          for (const item of pricedQuoteItemsFromQuote(next)) {
+            applyItemMargin(item, getItemMarginPercent(item) * 0.85);
+          }
+          syncQuotePricing(next);
+          return next;
+        });
+        response = t.chatCheaper;
+      } else if (action.action === "filter_direct_flights") {
+        let filterMessage = "He actualizado los vuelos.";
+        setQuote((current) => {
+          if (!current) return current;
+          const filtered = filterDirectFlights(current);
+          syncQuotePricing(filtered.next);
+          filterMessage = filtered.message;
+          return filtered.next;
+        });
+        response = filterMessage;
+      } else if (isServerRefinementAction(action)) {
+        const applyResponse = await fetch("/api/quote/refine/apply", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action,
+            currentQuote: quote,
+            tripInput,
+            agentId,
+          }),
+        });
+
+        const applyData = (await applyResponse.json()) as RefineApplyResult & {
+          error?: string;
+        };
+
+        if (!applyResponse.ok) {
+          throw new Error(applyData.error ?? "Apply refinement failed");
+        }
+
+        if (applyData.updatedTripInput) {
+          setTripInput(applyData.updatedTripInput);
+        }
+
+        if (applyData.patch) {
+          setQuote((current) => {
+            if (!current) return current;
+            const next = mergeRefinePatch(current, applyData.patch!);
+            reapplyQuoteMargins(next, applyData.updatedTripInput ?? tripInput);
+            return next;
+          });
+        }
+
+        response = applyData.suggestion
+          ? `${applyData.message}\n\n${applyData.suggestion}`
+          : applyData.message;
+      }
+
+      setChatMessages((messages) => [...messages, { role: "ai", content: response }]);
+    } catch (error) {
+      const fallback =
+        error instanceof Error ? error.message : "No he podido procesar la solicitud.";
+      setChatMessages((messages) => [
+        ...messages,
+        { role: "ai", content: fallback },
+      ]);
+    } finally {
+      setIsRefining(false);
+    }
   }
 
   async function continueQuoteFromEnriched(enrichedTrip: EnrichedTripRequest) {
@@ -470,6 +616,11 @@ export function QuoteEngine() {
       enrichedTrip,
       airportChoices: choicesForBuild,
     });
+    setTripInput({
+      ...parsedInput,
+      enrichedTrip,
+      airportChoices: choicesForBuild,
+    });
     setQuote(built);
     setStepChips((current) =>
       current.map((chips, index) =>
@@ -501,6 +652,7 @@ export function QuoteEngine() {
       setIsRunning(true);
       setIsComplete(false);
       setQuote(null);
+      setTripInput(null);
       await continueQuoteFromEnriched(enrichedTrip);
       return;
     }
@@ -508,6 +660,7 @@ export function QuoteEngine() {
     setIsRunning(true);
     setIsComplete(false);
     setQuote(null);
+    setTripInput(null);
     setEnrichedTrip(null);
     setAirportChoices({ origin: null, destination: null });
     setStepChips(defaultStepChips);
@@ -1038,15 +1191,17 @@ export function QuoteEngine() {
                     onKeyDown={(event) => {
                       if (event.key === "Enter") sendChatMessage();
                     }}
-                    placeholder='Try "make cheaper", "add insurance", "upgrade hotel"'
-                    className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none focus:border-[#00C9A7]/50"
+                    disabled={isRefining}
+                    placeholder={t.chatPlaceholder}
+                    className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none focus:border-[#00C9A7]/50 disabled:opacity-50"
                   />
                   <button
                     type="button"
                     onClick={sendChatMessage}
-                    className="rounded-2xl bg-[#00C9A7] px-4 py-3 text-sm font-bold text-[#03080F]"
+                    disabled={isRefining || !chatInput.trim()}
+                    className="rounded-2xl bg-[#00C9A7] px-4 py-3 text-sm font-bold text-[#03080F] disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {t.send}
+                    {isRefining ? "..." : t.send}
                   </button>
                 </div>
               </section>
