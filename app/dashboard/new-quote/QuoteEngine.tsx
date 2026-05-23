@@ -13,6 +13,7 @@ import {
   pricedQuoteItemsFromQuote,
   selectPrimaryInGroup,
   syncQuotePricing,
+  toggleExperienceInQuote,
   type Quote,
   type QuoteDataSource,
   type QuoteItem,
@@ -336,6 +337,19 @@ export function QuoteEngine() {
 
       const next = cloneQuote(current);
       selectPrimaryInGroup(next, itemId);
+      syncQuotePricing(next);
+      return next;
+    });
+  }
+
+  function handleToggleExperienceItem(itemId: string) {
+    setQuote((current) => {
+      if (!current) {
+        return current;
+      }
+
+      const next = cloneQuote(current);
+      toggleExperienceInQuote(next, itemId);
       syncQuotePricing(next);
       return next;
     });
@@ -987,6 +1001,8 @@ export function QuoteEngine() {
                   eyebrow={t.sectionExperiencesEyebrow}
                   title={t.sectionExperiencesTitle}
                   items={quote.experiences}
+                  selectionMode="independent"
+                  onToggleItem={handleToggleExperienceItem}
                   onMarginChange={handleQuoteItemMarginChange}
                 />
               ) : null}

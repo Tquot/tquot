@@ -1,10 +1,15 @@
 import type { InventoryCategory } from "@/app/dashboard/inventory/actions";
+import {
+  matchesExperienceDurationForTrip,
+  parseDurationHours,
+} from "@/lib/inventory/experience-duration";
 import { normalizeInventoryPlace } from "@/lib/inventory/inventory-utils";
-
-type HotelLevel = "budget" | "standard" | "premium" | "luxury";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
+type HotelLevel = "budget" | "standard" | "premium" | "luxury";
+
 export const MAX_INVENTORY_QUOTE_RESULTS = 10;
+export const MAX_INVENTORY_QUOTE_EXPERIENCES = 5;
 
 export type InventoryQuoteRow = {
   id: string;
@@ -17,6 +22,7 @@ export type InventoryQuoteSearchParams = {
   destination: string;
   accessibility: boolean;
   hotelLevel: HotelLevel;
+  durationDays: number;
 };
 
 export type InventoryQuoteSearchResult = {
@@ -41,28 +47,87 @@ export async function searchInventoryForQuote(
   params: InventoryQuoteSearchParams,
 ): Promise<InventoryQuoteSearchResult> {
   const supabase = await createServerSupabaseClient();
-  const { data, error } = await supabase
-    .from("inventory")
-    .select("id,category,name,data")
-    .eq("user_id", userId)
-    .in("category", ["hotels", "experiences"]);
+  const destinationNorm = normalizeInventoryPlace(params.destination);
 
-  if (error || !data) {
-    console.warn("[inventory/search-for-quote] query failed", error?.message);
-    return { hotels: [], experiences: [] };
+  const [hotelsQuery, experiencesQuery] = await Promise.all([
+    supabase
+      .from("inventory")
+      .select("id,category,name,data")
+      .eq("user_id", userId)
+      .eq("category", "hotels"),
+    supabase
+      .from("inventory")
+      .select("id,category,name,data")
+      .eq("user_id", userId)
+      .eq("category", "experiences"),
+  ]);
+
+  if (hotelsQuery.error) {
+    console.warn(
+      "[inventory/search-for-quote] hotels query failed",
+      hotelsQuery.error.message,
+    );
+  }
+  if (experiencesQuery.error) {
+    console.warn(
+      "[inventory/search-for-quote] experiences query failed",
+      experiencesQuery.error.message,
+    );
   }
 
-  const destinationNorm = normalizeInventoryPlace(params.destination);
-  const hotels: ScoredRow[] = [];
-  const experiences: ScoredRow[] = [];
+  const hotels = scoreAndRankRows(
+    (hotelsQuery.data ?? []).map(toInventoryQuoteRow),
+    destinationNorm,
+    params,
+    true,
+    MAX_INVENTORY_QUOTE_RESULTS,
+  );
+  const experiences = scoreAndRankRows(
+    (experiencesQuery.data ?? []).map(toInventoryQuoteRow),
+    destinationNorm,
+    params,
+    false,
+    MAX_INVENTORY_QUOTE_EXPERIENCES,
+  );
 
-  for (const raw of data) {
-    const row: InventoryQuoteRow = {
-      id: raw.id as string,
-      category: raw.category as InventoryCategory,
-      name: raw.name as string,
-      data: (raw.data as Record<string, string>) ?? {},
-    };
+  return { hotels, experiences };
+}
+
+function toInventoryQuoteRow(raw: {
+  id: string;
+  category: string;
+  name: string;
+  data: Record<string, string> | null;
+}): InventoryQuoteRow {
+  return {
+    id: raw.id,
+    category: raw.category as InventoryCategory,
+    name: raw.name,
+    data: raw.data ?? {},
+  };
+}
+
+function scoreAndRankRows(
+  rows: InventoryQuoteRow[],
+  destinationNorm: string,
+  params: InventoryQuoteSearchParams,
+  applyHotelStars: boolean,
+  limit: number,
+): InventoryQuoteRow[] {
+  const scored: ScoredRow[] = [];
+
+  for (const row of rows) {
+    if (applyHotelStars && row.category !== "hotels") continue;
+    if (!applyHotelStars && row.category !== "experiences") continue;
+
+    if (!applyHotelStars) {
+      const durationHours = parseDurationHours(row.data.duration);
+      if (
+        !matchesExperienceDurationForTrip(durationHours, params.durationDays)
+      ) {
+        continue;
+      }
+    }
 
     const destinationScore = scoreDestination(row, destinationNorm);
     if (destinationScore <= 0) continue;
@@ -71,28 +136,18 @@ export async function searchInventoryForQuote(
       destinationScore +
       scoreAccessibility(row.data, params.accessibility) +
       scoreCommission(row.data) +
-      (row.category === "hotels"
-        ? scoreStars(row.data, params.hotelLevel)
-        : 0);
+      (applyHotelStars ? scoreStars(row.data, params.hotelLevel) : 0);
 
-    const entry = { row, score: total };
-    if (row.category === "hotels") {
-      hotels.push(entry);
-    } else {
-      experiences.push(entry);
-    }
+    scored.push({ row, score: total });
   }
 
-  return {
-    hotels: takeTopScored(hotels),
-    experiences: takeTopScored(experiences),
-  };
+  return takeTopScored(scored, limit);
 }
 
-function takeTopScored(entries: ScoredRow[]): InventoryQuoteRow[] {
+function takeTopScored(entries: ScoredRow[], limit: number): InventoryQuoteRow[] {
   return entries
     .sort((a, b) => b.score - a.score)
-    .slice(0, MAX_INVENTORY_QUOTE_RESULTS)
+    .slice(0, limit)
     .map((entry) => entry.row);
 }
 

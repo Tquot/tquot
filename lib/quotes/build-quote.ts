@@ -6,6 +6,7 @@ import type { FlightOption } from "@/app/api/search-flights/route";
 import type { HotelOption } from "@/app/api/search-hotels/route";
 import { getCityIATA } from "@/lib/airports";
 import { buildFlightSearchParams } from "@/lib/flights/build-search-params";
+import { matchesExperienceDurationForTrip } from "@/lib/inventory/experience-duration";
 import {
   resolveInventoryNetPrice,
   resolveInventoryProvider,
@@ -145,6 +146,7 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
     destination,
     accessibility: input.preferences.accessibility,
     hotelLevel: input.preferences.hotelLevel,
+    durationDays,
   });
 
   const [flightsResult, hotelsResult, experiencesResult] = await Promise.all([
@@ -188,7 +190,11 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
   const experiences = experiencesResult.items;
 
   const selectableItems = [...flights, ...hotels, ...experiences];
-  const pricedItems = [...itemsForPricing(flights), ...itemsForPricing(hotels), ...experiences];
+  const pricedItems = [
+    ...itemsForPricing(flights),
+    ...itemsForPricing(hotels),
+    ...itemsForPricing(experiences),
+  ];
   const baseTotal = sumPrices(pricedItems);
 
   if (input.agencyMargins) {
@@ -421,11 +427,17 @@ export function selectPrimaryInGroup(quote: Quote, selectedId: string): void {
   applyToList(quote.hotels);
 }
 
+export function toggleExperienceInQuote(quote: Quote, itemId: string): void {
+  const item = quote.experiences.find((entry) => entry.id === itemId);
+  if (!item) return;
+  item.alternative = !item.alternative;
+}
+
 export function pricedQuoteItemsFromQuote(quote: Quote): QuoteItem[] {
   return [
     ...itemsForPricing(quote.flights),
     ...itemsForPricing(quote.hotels),
-    ...quote.experiences,
+    ...itemsForPricing(quote.experiences),
   ];
 }
 
@@ -450,6 +462,7 @@ async function fetchInventoryForQuote(params: {
   destination: string;
   accessibility: boolean;
   hotelLevel: HotelLevel;
+  durationDays: number;
 }): Promise<InventoryQuoteSearchResponse | null> {
   try {
     const response = await fetch("/api/inventory/quote-search", {
@@ -566,6 +579,16 @@ function resolveFlightIataCodes(params: {
   };
 }
 
+function shouldSkipFlightSearch(origin: string, destination: string): boolean {
+  const normalizedOrigin = normalizePlace(origin);
+  const normalizedDestination = normalizePlace(destination);
+  if (normalizedOrigin === normalizedDestination) return true;
+
+  const originIata = getCityIATA(origin);
+  const destinationIata = getCityIATA(destination);
+  return originIata === destinationIata;
+}
+
 async function buildFlightsFromApiOrMock(params: {
   origin: string;
   destination: string;
@@ -578,6 +601,14 @@ async function buildFlightsFromApiOrMock(params: {
 }): Promise<QuoteSectionBuildResult> {
   const { origin, destination, dates, pax, directFlights, seed } = params;
   const adults = pax.adults;
+
+  if (shouldSkipFlightSearch(origin, destination)) {
+    console.log("[buildQuote] skipping flights — same origin and destination", {
+      origin,
+      destination,
+    });
+    return { items: [], source: "real" };
+  }
 
   const { originIata, destinationIata } = resolveFlightIataCodes({
     origin,
@@ -862,7 +893,9 @@ function buildExperiences(params: {
   const totalPax = pax.adults + pax.children;
   const perPerson = 35 + (seed % 25);
 
-  const items: Omit<QuoteItem, "markup" | "finalPrice">[] = [
+  const candidates: Array<
+    Omit<QuoteItem, "markup" | "finalPrice"> & { durationHours: number | null }
+  > = [
     {
       id: "exp-city-tour",
       type: "experience",
@@ -870,32 +903,47 @@ function buildExperiences(params: {
       provider: pickFrom(seed + 11, ["Civitatis", "GetYourGuide", "Operador local"]),
       price: Math.round(perPerson * totalPax * 0.9),
       source: itemSource(seed, 3),
+      durationHours: 3,
     },
   ];
 
   if (durationDays >= 4) {
-    items.push({
+    candidates.push({
       id: "exp-highlight",
       type: "experience",
       title: `Experiencia gastronómica en ${destination}`,
       provider: pickFrom(seed + 13, ["Viator", "Proveedor local", "Inventario agencia"]),
       price: Math.round((perPerson + 15) * Math.max(2, pax.adults)),
       source: itemSource(seed, 4),
+      durationHours: 4,
     });
   }
 
   if (durationDays >= 7) {
-    items.push({
+    candidates.push({
       id: "exp-day-trip",
       type: "experience",
       title: `Excursión de día completo desde ${destination}`,
       provider: pickFrom(seed + 17, ["Tour operador regional", "Inventario agencia"]),
       price: Math.round((perPerson + 30) * totalPax),
       source: "inventory",
+      durationHours: 8,
     });
   }
 
-  return items.map((item) => draftItem(item));
+  const filtered = candidates.filter((item) =>
+    matchesExperienceDurationForTrip(item.durationHours, durationDays),
+  );
+
+  return filtered
+    .slice(0, 5)
+    .map((item, index) => {
+      const { durationHours: _durationHours, ...draft } = item;
+      return draftItem({
+        ...draft,
+        alternative: index > 0,
+      });
+    });
 }
 
 // ─────────────────────────────────────────────────────────────

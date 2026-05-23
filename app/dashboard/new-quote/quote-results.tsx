@@ -50,16 +50,23 @@ function SectionHeading({
 function QuoteItemCard({
   item,
   onSelect,
+  onToggle,
   onMarginChange,
+  selectionMode = "exclusive",
 }: {
   item: QuoteItem;
   onSelect?: (itemId: string) => void;
+  onToggle?: (itemId: string) => void;
   onMarginChange?: (itemId: string, marginPercent: number) => void;
+  selectionMode?: "exclusive" | "independent";
 }) {
   const { locale, t } = useDashboardLanguage();
   const selectionGroup = getQuoteSelectionGroup(item.id);
-  const isSelectable = selectionGroup !== null && Boolean(onSelect);
-  const isSelected = isSelectable && !item.alternative;
+  const isIndependent = selectionMode === "independent";
+  const isSelectable =
+    isIndependent ? Boolean(onToggle) : selectionGroup !== null && Boolean(onSelect);
+  const isIncluded = !item.alternative;
+  const isSelected = isSelectable && isIncluded;
   const marginPercent = getItemMarginPercent(item);
 
   const typeLabels: Record<QuoteItem["type"], string> = {
@@ -70,16 +77,17 @@ function QuoteItemCard({
 
   return (
     <article
-      role={isSelectable ? "button" : undefined}
-      tabIndex={isSelectable && !isSelected ? 0 : undefined}
+      role={isSelectable && !isIndependent ? "button" : undefined}
+      tabIndex={isSelectable && !isIndependent && !isSelected ? 0 : undefined}
       onClick={() => {
-        if (isSelectable && !isSelected) {
+        if (isSelectable && !isIndependent && !isSelected) {
           onSelect?.(item.id);
         }
       }}
       onKeyDown={(event) => {
         if (
           isSelectable &&
+          !isIndependent &&
           !isSelected &&
           (event.key === "Enter" || event.key === " ")
         ) {
@@ -90,7 +98,7 @@ function QuoteItemCard({
       className={`rounded-3xl border bg-[#03080F]/60 p-4 shadow-[0_16px_44px_rgba(0,0,0,0.24)] transition-all ${
         isSelected
           ? "border-[#00C9A7]/55 ring-1 ring-[#00C9A7]/35"
-          : isSelectable
+          : isSelectable && !isIndependent
             ? "cursor-pointer border-white/[0.08] hover:border-[#00C9A7]/25"
             : "border-white/[0.08]"
       }`}
@@ -98,10 +106,26 @@ function QuoteItemCard({
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex flex-wrap items-center gap-2">
+            {isIndependent ? (
+              <label
+                className="flex cursor-pointer items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <input
+                  type="checkbox"
+                  checked={isIncluded}
+                  onChange={() => onToggle?.(item.id)}
+                  className="h-4 w-4 rounded border-white/20 bg-[#03080F]/60 accent-[#00C9A7]"
+                />
+                <span className="text-xs font-semibold text-[#E8EEF7]">
+                  {isIncluded ? t.itemIncludeInQuote : t.itemExcluded}
+                </span>
+              </label>
+            ) : null}
             <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8B9CB3]">
               {typeLabels[item.type]}
             </span>
-            {isSelectable ? (
+            {isSelectable && !isIndependent ? (
               <span
                 className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${
                   isSelected
@@ -110,6 +134,17 @@ function QuoteItemCard({
                 }`}
               >
                 {isSelected ? t.itemIncluded : t.itemAlternative}
+              </span>
+            ) : null}
+            {isIndependent ? (
+              <span
+                className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                  isIncluded
+                    ? "border-[#00C9A7]/40 bg-[#00C9A7]/15 text-[#00C9A7]"
+                    : "border-amber-400/30 bg-amber-400/10 text-amber-200"
+                }`}
+              >
+                {isIncluded ? t.itemIncluded : t.itemExcluded}
               </span>
             ) : null}
             <span
@@ -177,7 +212,7 @@ function QuoteItemCard({
           </label>
         ) : null}
 
-        {isSelectable ? (
+        {isSelectable && !isIndependent ? (
           <button
             type="button"
             onClick={() => onSelect?.(item.id)}
@@ -201,19 +236,28 @@ export function QuoteItemsSection({
   title,
   items,
   onSelectItem,
+  onToggleItem,
   onMarginChange,
+  selectionMode = "exclusive",
 }: {
   eyebrow: string;
   title: string;
   items: QuoteItem[];
   onSelectItem?: (itemId: string) => void;
+  onToggleItem?: (itemId: string) => void;
   onMarginChange?: (itemId: string, marginPercent: number) => void;
+  selectionMode?: "exclusive" | "independent";
 }) {
   const { locale, t } = useDashboardLanguage();
-  const selectableCount = items.filter((item) => getQuoteSelectionGroup(item.id)).length;
-  const includedCount = items.filter(
-    (item) => getQuoteSelectionGroup(item.id) && !item.alternative,
-  ).length;
+  const isIndependent = selectionMode === "independent";
+  const selectableCount = isIndependent
+    ? items.length
+    : items.filter((item) => getQuoteSelectionGroup(item.id)).length;
+  const includedCount = isIndependent
+    ? items.filter((item) => !item.alternative).length
+    : items.filter(
+        (item) => getQuoteSelectionGroup(item.id) && !item.alternative,
+      ).length;
 
   const subtitle =
     selectableCount > 0
@@ -236,7 +280,9 @@ export function QuoteItemsSection({
             key={item.id}
             item={item}
             onSelect={onSelectItem}
+            onToggle={onToggleItem}
             onMarginChange={onMarginChange}
+            selectionMode={selectionMode}
           />
         ))}
       </div>

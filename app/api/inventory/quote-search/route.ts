@@ -10,6 +10,7 @@ const RequestBodySchema = z.object({
     .enum(["budget", "standard", "premium", "luxury"])
     .optional()
     .default("standard"),
+  durationDays: z.number().int().min(1).optional().default(1),
 });
 
 export async function POST(req: NextRequest) {
@@ -36,6 +37,7 @@ export async function POST(req: NextRequest) {
     destination: body.destination,
     accessibility: body.accessibility,
     hotelLevel: body.hotelLevel,
+    durationDays: body.durationDays,
   });
 
   return NextResponse.json(result);
