@@ -11,6 +11,7 @@ import {
   PROMPT_VERSION,
 } from "./prompts";
 import { callStructured } from "./anthropic-client";
+import type { InputLanguageHint } from "./detect-language";
 
 export type ParserResult =
   | { status: "ready"; data: TripRequest; promptVersion: string }
@@ -28,10 +29,11 @@ export class ParserEngine {
    */
   async parse(
     rawInput: string,
-    currentDate: string = new Date().toISOString().slice(0, 10)
+    currentDate: string = new Date().toISOString().slice(0, 10),
+    languageHint?: InputLanguageHint,
   ): Promise<ParserResult> {
     try {
-      const extracted = await this.extract(rawInput, currentDate);
+      const extracted = await this.extract(rawInput, currentDate, languageHint);
       return await this.evaluateCompleteness(extracted);
     } catch (err) {
       return {
@@ -47,10 +49,11 @@ export class ParserEngine {
    */
   async merge(
     partialData: TripRequest,
-    answers: Record<string, string>
+    answers: Record<string, string>,
+    languageHint?: InputLanguageHint,
   ): Promise<ParserResult> {
     try {
-      const merged = await this.mergeAnswers(partialData, answers);
+      const merged = await this.mergeAnswers(partialData, answers, languageHint);
       return await this.evaluateCompleteness(merged);
     } catch (err) {
       return {
@@ -62,11 +65,15 @@ export class ParserEngine {
   }
 
   // ───── Extracción inicial ─────
-  private async extract(rawInput: string, currentDate: string): Promise<TripRequest> {
+  private async extract(
+    rawInput: string,
+    currentDate: string,
+    languageHint?: InputLanguageHint,
+  ): Promise<TripRequest> {
     return callStructured({
       schema: TripRequestSchema,
       system: EXTRACTION_SYSTEM_PROMPT,
-      userMessage: EXTRACTION_USER_PROMPT(rawInput, currentDate),
+      userMessage: EXTRACTION_USER_PROMPT(rawInput, currentDate, languageHint),
       maxTokens: 2048,
     });
   }
@@ -74,12 +81,13 @@ export class ParserEngine {
   // ───── Fusión de respuestas ─────
   private async mergeAnswers(
     partial: TripRequest,
-    answers: Record<string, string>
+    answers: Record<string, string>,
+    languageHint?: InputLanguageHint,
   ): Promise<TripRequest> {
     return callStructured({
       schema: TripRequestSchema,
       system: MERGE_SYSTEM_PROMPT,
-      userMessage: MERGE_USER_PROMPT(partial, answers),
+      userMessage: MERGE_USER_PROMPT(partial, answers, languageHint),
       maxTokens: 2048,
     });
   }

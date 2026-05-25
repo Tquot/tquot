@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Redis } from "@upstash/redis";
+import type { InputLanguageHint } from "./detect-language";
 import type { TripRequest, ParserQuestion } from "./schema";
 import type { ParserSearchResult } from "./search-orchestrator";
 
@@ -12,6 +13,8 @@ const SESSION_TTL_SECONDS = 86400;
 export interface ParserSession {
   id: string;
   agentId: string | null;
+  /** Idioma del texto del agente (parse); reutilizado en /answer para preguntas. */
+  languageHint?: InputLanguageHint;
   rawInputs: string[];
   partialData: TripRequest | null;
   pendingQuestions: ParserQuestion[];

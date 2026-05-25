@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { anonymizeForClaude } from "@/lib/parser/anonymize";
+import { detectInputLanguage } from "@/lib/parser/detect-language";
 import { ParserEngine } from "@/lib/parser/engine";
 import {
   runParserSearchOrchestrator,
@@ -15,6 +16,7 @@ const RequestBodySchema = z.object({
   text: z.string().min(1).max(MAX_INPUT_CHARS),
   agentId: z.string(),
   currentDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  languageHint: z.enum(["es", "en"]).optional(),
 });
 /** Dev-only: unauthenticated requests from /test-parser use this agentId. */
 const TEST_AGENT_ID = "test-agent";
@@ -40,10 +42,12 @@ export async function POST(req: NextRequest) {
     if (agentError) return agentError;
   }
 
+  const languageHint = body.languageHint ?? detectInputLanguage(body.text);
   const anonymizedText = anonymizeForClaude(body.text);
 
   const store = getSessionStore();
   const session = await store.create(body.agentId);
+  session.languageHint = languageHint;
   session.rawInputs.push(body.text);
   session.turns.push({
     role: "agent",
@@ -52,7 +56,11 @@ export async function POST(req: NextRequest) {
   });
 
   const engine = new ParserEngine();
-  const result = await engine.parse(anonymizedText, body.currentDate);
+  const result = await engine.parse(
+    anonymizedText,
+    body.currentDate,
+    languageHint,
+  );
 
   session.turns.push({
     role: "parser",

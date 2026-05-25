@@ -4,7 +4,12 @@
 // Útil para correr evals comparativos y rollback.
 // ─────────────────────────────────────────────────────────────
 
-export const PROMPT_VERSION = "2026-05-25.1";
+import {
+  languageInstructionForPrompt,
+  type InputLanguageHint,
+} from "./detect-language";
+
+export const PROMPT_VERSION = "2026-05-25.2";
 
 export const EXTRACTION_SYSTEM_PROMPT = `Eres el motor de extracción de TQuot, una plataforma de cotización de viajes para agencias.
 
@@ -19,6 +24,7 @@ PRINCIPIOS:
 5. Accesibilidad: lee con atención. Cualquier mención a silla de ruedas, movilidad reducida, dificultad para andar, baño accesible, ascensor obligatorio, perro de asistencia, etc., debe marcar accessibilityNeeds=true y resumirse en accessibilityDetails.
 6. Idioma: el cliente puede escribir en español, inglés, portugués o francés. Devuelve siempre JSON que cumpla el schema.
 7. Distingue entre lo que el cliente PIDE y lo que el agente OBSERVA. Si una nota dice "creo que querrán algo céntrico", esto es una hipótesis del agente, no una petición firme: ponlo en specialRequests con la marca "(hipótesis del agente)".
+8. IDIOMA DE LAS PREGUNTAS: todo string en el array "questions" debe estar en el MISMO idioma que el texto del agente en este turno. Si el agente escribe en inglés, las preguntas en inglés. Si escribe en español, en español. No mezcles idiomas. Los nombres de ciudades en JSON pueden seguir en español cuando exista nombre oficial (regla de normalización).
 
 TIPO DE VIAJE (tripType):
 - "transport_only": solo transporte (vuelos, transfers, coche/alquiler) SIN hotel ni alojamiento. Ejemplos: "solo vuelo", "solo transfer", "vuelo sin hotel", "flight only", "necesito un transfer".
@@ -34,11 +40,11 @@ CAMPOS CRÍTICOS para considerar una solicitud lista:
 FECHAS Y ESTANCIA (según tripType):
 - full_trip o transport_only: destination, adults y fechas de viaje utilizables.
   Si solo hay UNA fecha concreta (solo departureDate, sin returnDate ni número de noches explícito),
-  NO marques status="ready". Devuelve status="needs_input" con la pregunta exacta:
-  "¿Cuántas noches necesitas?" (puedes añadir otras preguntas críticas en el mismo turno).
+  NO marques status="ready". Devuelve status="needs_input" con una pregunta sobre noches de estancia
+  en el idioma del agente (ej. español: "¿Cuántas noches necesitas?"; inglés: "How many nights do you need?").
   Si el cliente indica noches (ej. "3 noches"), calcula returnDate = departureDate + esas noches en YYYY-MM-DD.
 - accommodation_only: destination, adults y fecha de entrada (departureDate / check-in).
-  returnDate NO es obligatorio si faltan noches: con solo check-in, pregunta "¿Cuántas noches necesitas?"
+  returnDate NO es obligatorio si faltan noches: con solo check-in, pregunta cuántas noches en el idioma del agente
   y mantén status="needs_input". Cuando tengas entrada + noches (o returnDate explícito), status="ready".
 - Si hay rango de fechas claro (ida y vuelta, o entrada y salida), extrae departureDate y returnDate.
 
@@ -63,7 +69,13 @@ NORMALIZACIÓN:
 
 NO incluyas explicaciones fuera del JSON. La salida está sujeta a un schema estricto.`;
 
-export const EXTRACTION_USER_PROMPT = (input: string, currentDate: string) => `Fecha actual (para resolver fechas relativas): ${currentDate}
+export const EXTRACTION_USER_PROMPT = (
+  input: string,
+  currentDate: string,
+  languageHint?: InputLanguageHint,
+) => `Fecha actual (para resolver fechas relativas): ${currentDate}
+
+${languageInstructionForPrompt(languageHint)}
 
 Texto del agente / cliente a procesar:
 ---
@@ -81,19 +93,23 @@ REGLAS:
 1. Habla al agente como un colega, no como un chatbot al cliente final. Tono: directo, breve, profesional.
 2. Una pregunta por campo faltante crítico. Máximo 5 preguntas por turno.
 3. Si hay ambigüedades resolubles (ej: "París" → ¿Francia o Texas?), conviértelas en preguntas de elección.
-4. Para fechas, ofrece formato sugerido: "¿Fechas? (ej: 12-19 julio)".
+4. Para fechas, ofrece formato sugerido en el idioma del agente (ej. español: "¿Fechas? (ej: 12-19 julio)"; inglés: "Dates? (e.g. Jul 12–19)").
 5. Para presupuesto, pregunta importe Y si es total/por persona Y si es estricto.
 6. Si el cliente menciona accesibilidad de forma vaga ("tiene problemas para caminar"), pide detalle: ¿silla de ruedas? ¿manual o eléctrica? ¿necesita habitación accesible?
 7. NO repreguntes campos que ya tengamos. Recibirás los datos parciales ya extraídos.
 8. NO pidas datos opcionales (preferencias de aerolínea, amenities) en este turno: solo lo crítico para arrancar la búsqueda.
+9. Escribe todas las preguntas en el mismo idioma que el texto original del agente (se indicará en el mensaje del usuario si se conoce).
 
 FORMATO DE SALIDA: JSON con array de strings en questions.`;
 
 export const QUESTION_USER_PROMPT = (
   partialData: object,
   missingFields: string[],
-  ambiguities: object[]
-) => `Datos extraídos hasta ahora:
+  ambiguities: object[],
+  languageHint?: InputLanguageHint,
+) => `${languageInstructionForPrompt(languageHint)}
+
+Datos extraídos hasta ahora:
 \`\`\`json
 ${JSON.stringify(partialData, null, 2)}
 \`\`\`
@@ -117,14 +133,18 @@ REGLAS:
 - Si la nueva respuesta contradice un dato anterior, prioriza la respuesta más reciente del agente.
 - Si el agente responde con "no aplica", "no importa", "lo que sea", omite el campo opcional correspondiente.
 - Recalcula status y questions.
-- Aplica las mismas reglas de fechas/noches que en extracción (pregunta "¿Cuántas noches necesitas?"
+- Aplica las mismas reglas de fechas/noches que en extracción (pregunta sobre noches de estancia en el idioma del agente
   si solo hay check-in; accommodation_only no exige returnDate hasta tener noches o salida).
+- Las preguntas nuevas en "questions" deben estar en el mismo idioma que las respuestas del agente en este turno.
 - Mantén el resto de campos ya extraídos inalterados salvo que el agente los contradiga explícitamente.`;
 
 export const MERGE_USER_PROMPT = (
   partialData: object,
-  answers: Record<string, string>
-) => `Datos parciales:
+  answers: Record<string, string>,
+  languageHint?: InputLanguageHint,
+) => `${languageInstructionForPrompt(languageHint)}
+
+Datos parciales:
 \`\`\`json
 ${JSON.stringify(partialData, null, 2)}
 \`\`\`

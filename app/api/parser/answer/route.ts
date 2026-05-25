@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { detectInputLanguage } from "@/lib/parser/detect-language";
 import { ParserEngine } from "@/lib/parser/engine";
 import {
   runParserSearchOrchestrator,
@@ -60,8 +61,19 @@ export async function POST(req: NextRequest) {
     timestamp: Date.now(),
   });
 
+  const languageHint =
+    session.languageHint ??
+    detectInputLanguage(Object.values(body.answers).join(" "));
+  if (!session.languageHint && languageHint) {
+    session.languageHint = languageHint;
+  }
+
   const engine = new ParserEngine();
-  const result = await engine.merge(session.partialData, body.answers);
+  const result = await engine.merge(
+    session.partialData,
+    body.answers,
+    languageHint,
+  );
 
   session.turns.push({
     role: "parser",
