@@ -405,11 +405,15 @@ function mapApiFlightToQuoteItem(
   id: string,
   routeLabel: string,
   alternative = false,
-): QuoteItem {
+): QuoteItem | null {
   const isDirect = String(flight.stops) === "0";
   const stopLabel = isDirect ? "directo" : `${flight.stops} escala(s)`;
   const price =
     flight.priceNumeric > 0 ? flight.priceNumeric : parsePriceString(flight.price);
+
+  if (!Number.isFinite(price) || price <= 0) {
+    return null;
+  }
 
   return draftItem({
     id,
@@ -428,15 +432,25 @@ function mapApiHotelToQuoteItem(
   nights: number,
   id: string,
   alternative = false,
-): QuoteItem {
+): QuoteItem | null {
   const pricePerNight = parsePriceString(hotel.pricePerNight);
+  const totalPrice = Math.round(pricePerNight * nights);
+
+  if (
+    !Number.isFinite(pricePerNight) ||
+    pricePerNight <= 0 ||
+    !Number.isFinite(totalPrice) ||
+    totalPrice <= 0
+  ) {
+    return null;
+  }
 
   return draftItem({
     id,
     type: "hotel",
     title: `${hotel.name} — ${nights} ${nights === 1 ? "noche" : "noches"} · ${hotel.roomType}`,
     provider: "Booking.com",
-    price: Math.round(pricePerNight * nights),
+    price: totalPrice,
     source: "api",
     alternative,
   });
@@ -718,27 +732,25 @@ async function buildFlightsFromApiOrMock(params: {
 
   const items: QuoteItem[] = [];
 
-  outboundFlights.slice(0, 10).forEach((flight, index) => {
-    items.push(
-      mapApiFlightToQuoteItem(
-        flight,
-        `flight-out-${index + 1}`,
-        `${origin} → ${destination}`,
-        index > 0,
-      ),
+  for (const [index, flight] of outboundFlights.slice(0, 10).entries()) {
+    const item = mapApiFlightToQuoteItem(
+      flight,
+      `flight-out-${index + 1}`,
+      `${origin} → ${destination}`,
+      items.length > 0,
     );
-  });
+    if (item) items.push(item);
+  }
 
-  returnFlights.slice(0, 10).forEach((flight, index) => {
-    items.push(
-      mapApiFlightToQuoteItem(
-        flight,
-        `flight-return-${index + 1}`,
-        `${destination} → ${origin}`,
-        index > 0,
-      ),
+  for (const [index, flight] of returnFlights.slice(0, 10).entries()) {
+    const item = mapApiFlightToQuoteItem(
+      flight,
+      `flight-return-${index + 1}`,
+      `${destination} → ${origin}`,
+      items.length > 0,
     );
-  });
+    if (item) items.push(item);
+  }
 
   if (items.length > 0) {
     return { items, source: "real" };
@@ -796,15 +808,15 @@ async function buildHotelsFromInventoryOrApiOrMock(params: {
 
     console.log("[buildQuote] hotels API refresh (level change)", apiHotels);
 
-    for (const [index, hotel] of apiHotels.slice(0, HOTEL_QUOTE_LIMIT).entries()) {
-      items.push(
-        mapApiHotelToQuoteItem(
-          hotel,
-          nights,
-          `hotel-api-${index + 1}`,
-          index > 0,
-        ),
+    for (const hotel of apiHotels.slice(0, HOTEL_QUOTE_LIMIT)) {
+      if (items.length >= HOTEL_QUOTE_LIMIT) break;
+      const item = mapApiHotelToQuoteItem(
+        hotel,
+        nights,
+        `hotel-api-${items.length + 1}`,
+        items.length > 0,
       );
+      if (item) items.push(item);
     }
   }
 
@@ -847,15 +859,15 @@ async function buildHotelsFromInventoryOrApiOrMock(params: {
     console.log("[buildQuote] hotels before mapping to QuoteItem", apiHotels);
 
     const remaining = HOTEL_QUOTE_LIMIT - items.length;
-    for (const [index, hotel] of apiHotels.slice(0, remaining).entries()) {
-      items.push(
-        mapApiHotelToQuoteItem(
-          hotel,
-          nights,
-          `hotel-api-${items.length + 1}`,
-          items.length > 0,
-        ),
+    for (const hotel of apiHotels.slice(0, remaining)) {
+      if (items.length >= HOTEL_QUOTE_LIMIT) break;
+      const item = mapApiHotelToQuoteItem(
+        hotel,
+        nights,
+        `hotel-api-${items.length + 1}`,
+        items.length > 0,
       );
+      if (item) items.push(item);
     }
   }
 
