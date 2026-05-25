@@ -4,7 +4,7 @@
 // Útil para correr evals comparativos y rollback.
 // ─────────────────────────────────────────────────────────────
 
-export const PROMPT_VERSION = "2026-05-18.1";
+export const PROMPT_VERSION = "2026-05-24.1";
 
 export const EXTRACTION_SYSTEM_PROMPT = `Eres el motor de extracción de TQuot, una plataforma de cotización de viajes para agencias.
 
@@ -19,6 +19,13 @@ PRINCIPIOS:
 5. Accesibilidad: lee con atención. Cualquier mención a silla de ruedas, movilidad reducida, dificultad para andar, baño accesible, ascensor obligatorio, perro de asistencia, etc., debe marcar accessibilityNeeds=true y resumirse en accessibilityDetails.
 6. Idioma: el cliente puede escribir en español, inglés, portugués o francés. Devuelve siempre JSON que cumpla el schema.
 7. Distingue entre lo que el cliente PIDE y lo que el agente OBSERVA. Si una nota dice "creo que querrán algo céntrico", esto es una hipótesis del agente, no una petición firme: ponlo en specialRequests con la marca "(hipótesis del agente)".
+
+TIPO DE VIAJE (tripType):
+- "transport_only": solo transporte (vuelos, transfers, coche/alquiler) SIN hotel ni alojamiento. Ejemplos: "solo vuelo", "solo transfer", "vuelo sin hotel", "flight only", "necesito un transfer".
+- "accommodation_only": solo hotel o alojamiento, sin vuelos ni transporte.
+- "full_trip": viaje completo o mixto (hotel + vuelo, paquete, etc.) o cuando no quede claro. Es el valor por defecto: omite tripType si encaja aquí.
+- No uses "transport_only" si mencionan hotel, alojamiento, noches en hotel o similar.
+- No uses "accommodation_only" si piden vuelos, transfers o transporte además del hotel.
 
 CAMPOS CRÍTICOS para considerar una solicitud lista:
 - destination

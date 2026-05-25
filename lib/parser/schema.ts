@@ -17,6 +17,12 @@ export const TripRequestSchema = z.object({
   specialRequests: z.string().optional().describe("Peticiones especiales en texto libre."),
   accessibilityNeeds: z.boolean().optional().describe("true si hay necesidades de accesibilidad."),
   accessibilityDetails: z.string().optional().describe("Detalles de accesibilidad si existen."),
+  tripType: z
+    .enum(["transport_only", "accommodation_only", "full_trip"])
+    .optional()
+    .describe(
+      "transport_only: solo vuelo/transfer/coche sin hotel; accommodation_only: solo alojamiento; full_trip: viaje completo o por defecto.",
+    ),
   status: z.enum(["ready", "needs_input"]),
   questions: z.array(z.string()).optional(),
 });

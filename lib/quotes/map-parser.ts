@@ -179,6 +179,29 @@ function normalizeTripDate(value: string | undefined, fallback: string): string 
   return dmy ?? fallback;
 }
 
+function tripTypeToIncludes(tripType?: TripRequest["tripType"]) {
+  switch (tripType) {
+    case "transport_only":
+      return {
+        includeHotels: false,
+        includeExperiences: false,
+        includeFlights: true,
+      };
+    case "accommodation_only":
+      return {
+        includeHotels: true,
+        includeExperiences: false,
+        includeFlights: false,
+      };
+    default:
+      return {
+        includeHotels: true,
+        includeExperiences: true,
+        includeFlights: true,
+      };
+  }
+}
+
 /** Maps parser `TripRequest` to the deterministic quote builder input. */
 export function tripRequestToParsedTripInput(
   trip: TripRequest,
@@ -205,6 +228,7 @@ export function tripRequestToParsedTripInput(
       directFlights: inferDirectFlights(trip.specialRequests),
       accessibility: trip.accessibilityNeeds ?? false,
     },
+    ...tripTypeToIncludes(trip.tripType),
   };
 }
 
@@ -236,5 +260,8 @@ export function localParseToParsedTripInput(
       directFlights: parsed.includeFlights,
       accessibility: false,
     },
+    includeHotels: true,
+    includeExperiences: true,
+    includeFlights: true,
   };
 }

@@ -54,6 +54,9 @@ export interface ParsedTripInput {
   agencyMargins?: AgencyMargins;
   enrichedTrip?: EnrichedTripRequest;
   airportChoices?: AirportFlightChoices;
+  includeHotels: boolean;
+  includeExperiences: boolean;
+  includeFlights: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -163,47 +166,65 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
     `${origin}|${destination}|${input.dates.start}|${input.dates.end}|${pax.adults}|${pax.children}|${input.preferences.hotelLevel}|${input.preferences.directFlights}|${input.preferences.accessibility}`,
   );
 
-  const inventorySearch = fetchInventoryForQuote({
-    destination,
-    accessibility: input.preferences.accessibility,
-    hotelLevel: input.preferences.hotelLevel,
-    durationDays,
+  const includeHotels = input.includeHotels ?? true;
+  const includeExperiences = input.includeExperiences ?? true;
+  const includeFlights = input.includeFlights ?? true;
+
+  const emptySection = (): QuoteSectionBuildResult => ({
+    items: [],
+    source: "real",
   });
 
+  const inventorySearch =
+    includeHotels || includeExperiences
+      ? fetchInventoryForQuote({
+          destination,
+          accessibility: input.preferences.accessibility,
+          hotelLevel: input.preferences.hotelLevel,
+          durationDays,
+        })
+      : Promise.resolve(null);
+
   const [flightsResult, hotelsResult, experiencesResult] = await Promise.all([
-    buildFlightsFromApiOrMock({
-      origin,
-      destination,
-      dates: input.dates,
-      pax,
-      directFlights: input.preferences.directFlights,
-      seed,
-      enrichedTrip: input.enrichedTrip,
-      airportChoices: input.airportChoices,
-    }),
-    inventorySearch.then((inventory) =>
-      buildHotelsFromInventoryOrApiOrMock({
-        destination,
-        dates: input.dates,
-        nights,
-        pax,
-        hotelLevel: input.preferences.hotelLevel,
-        accessibility: input.preferences.accessibility,
-        seed,
-        inventory,
-      }),
-    ),
-    inventorySearch.then((inventory) =>
-      buildExperiencesFromInventoryOrMock({
-        destination,
-        durationDays,
-        pax,
-        seed,
-        accessibility: input.preferences.accessibility,
-        hotelLevel: input.preferences.hotelLevel,
-        inventory,
-      }),
-    ),
+    includeFlights
+      ? buildFlightsFromApiOrMock({
+          origin,
+          destination,
+          dates: input.dates,
+          pax,
+          directFlights: input.preferences.directFlights,
+          seed,
+          enrichedTrip: input.enrichedTrip,
+          airportChoices: input.airportChoices,
+        })
+      : Promise.resolve(emptySection()),
+    includeHotels
+      ? inventorySearch.then((inventory) =>
+          buildHotelsFromInventoryOrApiOrMock({
+            destination,
+            dates: input.dates,
+            nights,
+            pax,
+            hotelLevel: input.preferences.hotelLevel,
+            accessibility: input.preferences.accessibility,
+            seed,
+            inventory,
+          }),
+        )
+      : Promise.resolve(emptySection()),
+    includeExperiences
+      ? inventorySearch.then((inventory) =>
+          buildExperiencesFromInventoryOrMock({
+            destination,
+            durationDays,
+            pax,
+            seed,
+            accessibility: input.preferences.accessibility,
+            hotelLevel: input.preferences.hotelLevel,
+            inventory,
+          }),
+        )
+      : Promise.resolve(emptySection()),
   ]);
 
   const flights = flightsResult.items;
