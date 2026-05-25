@@ -5,7 +5,14 @@ export type RefineAction =
       action: "add_insurance";
       params: { destination: string; days: number; pax: number };
     }
-  | { action: "change_hotel_level"; params: { level: HotelLevel } }
+  | {
+      action: "change_hotel_level";
+      params: {
+        level?: HotelLevel;
+        area?: string;
+        preference?: string;
+      };
+    }
   | { action: "filter_direct_flights" }
   | { action: "cheaper" }
   | { action: "add_experience"; params: { type: string } }

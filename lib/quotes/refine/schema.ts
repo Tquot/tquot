@@ -14,7 +14,11 @@ export const RefineActionSchema = z.discriminatedUnion("action", [
   }),
   z.object({
     action: z.literal("change_hotel_level"),
-    params: z.object({ level: hotelLevelSchema }),
+    params: z.object({
+      level: hotelLevelSchema.optional(),
+      area: z.string().optional(),
+      preference: z.string().optional(),
+    }),
   }),
   z.object({
     action: z.literal("filter_direct_flights"),

@@ -1,4 +1,4 @@
-import type { ParsedTripInput, Quote } from "@/lib/quotes/build-quote";
+import type { HotelLevel, ParsedTripInput, Quote } from "@/lib/quotes/build-quote";
 import { rebuildHotelsSection } from "@/lib/quotes/build-quote";
 import { searchInventoryForQuote } from "@/lib/inventory/search-for-quote";
 import {
@@ -66,11 +66,23 @@ export async function applyServerRefinementAction(
     }
 
     case "change_hotel_level": {
+      const nextLevel: HotelLevel =
+        action.params.level ?? tripInput.preferences.hotelLevel;
+
+      const preferenceNote = [action.params.area, action.params.preference]
+        .filter(Boolean)
+        .join(" · ");
+
+      const searchDestination = action.params.area
+        ? `${tripInput.destination} — ${action.params.area}`
+        : tripInput.destination;
+
       const updatedTripInput: ParsedTripInput = {
         ...tripInput,
+        destination: searchDestination,
         preferences: {
           ...tripInput.preferences,
-          hotelLevel: action.params.level,
+          hotelLevel: nextLevel,
         },
       };
 
@@ -84,9 +96,9 @@ export async function applyServerRefinementAction(
       );
 
       const inventory = await searchInventoryForQuote(userId, {
-        destination: updatedTripInput.destination,
+        destination: searchDestination,
         accessibility: updatedTripInput.preferences.accessibility,
-        hotelLevel: updatedTripInput.preferences.hotelLevel,
+        hotelLevel: nextLevel,
         durationDays,
       });
 
@@ -94,10 +106,18 @@ export async function applyServerRefinementAction(
         updatedTripInput,
         inventory,
         apiOrigin,
+        { alwaysIncludeApi: true },
       );
 
+      const levelLabel = action.params.level ?? nextLevel;
+      const detailParts = [
+        `categoría ${levelLabel}`,
+        action.params.area ? `zona: ${action.params.area}` : null,
+        action.params.preference ? `preferencia: ${action.params.preference}` : null,
+      ].filter(Boolean);
+
       return {
-        message: `He actualizado los hoteles a categoría ${action.params.level}.`,
+        message: `He actualizado los hoteles (${detailParts.join(", ")}).${preferenceNote ? ` Criterio: ${preferenceNote}.` : ""}`,
         patch: {
           hotels: hotelsResult.items,
           _meta: {

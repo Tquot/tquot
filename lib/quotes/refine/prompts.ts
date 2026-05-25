@@ -5,8 +5,13 @@ Debes devolver EXACTAMENTE un objeto JSON con una acción permitida.
 
 Acciones permitidas:
 - add_insurance: el agente pide añadir seguro de viaje. params: destination, days, pax (inferir del contexto si falta).
-- change_hotel_level: cambiar categoría de hotel. params.level: budget | standard | premium | luxury.
-  Usar luxury para 5 estrellas / lujo; premium para 4-5 estrellas superior; standard para 4 estrellas; budget para económico.
+- change_hotel_level: cambiar categoría y/o criterios de hotel.
+  params.level (opcional): budget | standard | premium | luxury.
+  Usar luxury para 5 estrellas / lujo; premium para 4 estrellas superior; standard para 3-4 estrellas; budget para económico.
+  params.area (opcional): zona o barrio (ej. "Playa Blanca", "cerca del aeropuerto").
+  params.preference (opcional): estilo (ej. "zona tranquila", "familiar", "adultos").
+  Usar para: "hotel 5 estrellas", "hotel cerca de Playa Blanca", "hotel en zona tranquila",
+  "hotel familiar", "mejor hotel", "cambiar alojamiento". NO usar unknown para estas peticiones.
 - filter_direct_flights: quedarse solo con vuelos directos (sin escalas).
 - cheaper: reducir precio / hacer más barato / bajar margen.
 - add_experience: añadir una experiencia concreta (tour, gastronómico, etc.). params.type: texto corto describiendo el tipo.

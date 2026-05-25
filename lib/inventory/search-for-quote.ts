@@ -4,9 +4,9 @@ import {
   parseDurationHours,
 } from "@/lib/inventory/experience-duration";
 import { normalizeInventoryPlace } from "@/lib/inventory/inventory-utils";
+import type { HotelLevel } from "@/lib/quotes/build-quote";
+import { passesHotelLevelFilter } from "@/lib/quotes/hotel-level-filter";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-
-type HotelLevel = "budget" | "standard" | "premium" | "luxury";
 
 export const MAX_INVENTORY_QUOTE_RESULTS = 10;
 export const MAX_INVENTORY_QUOTE_EXPERIENCES = 5;
@@ -167,6 +167,13 @@ function scoreAndRankRows(
       ) {
         continue;
       }
+    }
+
+    if (
+      applyHotelStars &&
+      !passesHotelLevelFilter(row.data, params.hotelLevel)
+    ) {
+      continue;
     }
 
     const destinationScore = scoreDestination(row, destinationNorm);

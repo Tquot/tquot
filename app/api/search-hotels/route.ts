@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import type { HotelLevel } from "@/lib/quotes/build-quote";
+import { passesApiHotelLevelFilter } from "@/lib/quotes/hotel-level-filter";
 
 const BOOKING_AUTOCOMPLETE_URL =
   "https://booking-com18.p.rapidapi.com/stays/auto-complete";
@@ -10,7 +12,21 @@ type SearchHotelsRequest = {
   checkIn?: unknown;
   checkOut?: unknown;
   adults?: unknown;
+  hotelLevel?: unknown;
 };
+
+const HOTEL_LEVELS = new Set<HotelLevel>([
+  "budget",
+  "standard",
+  "premium",
+  "luxury",
+]);
+
+function parseHotelLevel(value: unknown): HotelLevel | undefined {
+  if (typeof value !== "string") return undefined;
+  const level = value.trim().toLowerCase() as HotelLevel;
+  return HOTEL_LEVELS.has(level) ? level : undefined;
+}
 
 export type HotelOption = {
   name: string;
@@ -411,48 +427,69 @@ function normalizeHotelOptions(
   });
 }
 
-function createMockHotels(destination: string): HotelOption[] {
+function createMockHotels(
+  destination: string,
+  hotelLevel: HotelLevel = "standard",
+): HotelOption[] {
   const city = cleanDestinationName(destination);
 
-  console.log("[search-hotels] Creating fallback mock hotels", { city });
+  console.log("[search-hotels] Creating fallback mock hotels", { city, hotelLevel });
 
-  return [
-    {
-      name: `${city} Grand Central Hotel`,
-      pricePerNight: "EUR 145",
-      stars: 4,
-      rating: 8.7,
-      address: `${city} city centre, close to the main attractions`,
-      roomType: "Habitación doble",
-      highlights: ["Centro ciudad", "Desayuno incluido", "Wifi gratis"],
-      distanceFromCenter: "0.4 km from centre",
-    },
-    {
-      name: `${city} Aurora Boutique Suites`,
-      pricePerNight: "EUR 178",
-      stars: 4,
-      rating: 9.1,
-      address: `${city} historic district, near restaurants and shops`,
-      roomType: "Suite",
-      highlights: ["Piscina", "Terraza", "Cerca del casco antiguo"],
-      distanceFromCenter: "0.8 km from centre",
-    },
-    {
-      name: `${city} Metropolitan Business Hotel`,
-      pricePerNight: "EUR 121",
-      stars: 3,
-      rating: 8.3,
-      address: `${city} central station area`,
-      roomType: "Habitación estándar",
-      highlights: ["Estación central", "Recepción 24h", "Cancelación flexible"],
-      distanceFromCenter: "1.2 km from centre",
-    },
-  ];
+  const tiers: Record<
+    HotelLevel,
+    Array<{ suffix: string; stars: number; price: string }>
+  > = {
+    budget: [
+      { suffix: "City Inn", stars: 3, price: "EUR 89" },
+      { suffix: "Travel Lodge", stars: 3, price: "EUR 95" },
+      { suffix: "Metro Stay", stars: 2, price: "EUR 79" },
+    ],
+    standard: [
+      { suffix: "Grand Central Hotel", stars: 4, price: "EUR 145" },
+      { suffix: "Aurora Boutique Suites", stars: 4, price: "EUR 178" },
+      { suffix: "Metropolitan Business Hotel", stars: 3, price: "EUR 121" },
+    ],
+    premium: [
+      { suffix: "Premium Collection", stars: 4, price: "EUR 195" },
+      { suffix: "Harbour View", stars: 5, price: "EUR 220" },
+      { suffix: "Executive Suites", stars: 4, price: "EUR 210" },
+    ],
+    luxury: [
+      { suffix: "Grand Luxury Resort", stars: 5, price: "EUR 320" },
+      { suffix: "Palace & Spa", stars: 5, price: "EUR 380" },
+      { suffix: "Signature Collection", stars: 5, price: "EUR 295" },
+    ],
+  };
+
+  return tiers[hotelLevel].map((tier, index) => ({
+    name: `${city} ${tier.suffix}`,
+    pricePerNight: tier.price,
+    stars: tier.stars,
+    rating: 8.5 + index * 0.2,
+    address: `${city} — opción ${index + 1}`,
+    roomType: index === 2 ? "Suite" : "Habitación doble",
+    highlights: ["Buena ubicación", "Wifi gratis", "Cancelación flexible"],
+    distanceFromCenter: `${0.4 + index * 0.3} km from centre`,
+  }));
 }
 
-function fallbackHotels(message: string, destination: string) {
+function filterHotelsByLevel(
+  hotels: HotelOption[],
+  hotelLevel?: HotelLevel,
+): HotelOption[] {
+  if (!hotelLevel) return hotels;
+  return hotels.filter((hotel) =>
+    passesApiHotelLevelFilter(hotel.stars, hotelLevel),
+  );
+}
+
+function fallbackHotels(
+  message: string,
+  destination: string,
+  hotelLevel?: HotelLevel,
+) {
   return NextResponse.json({
-    hotels: createMockHotels(destination),
+    hotels: createMockHotels(destination, hotelLevel ?? "standard"),
     fallback: true,
     error: message,
   });
@@ -510,7 +547,9 @@ export async function POST(request: Request) {
     );
   }
 
-  const { destination, checkIn, checkOut, adults } = body;
+  const { destination, checkIn, checkOut, adults, hotelLevel: hotelLevelRaw } =
+    body;
+  const hotelLevel = parseHotelLevel(hotelLevelRaw);
 
   if (
     !isNonEmptyString(destination) ||
@@ -537,6 +576,7 @@ export async function POST(request: Request) {
     return fallbackHotels(
       "Missing RAPIDAPI_KEY environment variable.",
       destination,
+      hotelLevel,
     );
   }
 
@@ -560,6 +600,7 @@ export async function POST(request: Request) {
       return fallbackHotels(
         "Booking.com returned no location match.",
         destination,
+        hotelLevel,
       );
     }
 
@@ -587,14 +628,22 @@ export async function POST(request: Request) {
       "searchStays",
     );
     const nights = countNights(checkIn.trim(), checkOut.trim());
-    const hotels = normalizeHotelOptions(hotelPayload, nights);
+    const hotels = filterHotelsByLevel(
+      normalizeHotelOptions(hotelPayload, nights),
+      hotelLevel,
+    );
 
     if (hotels.length === 0) {
       console.error("[search-hotels] RapidAPI returned no hotel options", {
         payload: hotelPayload,
+        hotelLevel,
       });
 
-      return fallbackHotels("RapidAPI returned no hotel options.", destination);
+      return fallbackHotels(
+        "RapidAPI returned no hotel options after level filter.",
+        destination,
+        hotelLevel,
+      );
     }
 
     return NextResponse.json({ hotels });
@@ -604,6 +653,6 @@ export async function POST(request: Request) {
 
     console.error("[search-hotels] Request failed", error);
 
-    return fallbackHotels(message, destination);
+    return fallbackHotels(message, destination, hotelLevel);
   }
 }
