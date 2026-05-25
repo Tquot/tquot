@@ -395,6 +395,7 @@ export function QuoteEngine() {
     origin: null,
     destination: null,
   });
+  const [parserQuestions, setParserQuestions] = useState<string[] | null>(null);
 
   const flightsIncluded =
     tripInput?.includeFlights ??
@@ -411,10 +412,10 @@ export function QuoteEngine() {
     isAirportSelectionComplete(enrichedTrip, airportChoices);
 
   useEffect(() => {
-    if (!isRunning) {
+    if (!isRunning && !parserQuestions) {
       setStepChips(defaultStepChips);
     }
-  }, [defaultStepChips, isRunning]);
+  }, [defaultStepChips, isRunning, parserQuestions]);
 
   useEffect(() => {
     setRequest(t.defaultQuoteRequest);
@@ -593,12 +594,13 @@ export function QuoteEngine() {
     setQuote(null);
     setTripInput(null);
     setIsComplete(false);
+    setIsRunning(false);
+    setActiveStep(-1);
+    setParserQuestions(null);
     setChatMessages([{ role: "ai", content: t.chatWelcome }]);
     setStepChips(defaultStepChips);
     setEnrichedTrip(null);
     setAirportChoices({ origin: null, destination: null });
-    setActiveStep(-1);
-    setIsRunning(false);
     setIsRefining(false);
     setChatInput("");
   }
@@ -683,6 +685,7 @@ export function QuoteEngine() {
     setIsComplete(false);
     setQuote(null);
     setTripInput(null);
+    setParserQuestions(null);
     setEnrichedTrip(null);
     setAirportChoices({ origin: null, destination: null });
     setStepChips(defaultStepChips);
@@ -697,10 +700,13 @@ export function QuoteEngine() {
     const parserResult = await callParserApi(latestRequest, agentId);
 
     if (parserResult.ok && parserResult.status === "needs_input") {
+      const questions = parserResult.questions;
+      setParserQuestions(questions);
+      setActiveStep(0);
       setStepChips((current) =>
         current.map((chips, index) =>
           index === 0
-            ? [t.chipParserNeedsDetails, ...parserResult.questions.slice(0, 2)]
+            ? [t.chipParserNeedsDetails, ...questions.slice(0, 2)]
             : chips,
         ),
       );
@@ -749,6 +755,7 @@ export function QuoteEngine() {
       return;
     }
 
+    setParserQuestions(null);
     const rephraseChip =
       parserResult.ok === false && parserResult.reason === "timeout"
         ? t.chipParserTimeoutRephrase
@@ -1017,6 +1024,7 @@ export function QuoteEngine() {
                 setRequest(event.target.value);
                 setEnrichedTrip(null);
                 setAirportChoices({ origin: null, destination: null });
+                setParserQuestions(null);
               }}
               rows={10}
               className="w-full resize-y rounded-2xl border border-white/10 bg-[#03080F]/70 px-4 py-4 text-[#E8EEF7] shadow-inner shadow-black/30 placeholder:text-[#8B9CB3]/50 outline-none transition-colors focus:border-[#00C9A7]/50 focus:ring-2 focus:ring-[#00C9A7]/20"
@@ -1049,6 +1057,26 @@ export function QuoteEngine() {
                     }
                   />
                 ) : null}
+              </div>
+            ) : null}
+
+            {parserQuestions && parserQuestions.length > 0 ? (
+              <div
+                className="mt-6 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4"
+                role="status"
+                aria-live="polite"
+              >
+                <p className="text-sm font-semibold text-amber-100">
+                  {t.chipParserNeedsDetails}
+                </p>
+                <p className="mt-1 text-xs text-amber-200/80">
+                  {t.parserQuestionsHint}
+                </p>
+                <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-[#E8EEF7]">
+                  {parserQuestions.map((question) => (
+                    <li key={question}>{question}</li>
+                  ))}
+                </ul>
               </div>
             ) : null}
 

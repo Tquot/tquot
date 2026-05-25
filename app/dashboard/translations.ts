@@ -93,6 +93,8 @@ const es = {
   stepBuildChip3: "Experiencias",
   stepBuildChip4: "Márgenes aplicados",
   chipParserNeedsDetails: "El parser necesita más datos",
+  parserQuestionsHint:
+    "Añade la información en la solicitud de arriba y vuelve a generar la cotización.",
   chipTripRequestReady: "TripRequest listo",
   chipDestination: "Destino: {value}",
   chipAdults: "Adultos: {value}",
@@ -303,6 +305,8 @@ const en: Record<keyof typeof es, string> = {
   stepBuildChip3: "Experiences",
   stepBuildChip4: "Margins applied",
   chipParserNeedsDetails: "Parser needs more details",
+  parserQuestionsHint:
+    "Add the missing details to the request above and generate the quote again.",
   chipTripRequestReady: "TripRequest ready",
   chipDestination: "Destination: {value}",
   chipAdults: "Adults: {value}",
