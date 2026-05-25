@@ -375,6 +375,7 @@ export function QuoteEngine() {
     [processSteps],
   );
   const requestInputRef = useRef<HTMLTextAreaElement>(null);
+  const resultsSectionRef = useRef<HTMLElement>(null);
   const [request, setRequest] = useState(t.defaultQuoteRequest);
   const [activeStep, setActiveStep] = useState(-1);
   const [isRunning, setIsRunning] = useState(false);
@@ -416,6 +417,15 @@ export function QuoteEngine() {
       setStepChips(defaultStepChips);
     }
   }, [defaultStepChips, isRunning, parserQuestions]);
+
+  useEffect(() => {
+    if (isComplete && quote && resultsSectionRef.current) {
+      resultsSectionRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }
+  }, [isComplete, quote?.id]);
 
   useEffect(() => {
     setRequest(t.defaultQuoteRequest);
@@ -986,13 +996,18 @@ export function QuoteEngine() {
           ← {t.backToDashboard}
         </Link>
 
-        <section className="mb-8 overflow-hidden rounded-[2rem] border border-white/[0.08] bg-[linear-gradient(135deg,rgba(10,21,37,0.88),rgba(13,32,56,0.68))] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.45),0_0_60px_rgba(0,201,167,0.08)] backdrop-blur-xl sm:p-8">
+        <section className="mb-8 overflow-hidden rounded-3xl border border-white/[0.08] bg-[linear-gradient(135deg,rgba(10,21,37,0.88),rgba(13,32,56,0.68))] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.45),0_0_60px_rgba(0,201,167,0.08)] backdrop-blur-xl sm:p-8">
           <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-start">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.35em] text-[#00C9A7]">
-              TQuot AI Engine
-            </p>
-            <h1 className="mt-4 max-w-3xl text-4xl font-black tracking-tight text-white sm:text-5xl">
+            <div className="flex flex-wrap items-end gap-x-3 gap-y-1">
+              <span className="bg-gradient-to-r from-[#00C9A7] to-[#00E5BB] bg-clip-text text-5xl font-black tracking-tight text-transparent sm:text-6xl lg:text-7xl">
+                TQuot
+              </span>
+              <span className="pb-1 text-sm font-semibold uppercase tracking-[0.35em] text-[#8B9CB3]">
+                AI Engine
+              </span>
+            </div>
+            <h1 className="mt-5 max-w-3xl text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl">
               {t.newQuote}
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-7 text-[#8B9CB3]">
@@ -1009,7 +1024,7 @@ export function QuoteEngine() {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[0.92fr_1.08fr]">
-          <div className="rounded-[1.75rem] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(9,18,32,0.92),rgba(3,8,15,0.72))] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+          <div className="rounded-3xl border border-white/[0.08] bg-[linear-gradient(145deg,rgba(9,18,32,0.92),rgba(3,8,15,0.72))] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.34)] backdrop-blur-xl">
             <label
               htmlFor="client-request"
               className="mb-3 block text-sm font-medium text-[#E8EEF7]"
@@ -1027,7 +1042,7 @@ export function QuoteEngine() {
                 setParserQuestions(null);
               }}
               rows={10}
-              className="w-full resize-y rounded-2xl border border-white/10 bg-[#03080F]/70 px-4 py-4 text-[#E8EEF7] shadow-inner shadow-black/30 placeholder:text-[#8B9CB3]/50 outline-none transition-colors focus:border-[#00C9A7]/50 focus:ring-2 focus:ring-[#00C9A7]/20"
+              className="w-full resize-y rounded-2xl border border-white/20 bg-[#03080F]/70 px-5 py-5 text-[#E8EEF7] shadow-inner shadow-black/30 placeholder:text-[#8B9CB3]/50 outline-none transition-all duration-200 focus:border-[#00C9A7]/60 focus:shadow-[inset_0_0_28px_rgba(0,201,167,0.14),0_0_36px_-6px_rgba(0,201,167,0.45)] focus:ring-2 focus:ring-[#00C9A7]/25"
               placeholder={t.quoteEngineRequestPlaceholder}
             />
 
@@ -1094,7 +1109,7 @@ export function QuoteEngine() {
             </button>
           </div>
 
-          <div className="rounded-[1.75rem] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(9,18,32,0.92),rgba(3,8,15,0.72))] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+          <div className="rounded-3xl border border-white/[0.08] bg-[linear-gradient(145deg,rgba(9,18,32,0.92),rgba(3,8,15,0.72))] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.34)] backdrop-blur-xl">
             <div className="mb-5 flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#00C9A7]">
@@ -1141,22 +1156,36 @@ export function QuoteEngine() {
         </section>
 
         {isComplete && quote ? (
-          <section className="mt-8 rounded-[2rem] border border-white/[0.08] bg-[linear-gradient(145deg,rgba(9,18,32,0.94),rgba(3,8,15,0.78))] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.42)] backdrop-blur-xl">
+          <section
+            ref={resultsSectionRef}
+            className="mt-8 scroll-mt-8 rounded-3xl border border-white/[0.08] bg-[linear-gradient(145deg,rgba(9,18,32,0.94),rgba(3,8,15,0.78))] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.42)] backdrop-blur-xl"
+          >
             <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#00C9A7]">
                   {t.proposalWorkspace}
                 </p>
-                <h2 className="mt-2 text-3xl font-black tracking-tight text-white">
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="rounded-2xl border border-[#00C9A7]/35 bg-[#00C9A7]/10 px-3 py-1 font-mono text-sm font-bold tracking-wide text-[#00C9A7]">
+                    {quote.id}
+                  </span>
+                </div>
+                <h2 className="mt-3 text-3xl font-black tracking-tight text-white sm:text-4xl">
                   {t.compiledQuote}
                 </h2>
-                <p className="mt-1 text-sm text-[#8B9CB3]">
-                  {formatMessage(t.quoteRefSummary, {
-                    id: quote.id,
-                    route: quote.summary.route,
-                    days: quote.summary.durationDays,
-                    travelers: quote.summary.passengers.total,
-                  })}
+                <p className="mt-2 text-2xl font-bold leading-tight text-[#E8EEF7] sm:text-3xl">
+                  {quote.summary.route}
+                </p>
+                <p className="mt-2 text-sm text-[#8B9CB3]">
+                  {formatMessage(
+                    locale === "es"
+                      ? "{days} días · {travelers} viajeros"
+                      : "{days} days · {travelers} travelers",
+                    {
+                      days: quote.summary.durationDays,
+                      travelers: quote.summary.passengers.total,
+                    },
+                  )}
                 </p>
               </div>
               <div className="flex flex-wrap gap-3">
@@ -1231,7 +1260,7 @@ export function QuoteEngine() {
                   {chatMessages.map((message, index) => (
                     <div
                       key={`${message.role}-${index}`}
-                      className={`rounded-xl px-4 py-3 text-sm ${
+                      className={`rounded-2xl px-4 py-3 text-sm ${
                         message.role === "ai"
                           ? "border border-[#00C9A7]/20 bg-[#00C9A7]/10 text-[#00C9A7]"
                           : "bg-white/[0.05] text-[#E8EEF7]"
@@ -1279,7 +1308,7 @@ export function QuoteEngine() {
               </section>
             </div>
 
-            <div className="mt-6 grid gap-4 rounded-3xl border border-[#00C9A7]/20 bg-[linear-gradient(135deg,rgba(0,201,167,0.14),rgba(13,32,56,0.48))] p-5 shadow-[0_0_50px_-24px_rgba(0,201,167,0.9)] sm:grid-cols-3">
+            <div className="mt-6 grid gap-4 rounded-3xl border border-[#00C9A7]/20 bg-[linear-gradient(135deg,rgba(0,201,167,0.14),rgba(13,32,56,0.48))] p-5 shadow-[0_0_50px_-24px_rgba(0,201,167,0.9)] sm:grid-cols-3 sm:divide-x sm:divide-white/[0.08]">
               <TotalCard
                 label={t.baseTotal}
                 value={quote.pricing.baseTotal}
@@ -1362,7 +1391,7 @@ function ProcessStepCard({
     <div
       className={`relative overflow-hidden rounded-3xl border p-4 transition-all ${
         status === "active"
-          ? "border-[#00C9A7]/45 bg-[linear-gradient(135deg,rgba(0,201,167,0.16),rgba(13,32,56,0.42))] shadow-[0_0_46px_-20px_rgba(0,201,167,0.95)]"
+          ? "border-[#00C9A7]/55 bg-[linear-gradient(135deg,rgba(0,201,167,0.18),rgba(13,32,56,0.42))] shadow-[0_0_64px_-8px_rgba(0,201,167,0.85),0_0_24px_rgba(0,201,167,0.35)] ring-1 ring-[#00C9A7]/35"
           : status === "done"
             ? "border-emerald-400/25 bg-emerald-400/[0.06]"
             : "border-white/[0.06] bg-[#03080F]/48"
@@ -1400,7 +1429,7 @@ function ProcessStepCard({
         </div>
       </div>
       {status !== "pending" ? (
-        <div className="mt-3 flex flex-wrap gap-2 pl-9">
+        <div className="mt-3 flex max-w-full flex-wrap gap-1.5 pl-0 sm:gap-2 sm:pl-9">
           {chips.map((chip) => (
             <span
               key={chip}
@@ -1448,10 +1477,18 @@ function TotalCard({
   locale: Locale;
 }) {
   return (
-    <div>
-      <p className="text-sm text-[#8B9CB3]">{label}</p>
+    <div
+      className={`rounded-2xl border px-4 py-4 sm:px-5 sm:py-5 ${
+        highlight
+          ? "border-[#00C9A7]/40 bg-[#00C9A7]/[0.08] shadow-[0_0_40px_-16px_rgba(0,201,167,0.6)]"
+          : "border-white/[0.08] bg-white/[0.03]"
+      }`}
+    >
+      <p className="text-xs font-semibold uppercase tracking-wide text-[#4A6A85]">
+        {label}
+      </p>
       <p
-        className={`mt-1 text-2xl font-bold ${
+        className={`mt-2 tabular-nums text-3xl font-black sm:text-4xl ${
           highlight ? "text-[#00C9A7]" : "text-white"
         }`}
       >

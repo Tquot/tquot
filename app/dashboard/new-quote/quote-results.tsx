@@ -17,6 +17,18 @@ const sourceStyles: Record<QuoteItemSource, string> = {
   api: "border-purple-400/30 bg-purple-400/10 text-purple-300",
 };
 
+const sourceLabels: Record<QuoteItemSource, string> = {
+  mock: "Ejemplo",
+  inventory: "Propio",
+  api: "Web",
+};
+
+const sourceLeftAccent: Record<QuoteItemSource, string> = {
+  mock: "",
+  inventory: "border-l-4 border-l-[#00C9A7]",
+  api: "border-l-4 border-l-purple-400",
+};
+
 function formatCurrency(value: number, locale: Locale) {
   return new Intl.NumberFormat(locale === "es" ? "es-ES" : "en-US", {
     style: "currency",
@@ -47,7 +59,11 @@ function SectionHeading({
         {eyebrow}
       </p>
       <h3 className="mt-1 text-lg font-bold text-white">{title}</h3>
-      <p className="mt-1 text-xs leading-5 text-[#8B9CB3]">{subtitle}</p>
+      <div
+        className="mt-2 h-px w-full max-w-[12rem] bg-gradient-to-r from-[#00C9A7] via-[#00E5BB]/60 to-transparent"
+        aria-hidden
+      />
+      <p className="mt-2 text-xs leading-5 text-[#8B9CB3]">{subtitle}</p>
     </div>
   );
 }
@@ -121,11 +137,11 @@ function FlightQuoteItemCard({
           onSelect?.(item.id);
         }
       }}
-      className={`rounded-3xl border bg-[#03080F]/60 p-4 shadow-[0_16px_44px_rgba(0,0,0,0.24)] transition-all ${
+      className={`rounded-3xl border bg-[#03080F]/60 p-4 shadow-[0_16px_44px_rgba(0,0,0,0.24)] transition-all duration-200 ${
         isSelected
           ? "border-[#00C9A7]/55 ring-1 ring-[#00C9A7]/35"
           : isSelectable
-            ? "cursor-pointer border-white/[0.08] hover:border-[#00C9A7]/25"
+            ? "cursor-pointer border-white/[0.08] hover:scale-[1.01] hover:border-[#00C9A7]/25"
             : "border-white/[0.08]"
       }`}
     >
@@ -156,7 +172,7 @@ function FlightQuoteItemCard({
               <span
                 className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${sourceStyles[item.source]}`}
               >
-                [{item.source}]
+                {sourceLabels[item.source]}
               </span>
             </div>
             <p className="text-lg font-bold tracking-wide text-white">
@@ -184,21 +200,42 @@ function FlightQuoteItemCard({
         </div>
       </div>
 
-      <div className="mb-4 grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-2xl border border-white/[0.06] bg-white/[0.03] px-4 py-3">
-        <div>
-          <p className="text-2xl font-black text-white">{details.departureTime}</p>
-          <p className="text-xs text-[#8B9CB3]">{details.departureDate}</p>
-        </div>
-        <div className="text-center">
-          <p className="text-sm font-semibold text-[#E8EEF7]">{details.duration}</p>
-          <p className="text-xs text-[#8B9CB3]">
-            {isDirect
-              ? "Directo"
-              : `${details.stops} escala${details.stops === 1 ? "" : "s"}`}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-2xl font-black text-white">{details.arrivalTime}</p>
+      <div className="mb-4 rounded-2xl border border-white/10 bg-gradient-to-r from-white/[0.04] via-[#00C9A7]/[0.06] to-white/[0.04] px-5 py-4">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#4A6A85]">
+              {details.originIata}
+            </p>
+            <p className="text-3xl font-black tabular-nums text-white sm:text-4xl">
+              {details.departureTime}
+            </p>
+            <p className="text-xs text-[#8B9CB3]">{details.departureDate}</p>
+          </div>
+          <div className="flex min-w-[5rem] flex-col items-center gap-1.5 px-1 sm:min-w-[7rem]">
+            <div className="flex w-full items-center gap-1">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-[#00C9A7] shadow-[0_0_12px_rgba(0,201,167,0.8)]" />
+              <span className="h-px flex-1 bg-gradient-to-r from-[#00C9A7] to-[#00E5BB]/50" />
+              <span className="shrink-0 text-sm text-[#00C9A7]" aria-hidden>
+                ✈
+              </span>
+              <span className="h-px flex-1 bg-gradient-to-r from-[#00E5BB]/50 to-[#00C9A7]" />
+              <span className="h-2 w-2 shrink-0 rounded-full border-2 border-[#00C9A7] bg-transparent" />
+            </div>
+            <p className="text-sm font-semibold text-[#E8EEF7]">{details.duration}</p>
+            <p className="text-xs text-[#8B9CB3]">
+              {isDirect
+                ? "Directo"
+                : `${details.stops} escala${details.stops === 1 ? "" : "s"}`}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#4A6A85]">
+              {details.destinationIata}
+            </p>
+            <p className="text-3xl font-black tabular-nums text-white sm:text-4xl">
+              {details.arrivalTime}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -267,7 +304,7 @@ function FlightQuoteItemCard({
             type="button"
             onClick={() => onSelect?.(item.id)}
             disabled={isSelected}
-            className={`ml-auto rounded-xl px-4 py-2 text-xs font-bold transition-colors ${
+            className={`ml-auto rounded-2xl px-4 py-2 text-xs font-bold transition-colors ${
               isSelected
                 ? "cursor-default border border-[#00C9A7]/30 bg-[#00C9A7]/10 text-[#00C9A7]"
                 : "border border-white/10 bg-white/[0.06] text-[#E8EEF7] hover:border-[#00C9A7]/40 hover:text-[#00C9A7]"
@@ -329,11 +366,11 @@ function QuoteItemCard({
           onSelect?.(item.id);
         }
       }}
-      className={`rounded-3xl border bg-[#03080F]/60 p-4 shadow-[0_16px_44px_rgba(0,0,0,0.24)] transition-all ${
+      className={`rounded-3xl border bg-[#03080F]/60 p-4 shadow-[0_16px_44px_rgba(0,0,0,0.24)] transition-all duration-200 ${sourceLeftAccent[item.source]} ${
         isSelected
           ? "border-[#00C9A7]/55 ring-1 ring-[#00C9A7]/35"
           : isSelectable && !isIndependent
-            ? "cursor-pointer border-white/[0.08] hover:border-[#00C9A7]/25"
+            ? "cursor-pointer border-white/[0.08] hover:scale-[1.01] hover:border-[#00C9A7]/25"
             : "border-white/[0.08]"
       }`}
     >
@@ -384,7 +421,7 @@ function QuoteItemCard({
             <span
               className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${sourceStyles[item.source]}`}
             >
-              [{item.source}]
+              {sourceLabels[item.source]}
             </span>
           </div>
           <h4 className="font-semibold text-white">{item.title}</h4>
@@ -451,7 +488,7 @@ function QuoteItemCard({
             type="button"
             onClick={() => onSelect?.(item.id)}
             disabled={isSelected}
-            className={`ml-auto rounded-xl px-4 py-2 text-xs font-bold transition-colors ${
+            className={`ml-auto rounded-2xl px-4 py-2 text-xs font-bold transition-colors ${
               isSelected
                 ? "cursor-default border border-[#00C9A7]/30 bg-[#00C9A7]/10 text-[#00C9A7]"
                 : "border border-white/10 bg-white/[0.06] text-[#E8EEF7] hover:border-[#00C9A7]/40 hover:text-[#00C9A7]"
