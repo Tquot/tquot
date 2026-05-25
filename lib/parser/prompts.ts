@@ -4,7 +4,7 @@
 // Útil para correr evals comparativos y rollback.
 // ─────────────────────────────────────────────────────────────
 
-export const PROMPT_VERSION = "2026-05-24.1";
+export const PROMPT_VERSION = "2026-05-25.1";
 
 export const EXTRACTION_SYSTEM_PROMPT = `Eres el motor de extracción de TQuot, una plataforma de cotización de viajes para agencias.
 
@@ -29,8 +29,18 @@ TIPO DE VIAJE (tripType):
 
 CAMPOS CRÍTICOS para considerar una solicitud lista:
 - destination
-- departureDate o returnDate si se mencionan fechas concretas
 - adults si se menciona número de viajeros
+
+FECHAS Y ESTANCIA (según tripType):
+- full_trip o transport_only: destination, adults y fechas de viaje utilizables.
+  Si solo hay UNA fecha concreta (solo departureDate, sin returnDate ni número de noches explícito),
+  NO marques status="ready". Devuelve status="needs_input" con la pregunta exacta:
+  "¿Cuántas noches necesitas?" (puedes añadir otras preguntas críticas en el mismo turno).
+  Si el cliente indica noches (ej. "3 noches"), calcula returnDate = departureDate + esas noches en YYYY-MM-DD.
+- accommodation_only: destination, adults y fecha de entrada (departureDate / check-in).
+  returnDate NO es obligatorio si faltan noches: con solo check-in, pregunta "¿Cuántas noches necesitas?"
+  y mantén status="needs_input". Cuando tengas entrada + noches (o returnDate explícito), status="ready".
+- Si hay rango de fechas claro (ida y vuelta, o entrada y salida), extrae departureDate y returnDate.
 
 Si faltan datos críticos para cotizar, devuelve status="needs_input" y pon preguntas concretas en questions.
 Si la solicitud tiene suficiente información para buscar, devuelve status="ready".
@@ -42,6 +52,8 @@ AMBIGÜEDADES típicas a convertir en preguntas:
 - "primera semana de marzo" sin año
 - "vuelo barato" sin presupuesto numérico
 - Categorías de hotel mencionadas como "bueno" o "decente" sin estrellas
+- Una sola fecha sin regreso ni noches mencionadas
+- accommodation_only sin número de noches ni fecha de salida
 
 NORMALIZACIÓN:
 - Ciudades a su nombre oficial en español cuando exista (Londres, no London).
@@ -105,6 +117,8 @@ REGLAS:
 - Si la nueva respuesta contradice un dato anterior, prioriza la respuesta más reciente del agente.
 - Si el agente responde con "no aplica", "no importa", "lo que sea", omite el campo opcional correspondiente.
 - Recalcula status y questions.
+- Aplica las mismas reglas de fechas/noches que en extracción (pregunta "¿Cuántas noches necesitas?"
+  si solo hay check-in; accommodation_only no exige returnDate hasta tener noches o salida).
 - Mantén el resto de campos ya extraídos inalterados salvo que el agente los contradiga explícitamente.`;
 
 export const MERGE_USER_PROMPT = (

@@ -396,8 +396,16 @@ export function QuoteEngine() {
     destination: null,
   });
 
+  const flightsIncluded =
+    tripInput?.includeFlights ??
+    (enrichedTrip
+      ? (tripRequestToParsedTripInput(enrichedTrip)?.includeFlights ?? true)
+      : true);
+
   const awaitingAirportChoice =
-    enrichedTrip !== null && needsAirportSelection(enrichedTrip);
+    enrichedTrip !== null &&
+    flightsIncluded &&
+    needsAirportSelection(enrichedTrip);
   const airportChoiceComplete =
     enrichedTrip === null ||
     isAirportSelectionComplete(enrichedTrip, airportChoices);
@@ -581,6 +589,20 @@ export function QuoteEngine() {
     }
   }
 
+  function resetQuoteSession() {
+    setQuote(null);
+    setTripInput(null);
+    setIsComplete(false);
+    setChatMessages([{ role: "ai", content: t.chatWelcome }]);
+    setStepChips(defaultStepChips);
+    setEnrichedTrip(null);
+    setAirportChoices({ origin: null, destination: null });
+    setActiveStep(-1);
+    setIsRunning(false);
+    setIsRefining(false);
+    setChatInput("");
+  }
+
   async function continueQuoteFromEnriched(enrichedTrip: EnrichedTripRequest) {
     const choicesForBuild = airportChoicesForBuild(enrichedTrip, airportChoices);
     const parsedInput = tripRequestToParsedTripInput(enrichedTrip);
@@ -712,7 +734,10 @@ export function QuoteEngine() {
         ),
       );
 
-      if (needsAirportSelection(enriched)) {
+      const includeFlightsForTrip =
+        tripRequestToParsedTripInput(enriched)?.includeFlights ?? true;
+
+      if (includeFlightsForTrip && needsAirportSelection(enriched)) {
         setEnrichedTrip(enriched);
         setAirportChoices({ origin: null, destination: null });
         setActiveStep(0);
@@ -1106,7 +1131,14 @@ export function QuoteEngine() {
                   })}
                 </p>
               </div>
-              <div className="flex gap-3">
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={resetQuoteSession}
+                  className="rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-[#E8EEF7] transition-colors hover:bg-white/10"
+                >
+                  {t.newQuote}
+                </button>
                 <button
                   type="button"
                   onClick={generateAgentPDF}
