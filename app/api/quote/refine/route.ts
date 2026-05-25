@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { ParsedTripInput, Quote } from "@/lib/quotes/build-quote";
-import { getAuthenticatedUser, validateAgentId } from "@/app/api/parser/_auth";
+import { getAuthenticatedUser } from "@/app/api/parser/_auth";
 import { classifyRefinementRequest } from "@/lib/quotes/refine/classify";
 import { RefineClassifyBodySchema } from "@/lib/quotes/refine/schema";
 
@@ -12,7 +12,6 @@ export async function POST(req: NextRequest) {
     currentQuote: Quote;
     message: string;
     tripInput: ParsedTripInput;
-    agentId: string;
   };
 
   try {
@@ -21,7 +20,6 @@ export async function POST(req: NextRequest) {
       currentQuote: parsed.currentQuote,
       message: parsed.message,
       tripInput: parsed.tripInput,
-      agentId: parsed.agentId,
     };
   } catch (err) {
     return NextResponse.json(
@@ -29,9 +27,6 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
-
-  const agentError = validateAgentId(body.agentId, auth.user.id);
-  if (agentError) return agentError;
 
   const action = await classifyRefinementRequest(
     body.message,

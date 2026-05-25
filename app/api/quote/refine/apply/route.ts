@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { ParsedTripInput, Quote } from "@/lib/quotes/build-quote";
-import { getAuthenticatedUser, validateAgentId } from "@/app/api/parser/_auth";
+import { getAuthenticatedUser } from "@/app/api/parser/_auth";
 import {
   applyServerRefinementAction,
 } from "@/lib/quotes/refine/apply";
@@ -16,7 +16,6 @@ export async function POST(req: NextRequest) {
     action: RefineAction;
     currentQuote: Quote;
     tripInput: ParsedTripInput;
-    agentId: string;
   };
 
   try {
@@ -25,7 +24,6 @@ export async function POST(req: NextRequest) {
       action: parsed.action,
       currentQuote: parsed.currentQuote,
       tripInput: parsed.tripInput,
-      agentId: parsed.agentId,
     };
   } catch (err) {
     return NextResponse.json(
@@ -33,9 +31,6 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
-
-  const agentError = validateAgentId(body.agentId, auth.user.id);
-  if (agentError) return agentError;
 
   if (!isServerRefinementAction(body.action)) {
     return NextResponse.json(
