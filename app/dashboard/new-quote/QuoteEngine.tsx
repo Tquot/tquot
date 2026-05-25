@@ -56,7 +56,7 @@ function buildProcessSteps(t: DashboardTranslation): ProcessStep[] {
   return [
     {
       title: t.stepParseTitle,
-      chips: [t.stepParseChip1, t.stepParseChip2],
+      chips: [t.stepParseChip1, t.stepParseChip2, t.stepParseChip3],
     },
     {
       title: t.stepMapTitle,
@@ -64,14 +64,24 @@ function buildProcessSteps(t: DashboardTranslation): ProcessStep[] {
     },
     {
       title: t.stepBuildTitle,
-      chips: [
-        t.stepBuildChip1,
-        t.stepBuildChip2,
-        t.stepBuildChip3,
-        t.stepBuildChip4,
-      ],
+      chips: [t.stepBuildChip1, t.stepBuildChip2, t.stepBuildChip3],
     },
   ];
+}
+
+function travelersChipLabel(
+  t: DashboardTranslation,
+  adults: number,
+  children?: number,
+) {
+  const adultCount = adults ?? 2;
+  if (children && children > 0) {
+    return formatMessage(t.chipTravelersWithChildren, {
+      adults: adultCount,
+      children,
+    });
+  }
+  return formatMessage(t.chipTravelers, { adults: adultCount });
 }
 
 const sourcePdfColors: Record<QuoteItemSource, [number, number, number]> = {
@@ -637,7 +647,7 @@ export function QuoteEngine() {
                 start: parsedInput.dates.start,
                 end: parsedInput.dates.end,
               }),
-              t.chipParserSource,
+              t.chipDatesConfirmed,
             ]
           : chips,
       ),
@@ -660,12 +670,13 @@ export function QuoteEngine() {
       current.map((chips, index) =>
         index === 2
           ? [
-              formatMessage(t.chipFlightsCount, { count: built.flights.length }),
-              formatMessage(t.chipHotelsCount, { count: built.hotels.length }),
-              formatMessage(t.chipExperiencesCount, {
-                count: built.experiences.length,
+              formatMessage(t.chipFlightsFound, {
+                count: built.flights.length,
               }),
-              formatCurrency(built.pricing.finalTotal, locale),
+              formatMessage(t.chipHotelsFound, { count: built.hotels.length }),
+              formatMessage(t.chipTotalPrice, {
+                value: formatCurrency(built.pricing.finalTotal, locale),
+              }),
             ]
           : chips,
       ),
@@ -741,10 +752,19 @@ export function QuoteEngine() {
                 formatMessage(t.chipDestination, {
                   value: parserResult.data.destination,
                 }),
-                formatMessage(t.chipAdults, {
-                  value: parserResult.data.adults ?? 2,
-                }),
-                t.chipTripRequestReady,
+                travelersChipLabel(
+                  t,
+                  parserResult.data.adults ?? 2,
+                  parserResult.data.children,
+                ),
+                parserResult.data.departureDate
+                  ? formatMessage(t.chipDates, {
+                      start: parserResult.data.departureDate,
+                      end:
+                        parserResult.data.returnDate ??
+                        parserResult.data.departureDate,
+                    })
+                  : t.chipDatesPending,
               ]
             : chips,
         ),
@@ -1010,16 +1030,11 @@ export function QuoteEngine() {
             <h1 className="mt-5 max-w-3xl text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl">
               {t.newQuote}
             </h1>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-[#8B9CB3]">
+            <p className="mt-4 max-w-2xl text-base leading-7 text-[#8B9CB3] sm:text-lg">
               {t.quoteEngineSubtitle}
             </p>
           </div>
           <LocaleToggleButtons />
-          </div>
-          <div className="mt-7 grid gap-3 sm:grid-cols-3">
-            <PremiumMetric label={t.metricFlow} value={t.metricFlowValue} />
-            <PremiumMetric label={t.metricEngine} value={t.metricEngineValue} />
-            <PremiumMetric label={t.metricOutput} value={t.metricOutputValue} />
           </div>
         </section>
 
@@ -1348,17 +1363,6 @@ function DataSourceBadge({ source }: { source: QuoteDataSource }) {
     <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-amber-400/35 bg-amber-400/10 px-2.5 py-1 text-xs font-semibold text-amber-300">
       ⚠ Datos de ejemplo
     </span>
-  );
-}
-
-function PremiumMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-white/[0.07] bg-[#03080F]/45 px-4 py-3 shadow-inner shadow-black/25">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#4A6A85]">
-        {label}
-      </p>
-      <p className="mt-1 text-sm font-bold text-white">{value}</p>
-    </div>
   );
 }
 
