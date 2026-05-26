@@ -51,15 +51,13 @@ export const colors = {
 // Tipografía
 // ─────────────────────────────────────────────────────────────
 //
-// Usamos Google Fonts vía Font.register en fonts.ts.
-// Cormorant Garamond: serif de carácter editorial para títulos.
-// Inter: sans neutro y legible para cuerpo (excepción justificada al consejo
-// general de evitar Inter — en PDF a tamaño pequeño rinde mejor que alternativas).
+// Cormorant Garamond vía Font.register en fonts.ts (Google Fonts).
+// Cuerpo: Helvetica (built-in PDF, sin CDN).
 //
 
 export const fonts = {
   display: "CormorantGaramond",
-  body: "Inter",
+  body: "Helvetica",
   mono: "Courier",
 } as const;
 

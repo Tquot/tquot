@@ -42,28 +42,8 @@ export function registerFonts() {
     ],
   });
 
-  // Inter — sans neutro y legible para cuerpo
-  Font.register({
-    family: "Inter",
-    fonts: [
-      {
-        src: "https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMa1ZL7.ttf",
-        fontWeight: 400,
-      },
-      {
-        src: "https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMa1ZL7SUc.ttf",
-        fontWeight: 500,
-      },
-      {
-        src: "https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMa1ZL7W0Q5nw.ttf",
-        fontWeight: 600,
-      },
-      {
-        src: "https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMa1ZL7W0Q5nw.ttf",
-        fontWeight: 700,
-      },
-    ],
-  });
+  // Cuerpo: Helvetica (PDF built-in en @react-pdf/renderer, sin descarga externa).
+  // Las URLs de Inter en Google Fonts CDN (v13/v4) devuelven 404; no usar Font.register.
 
   // Desactivar guiones automáticos: en PDF de propuesta queda mejor sin ellos
   Font.registerHyphenationCallback((word: string) => [word]);
