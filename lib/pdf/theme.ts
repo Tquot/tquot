@@ -51,12 +51,12 @@ export const colors = {
 // Tipografía
 // ─────────────────────────────────────────────────────────────
 //
-// Cormorant Garamond vía Font.register en fonts.ts (Google Fonts).
-// Cuerpo: Helvetica (built-in PDF, sin CDN).
+// Títulos y cuerpo: fuentes built-in de PDF (sin CDN).
 //
 
 export const fonts = {
-  display: "CormorantGaramond",
+  display: "Helvetica-Bold",
+  heading: "Helvetica-Bold",
   body: "Helvetica",
   mono: "Courier",
 } as const;
