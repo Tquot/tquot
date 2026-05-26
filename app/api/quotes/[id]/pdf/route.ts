@@ -24,6 +24,8 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let step: "loadQuoteForPdf" | "renderQuotePdf" = "loadQuoteForPdf";
+
   try {
     const { id } = await params;
     const url = new URL(req.url);
@@ -62,6 +64,12 @@ export async function GET(
       });
     }
 
+    console.log("[GET /api/quotes/[id]/pdf] loading quote", {
+      quoteId: id,
+      userId: auth.user.id,
+    });
+
+    step = "loadQuoteForPdf";
     const quote = await loadQuoteForPdf(id);
     if (!quote) {
       return new Response(JSON.stringify({ error: "Cotización no encontrada" }), {
@@ -70,6 +78,7 @@ export async function GET(
       });
     }
 
+    step = "renderQuotePdf";
     const buffer = await renderQuotePdf(quote, variant);
     const filename =
       variant === "agent"
@@ -78,9 +87,14 @@ export async function GET(
 
     return pdfResponse(buffer, filename, { inline });
   } catch (err) {
-    console.error("[GET /api/quotes/[id]/pdf] error:", err);
+    const error = err as Error;
+    console.error(`[GET /api/quotes/[id]/pdf] error at ${step}:`, err);
     return new Response(
-      JSON.stringify({ error: (err as Error).message }),
+      JSON.stringify({
+        error: error.message,
+        stack: error.stack,
+        step,
+      }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
