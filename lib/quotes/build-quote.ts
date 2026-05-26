@@ -737,7 +737,7 @@ async function buildFlightsFromApiOrMock(params: {
       flight,
       `flight-out-${index + 1}`,
       `${origin} → ${destination}`,
-      items.length > 0,
+      index > 0,
     );
     if (item) items.push(item);
   }
@@ -747,7 +747,7 @@ async function buildFlightsFromApiOrMock(params: {
       flight,
       `flight-return-${index + 1}`,
       `${destination} → ${origin}`,
-      items.length > 0,
+      index > 0,
     );
     if (item) items.push(item);
   }

@@ -401,6 +401,7 @@ export function QuoteEngine() {
   ]);
   const [agentNotes, setAgentNotes] = useState(t.defaultAgentNotes);
   const [savedQuoteId, setSavedQuoteId] = useState<string | null>(null);
+  const [isSavingQuote, setIsSavingQuote] = useState(false);
   const [enrichedTrip, setEnrichedTrip] = useState<EnrichedTripRequest | null>(
     null,
   );
@@ -671,18 +672,6 @@ export function QuoteEngine() {
     });
     setQuote(built);
 
-    const saveResult = await saveQuote({
-      quote: built,
-      tripInput: parsedInput,
-      agentNotes: agentNotes || undefined,
-    });
-    if (saveResult.ok) {
-      setSavedQuoteId(saveResult.quoteId);
-    } else {
-      console.error("[QuoteEngine] saveQuote failed:", saveResult.error);
-      setSavedQuoteId(null);
-    }
-
     setStepChips((current) =>
       current.map((chips, index) =>
         index === 2
@@ -817,19 +806,68 @@ export function QuoteEngine() {
     setIsRunning(false);
   }
 
-  function openServerPdf(variant: "agent" | "client"): boolean {
-    if (!savedQuoteId) return false;
+  function openServerPdf(quoteId: string, variant: "agent" | "client") {
     window.open(
-      `/api/quotes/${savedQuoteId}/pdf?variant=${variant}`,
+      `/api/quotes/${quoteId}/pdf?variant=${variant}`,
       "_blank",
       "noopener,noreferrer",
     );
-    return true;
+  }
+
+  async function persistCurrentQuote(): Promise<string | null> {
+    if (!quote || !tripInput) {
+      console.error("[QuoteEngine] persistCurrentQuote: missing quote or tripInput");
+      return null;
+    }
+
+    setIsSavingQuote(true);
+    try {
+      const result = await saveQuote({
+        quote,
+        tripInput,
+        agentNotes: agentNotes || undefined,
+      });
+      if (result.ok) {
+        setSavedQuoteId(result.quoteId);
+        return result.quoteId;
+      }
+      console.error("[QuoteEngine] saveQuote failed:", result.error);
+      return null;
+    } finally {
+      setIsSavingQuote(false);
+    }
+  }
+
+  async function saveAndOpenPdf(variant: "agent" | "client") {
+    const quoteId = await persistCurrentQuote();
+    if (!quoteId) return;
+    openServerPdf(quoteId, variant);
+  }
+
+  async function handleSaveAndGenerateClientPdf() {
+    await saveAndOpenPdf("client");
+  }
+
+  async function handleAgentPdf() {
+    const quoteId = await persistCurrentQuote();
+    if (quoteId) {
+      openServerPdf(quoteId, "agent");
+      return;
+    }
+    generateAgentPDF();
+  }
+
+  async function handleClientPdf() {
+    const quoteId = await persistCurrentQuote();
+    if (quoteId) {
+      openServerPdf(quoteId, "client");
+      return;
+    }
+    generateClientPDF();
   }
 
   function generateAgentPDF() {
     if (!quote) return;
-    if (openServerPdf("agent")) return;
 
     const doc = new jsPDF();
     const quoteReference = quote.id;
@@ -949,7 +987,6 @@ export function QuoteEngine() {
 
   function generateClientPDF() {
     if (!quote) return;
-    if (openServerPdf("client")) return;
 
     const doc = new jsPDF();
     const quoteReference = quote.id;
@@ -1244,17 +1281,27 @@ export function QuoteEngine() {
                 </button>
                 <button
                   type="button"
-                  onClick={generateAgentPDF}
-                  className="rounded-2xl border border-[#00C9A7]/30 bg-[#00C9A7]/10 px-5 py-3 text-sm font-semibold text-[#00C9A7] transition-colors hover:bg-[#00C9A7]/15"
+                  onClick={() => void handleSaveAndGenerateClientPdf()}
+                  disabled={isSavingQuote}
+                  className="rounded-2xl border border-[#00C9A7]/30 bg-[#00C9A7]/10 px-5 py-3 text-sm font-semibold text-[#00C9A7] transition-colors hover:bg-[#00C9A7]/15 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {t.pdfAgent}
+                  {isSavingQuote ? t.savingQuote : t.saveAndGeneratePdf}
                 </button>
                 <button
                   type="button"
-                  onClick={generateClientPDF}
-                  className="rounded-2xl bg-[#00C9A7] px-5 py-3 text-sm font-bold text-[#03080F] shadow-[0_0_34px_-10px_rgba(0,201,167,0.9)] transition-colors hover:bg-[#00E5BB]"
+                  onClick={() => void handleAgentPdf()}
+                  disabled={isSavingQuote}
+                  className="rounded-2xl border border-[#00C9A7]/30 bg-[#00C9A7]/10 px-5 py-3 text-sm font-semibold text-[#00C9A7] transition-colors hover:bg-[#00C9A7]/15 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {t.pdfClient}
+                  {isSavingQuote ? t.savingQuote : t.pdfAgent}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleClientPdf()}
+                  disabled={isSavingQuote}
+                  className="rounded-2xl bg-[#00C9A7] px-5 py-3 text-sm font-bold text-[#03080F] shadow-[0_0_34px_-10px_rgba(0,201,167,0.9)] transition-colors hover:bg-[#00E5BB] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSavingQuote ? t.savingQuote : t.pdfClient}
                 </button>
               </div>
             </div>
