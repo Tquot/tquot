@@ -13,14 +13,11 @@
  *  /api/quotes/[id]/pdf?variant=agent|client.
  */
 
+import { getAuthenticatedUser } from "@/app/api/parser/_auth";
 import { renderQuotePdf } from "@/lib/pdf/render";
 import { loadQuoteForPdf } from "@/lib/pdf/utils/load-quote";
 import type { PdfVariant } from "@/lib/pdf/types";
-
-// TODO[INTEGRACION]: importar el helper de auth/permisos que ya usas en TQuot.
-// Ejemplo asumido:
-//   import { getCurrentUser } from "@/lib/auth";
-//   import { canAccessQuote } from "@/lib/permissions";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 interface GeneratePdfArgs {
   quoteId: string;
@@ -43,14 +40,25 @@ export async function generateQuotePdf(
   args: GeneratePdfArgs
 ): Promise<GeneratePdfSuccess | GeneratePdfError> {
   try {
-    // TODO[INTEGRACION]: autenticación y permisos
-    // const user = await getCurrentUser();
-    // if (!user) return { ok: false, error: "No autenticado" };
-    // const allowed = await canAccessQuote(user, args.quoteId);
-    // if (!allowed) return { ok: false, error: "Sin permisos para esta cotización" };
+    const auth = await getAuthenticatedUser();
+    if (auth.response) {
+      return { ok: false, error: "No autenticado" };
+    }
 
-    // Si la variante es 'agent', el usuario debe pertenecer a la agencia que emite.
-    // Si es 'client', basta con tener acceso a la cotización.
+    const supabase = await createServerSupabaseClient();
+    const { data: quoteRow, error: quoteError } = await supabase
+      .from("quotes")
+      .select("user_id")
+      .eq("id", args.quoteId)
+      .single();
+
+    if (quoteError || !quoteRow) {
+      return { ok: false, error: "Cotización no encontrada" };
+    }
+
+    if (quoteRow.user_id !== auth.user.id) {
+      return { ok: false, error: "Sin permisos para esta cotización" };
+    }
 
     const quote = await loadQuoteForPdf(args.quoteId);
     if (!quote) return { ok: false, error: "Cotización no encontrada" };

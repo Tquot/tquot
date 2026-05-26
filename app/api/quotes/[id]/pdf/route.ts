@@ -12,13 +12,11 @@
  */
 
 import { NextRequest } from "next/server";
+import { getAuthenticatedUser } from "@/app/api/parser/_auth";
 import { renderQuotePdf, pdfResponse } from "@/lib/pdf/render";
 import { loadQuoteForPdf } from "@/lib/pdf/utils/load-quote";
 import type { PdfVariant } from "@/lib/pdf/types";
-
-// TODO[INTEGRACION]: importar helpers de auth de tu proyecto
-// import { getSessionFromRequest } from "@/lib/auth";
-// import { canAccessQuote } from "@/lib/permissions";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs"; // @react-pdf/renderer no es compatible con edge runtime
 
@@ -40,15 +38,29 @@ export async function GET(
     }
     const variant: PdfVariant = variantParam;
 
-    // TODO[INTEGRACION]: validar sesión y permisos
-    // const user = await getSessionFromRequest(req);
-    // if (!user) return new Response("No autenticado", { status: 401 });
-    // const allowed = await canAccessQuote(user, id);
-    // if (!allowed) return new Response("Sin permisos", { status: 403 });
-    //
-    // SEGURIDAD: en variant=agent, validar también que el usuario pertenece
-    // a la agencia que emite la cotización. Un cliente con acceso al recurso
-    // NUNCA debe poder ver el PDF interno con márgenes y costes.
+    const auth = await getAuthenticatedUser();
+    if (auth.response) return auth.response;
+
+    const supabase = await createServerSupabaseClient();
+    const { data: quoteRow, error: quoteError } = await supabase
+      .from("quotes")
+      .select("user_id")
+      .eq("id", id)
+      .single();
+
+    if (quoteError || !quoteRow) {
+      return new Response(JSON.stringify({ error: "Cotización no encontrada" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (quoteRow.user_id !== auth.user.id) {
+      return new Response(JSON.stringify({ error: "Sin permisos" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
     const quote = await loadQuoteForPdf(id);
     if (!quote) {

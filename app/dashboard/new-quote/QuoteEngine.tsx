@@ -4,6 +4,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { saveQuote } from "@/app/actions/save-quote";
 import {
   applyItemMargin,
   buildQuote,
@@ -399,6 +400,7 @@ export function QuoteEngine() {
     { role: "ai", content: t.chatWelcome },
   ]);
   const [agentNotes, setAgentNotes] = useState(t.defaultAgentNotes);
+  const [savedQuoteId, setSavedQuoteId] = useState<string | null>(null);
   const [enrichedTrip, setEnrichedTrip] = useState<EnrichedTripRequest | null>(
     null,
   );
@@ -613,6 +615,7 @@ export function QuoteEngine() {
   function resetQuoteSession() {
     setQuote(null);
     setTripInput(null);
+    setSavedQuoteId(null);
     setIsComplete(false);
     setIsRunning(false);
     setActiveStep(-1);
@@ -655,6 +658,7 @@ export function QuoteEngine() {
     await pipelineDelay();
 
     setActiveStep(2);
+    setSavedQuoteId(null);
     const built = await buildQuote({
       ...parsedInput,
       enrichedTrip,
@@ -666,6 +670,19 @@ export function QuoteEngine() {
       airportChoices: choicesForBuild,
     });
     setQuote(built);
+
+    const saveResult = await saveQuote({
+      quote: built,
+      tripInput: parsedInput,
+      agentNotes: agentNotes || undefined,
+    });
+    if (saveResult.ok) {
+      setSavedQuoteId(saveResult.quoteId);
+    } else {
+      console.error("[QuoteEngine] saveQuote failed:", saveResult.error);
+      setSavedQuoteId(null);
+    }
+
     setStepChips((current) =>
       current.map((chips, index) =>
         index === 2
@@ -698,6 +715,7 @@ export function QuoteEngine() {
       setIsComplete(false);
       setQuote(null);
       setTripInput(null);
+      setSavedQuoteId(null);
       await continueQuoteFromEnriched(enrichedTrip);
       return;
     }
@@ -706,6 +724,7 @@ export function QuoteEngine() {
     setIsComplete(false);
     setQuote(null);
     setTripInput(null);
+    setSavedQuoteId(null);
     setParserQuestions(null);
     setEnrichedTrip(null);
     setAirportChoices({ origin: null, destination: null });
@@ -798,8 +817,19 @@ export function QuoteEngine() {
     setIsRunning(false);
   }
 
+  function openServerPdf(variant: "agent" | "client"): boolean {
+    if (!savedQuoteId) return false;
+    window.open(
+      `/api/quotes/${savedQuoteId}/pdf?variant=${variant}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+    return true;
+  }
+
   function generateAgentPDF() {
     if (!quote) return;
+    if (openServerPdf("agent")) return;
 
     const doc = new jsPDF();
     const quoteReference = quote.id;
@@ -919,6 +949,7 @@ export function QuoteEngine() {
 
   function generateClientPDF() {
     if (!quote) return;
+    if (openServerPdf("client")) return;
 
     const doc = new jsPDF();
     const quoteReference = quote.id;
