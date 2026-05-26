@@ -98,7 +98,7 @@ export async function saveQuote(
         agency_id: agency.id,
         agent_id: userId,
         client_id: null,
-        reference: args.quote.id,
+        reference: `${args.quote.id}-${Date.now()}`,
         valid_until: addDaysIso(new Date(), 30),
         origin: args.tripInput.origin,
         destination: args.tripInput.destination,
