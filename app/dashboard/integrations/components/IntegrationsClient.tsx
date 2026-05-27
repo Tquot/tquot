@@ -150,6 +150,11 @@ export function IntegrationsClient({ catalog, connections }: Props) {
 
       {selectedProvider && (
         <ConnectorModal
+          key={`${selectedProvider.id}-${
+            connectionsByProvider.get(
+              selectedProvider.id.trim().toLowerCase()
+            )?.id ?? "new"
+          }`}
           provider={selectedProvider}
           existingConnection={connectionsByProvider.get(
             selectedProvider.id.trim().toLowerCase()

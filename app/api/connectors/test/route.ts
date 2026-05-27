@@ -4,6 +4,7 @@ import { getAdapter } from "@/lib/connectors/registry";
 import { getAuthenticatedUserAndAgency } from "@/lib/auth/agency-context";
 import {
   getConnectionWithCredentials,
+  listAgencyConnections,
   updateConnectionStatus,
 } from "@/lib/connectors/storage";
 
@@ -27,11 +28,22 @@ export async function POST(req: NextRequest) {
 
     const { connectionId } = BodySchema.parse(await req.json());
 
-    const data = await getConnectionWithCredentials(connectionId);
-    if (!data) {
+    const connections = await listAgencyConnections(auth.agencyId);
+    if (!connections.some((c) => c.id === connectionId)) {
       return NextResponse.json(
         { error: "Conexión no encontrada" },
         { status: 404 }
+      );
+    }
+
+    const data = await getConnectionWithCredentials(connectionId);
+    if (!data) {
+      return NextResponse.json(
+        {
+          error:
+            "No se pudieron cargar las credenciales de la conexión. Comprueba CREDENTIALS_KEY o vuelve a guardar las credenciales.",
+        },
+        { status: 500 }
       );
     }
 

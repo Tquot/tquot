@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   AgencyConnectionRow,
   ProviderCatalogRow,
@@ -14,6 +14,40 @@ interface Props {
   onClose: () => void;
 }
 
+type ConfigField = ProviderCatalogRow["config_schema"]["fields"][number];
+
+const STATUS_LABELS: Record<
+  string,
+  { label: string; className: string }
+> = {
+  pending: { label: "Sin probar", className: "bg-neutral-100 text-neutral-700" },
+  active: { label: "Conectado", className: "bg-emerald-100 text-emerald-800" },
+  error: { label: "Error", className: "bg-red-100 text-red-800" },
+  disabled: {
+    label: "Desactivado",
+    className: "bg-neutral-100 text-neutral-500",
+  },
+};
+
+function buildFieldValues(
+  fields: ConfigField[],
+  existingConnection?: AgencyConnectionRow
+): Record<string, string> {
+  const config = (existingConnection?.config ?? {}) as Record<string, unknown>;
+  const initial: Record<string, string> = {};
+  for (const field of fields) {
+    const configVal = config[field.key];
+    if (typeof configVal === "string") {
+      initial[field.key] = configVal;
+    } else if (typeof configVal === "number" || typeof configVal === "boolean") {
+      initial[field.key] = String(configVal);
+    } else {
+      initial[field.key] = field.default ?? "";
+    }
+  }
+  return initial;
+}
+
 export function ConnectorModal({
   provider,
   existingConnection,
@@ -23,14 +57,9 @@ export function ConnectorModal({
 }: Props) {
   const fields = provider.config_schema.fields ?? [];
 
-  // Estado: una entrada por field
-  const [values, setValues] = useState<Record<string, string>>(() => {
-    const initial: Record<string, string> = {};
-    for (const field of fields) {
-      initial[field.key] = field.default ?? "";
-    }
-    return initial;
-  });
+  const [values, setValues] = useState<Record<string, string>>(() =>
+    buildFieldValues(fields, existingConnection)
+  );
 
   const [displayName, setDisplayName] = useState(
     existingConnection?.display_name ?? ""
@@ -42,6 +71,13 @@ export function ConnectorModal({
     type: "success" | "error" | "info";
     message: string;
   } | null>(null);
+
+  useEffect(() => {
+    const schemaFields = provider.config_schema.fields ?? [];
+    setDisplayName(existingConnection?.display_name ?? "");
+    setValues(buildFieldValues(schemaFields, existingConnection));
+    setFeedback(null);
+  }, [existingConnection, provider.id, provider.config_schema]);
 
   async function handleSave() {
     setSaving(true);
@@ -72,7 +108,8 @@ export function ConnectorModal({
   }
 
   async function handleTest() {
-    if (!existingConnection) {
+    const connectionId = existingConnection?.id;
+    if (!connectionId) {
       setFeedback({
         type: "info",
         message: "Guarda primero las credenciales y luego prueba.",
@@ -85,9 +122,16 @@ export function ConnectorModal({
       const res = await fetch("/api/connectors/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ connectionId: existingConnection.id }),
+        body: JSON.stringify({ connectionId }),
       });
       const data = await res.json();
+      if (!res.ok) {
+        setFeedback({
+          type: "error",
+          message: data.error ?? "Error desconocido",
+        });
+        return;
+      }
       if (data.ok) {
         setFeedback({
           type: "success",
@@ -117,15 +161,33 @@ export function ConnectorModal({
     }
   }
 
+  const statusBadge = existingConnection
+    ? STATUS_LABELS[existingConnection.status]
+    : null;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-lg rounded-lg bg-white shadow-xl">
         <div className="flex items-start justify-between border-b border-neutral-200 px-6 py-4">
           <div>
-            <h3 className="text-lg font-semibold text-neutral-900">
-              {provider.name}
-            </h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-neutral-900">
+                {provider.name}
+              </h3>
+              {statusBadge && (
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusBadge.className}`}
+                >
+                  {statusBadge.label}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-neutral-500">{provider.description}</p>
+            {existingConnection?.last_test_error && (
+              <p className="mt-1 text-xs text-red-600">
+                Último error: {existingConnection.last_test_error}
+              </p>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -146,6 +208,7 @@ export function ConnectorModal({
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder={`${provider.name} principal`}
+              autoComplete="off"
               className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
             />
           </div>
@@ -162,6 +225,7 @@ export function ConnectorModal({
                   onChange={(e) =>
                     setValues({ ...values, [field.key]: e.target.value })
                   }
+                  autoComplete="off"
                   className="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
                 >
                   {(field.options ?? []).map((opt) => (
@@ -176,6 +240,11 @@ export function ConnectorModal({
                   value={values[field.key] ?? ""}
                   onChange={(e) =>
                     setValues({ ...values, [field.key]: e.target.value })
+                  }
+                  placeholder={
+                    existingConnection && field.type === "password"
+                      ? "Dejar vacío para mantener las actuales"
+                      : undefined
                   }
                   autoComplete={
                     field.type === "password" ? "new-password" : "off"
@@ -230,7 +299,7 @@ export function ConnectorModal({
           <div className="flex gap-2">
             <button
               onClick={handleTest}
-              disabled={testing || !existingConnection}
+              disabled={testing || !existingConnection?.id}
               className="rounded-md border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
             >
               {testing ? "Probando…" : "Probar conexión"}
