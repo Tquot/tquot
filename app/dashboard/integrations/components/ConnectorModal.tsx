@@ -64,10 +64,7 @@ export function ConnectorModal({
         });
         return;
       }
-      setFeedback({
-        type: "success",
-        message: "Credenciales guardadas. Ahora puedes probarlas.",
-      });
+      onClose();
       await onSaved?.();
     } finally {
       setSaving(false);
