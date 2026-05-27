@@ -41,6 +41,8 @@ function bootstrapAdapters() {
   // SOLO registrar los que están funcionalmente implementados.
   // Los stubs NO se registran. Si se intenta usar uno, getAdapter() devuelve null.
   registry.set("hotelbeds", new HotelbedsAdapter());
+  registry.set("hotelbeds-activities", new HotelbedsAdapter());
+  registry.set("hotelbeds-transfers", new HotelbedsAdapter());
   registry.set("duffel", new DuffelAdapter());
 
   // Cuando se implemente RateHawk de verdad, descomentar:
