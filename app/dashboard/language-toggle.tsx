@@ -56,6 +56,12 @@ export function LanguageToggle({ email }: LanguageToggleProps) {
               {t.inventory}
             </Link>
             <Link
+              href="/dashboard/integrations"
+              className="hidden rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-[#E8EEF7] transition-colors hover:border-[#00C9A7]/40 hover:bg-[#00C9A7]/10 hover:text-[#00C9A7] md:inline-flex"
+            >
+              Integraciones
+            </Link>
+            <Link
               href="/dashboard/agency"
               className="hidden rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-medium text-[#E8EEF7] transition-colors hover:border-[#00C9A7]/40 hover:bg-[#00C9A7]/10 hover:text-[#00C9A7] md:inline-flex"
             >
