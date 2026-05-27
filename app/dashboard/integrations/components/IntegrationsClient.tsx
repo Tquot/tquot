@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type {
   AgencyConnectionRow,
   ProviderCatalogRow,
@@ -23,13 +23,33 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 export function IntegrationsClient({ catalog, connections }: Props) {
+  const [connectionsState, setConnectionsState] = useState(connections);
   const [selectedProvider, setSelectedProvider] = useState<
     ProviderCatalogRow | null
   >(null);
 
   // Indexar conexiones por providerId para acceso rápido
-  const connectionsByProvider = new Map<string, AgencyConnectionRow>();
-  for (const c of connections) connectionsByProvider.set(c.provider_id, c);
+  const connectionsByProvider = useMemo(() => {
+    const map = new Map<string, AgencyConnectionRow>();
+    for (const c of connectionsState) map.set(c.provider_id, c);
+    return map;
+  }, [connectionsState]);
+
+  async function refreshConnections() {
+    try {
+      const res = await fetch("/api/connectors/connections", {
+        method: "GET",
+        cache: "no-store",
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as { connections?: AgencyConnectionRow[] };
+      if (Array.isArray(data.connections)) {
+        setConnectionsState(data.connections);
+      }
+    } catch {
+      // no-op: keep stale state if refresh fails
+    }
+  }
 
   // Agrupar catálogo por categoría
   const byCategory: Record<string, typeof catalog> = {};
@@ -62,6 +82,8 @@ export function IntegrationsClient({ catalog, connections }: Props) {
         <ConnectorModal
           provider={selectedProvider}
           existingConnection={connectionsByProvider.get(selectedProvider.id)}
+          onSaved={refreshConnections}
+          onDeleted={refreshConnections}
           onClose={() => setSelectedProvider(null)}
         />
       )}

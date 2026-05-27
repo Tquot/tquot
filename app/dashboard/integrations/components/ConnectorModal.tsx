@@ -9,10 +9,18 @@ import type {
 interface Props {
   provider: ProviderCatalogRow;
   existingConnection?: AgencyConnectionRow;
+  onSaved?: () => void;
+  onDeleted?: () => void;
   onClose: () => void;
 }
 
-export function ConnectorModal({ provider, existingConnection, onClose }: Props) {
+export function ConnectorModal({
+  provider,
+  existingConnection,
+  onSaved,
+  onDeleted,
+  onClose,
+}: Props) {
   const fields = provider.config_schema.fields ?? [];
 
   // Estado: una entrada por field
@@ -60,6 +68,7 @@ export function ConnectorModal({ provider, existingConnection, onClose }: Props)
         type: "success",
         message: "Credenciales guardadas. Ahora puedes probarlas.",
       });
+      await onSaved?.();
     } finally {
       setSaving(false);
     }
@@ -105,7 +114,10 @@ export function ConnectorModal({ provider, existingConnection, onClose }: Props)
     const res = await fetch(`/api/connectors/connections/${existingConnection.id}`, {
       method: "DELETE",
     });
-    if (res.ok) onClose();
+    if (res.ok) {
+      await onDeleted?.();
+      onClose();
+    }
   }
 
   return (
@@ -167,6 +179,9 @@ export function ConnectorModal({ provider, existingConnection, onClose }: Props)
                   value={values[field.key] ?? ""}
                   onChange={(e) =>
                     setValues({ ...values, [field.key]: e.target.value })
+                  }
+                  autoComplete={
+                    field.type === "password" ? "new-password" : "off"
                   }
                   className="w-full rounded-md border border-neutral-300 px-3 py-2 font-mono text-sm focus:border-neutral-900 focus:outline-none"
                 />
