@@ -1,12 +1,28 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type {
   AgencyConnectionRow,
   ProviderCatalogRow,
 } from "@/lib/connectors/storage";
 import { ConnectorCard } from "./ConnectorCard";
 import { ConnectorModal } from "./ConnectorModal";
+
+type ConnectionRowPayload = AgencyConnectionRow & { providerId?: string };
+
+/** agency_connections.provider_id (slug) — not the connection row uuid in `id`. */
+function connectionProviderSlug(
+  row: ConnectionRowPayload
+): string {
+  return (row.provider_id ?? row.providerId ?? "").trim().toLowerCase();
+}
+
+function normalizeConnection(row: ConnectionRowPayload): AgencyConnectionRow {
+  return {
+    ...row,
+    provider_id: connectionProviderSlug(row),
+  };
+}
 
 interface Props {
   catalog: (ProviderCatalogRow & { is_implemented_real: boolean })[];
@@ -23,18 +39,44 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 export function IntegrationsClient({ catalog, connections }: Props) {
-  const [connectionsState, setConnectionsState] = useState(connections);
+  const [connectionsState, setConnectionsState] = useState(() =>
+    connections.map(normalizeConnection)
+  );
   const [selectedProvider, setSelectedProvider] = useState<
     ProviderCatalogRow | null
   >(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
 
-  // Indexar conexiones por providerId para acceso rápido
+  // Index by provider_catalog slug (agency_connections.provider_id), not connection uuid.
   const connectionsByProvider = useMemo(() => {
     const map = new Map<string, AgencyConnectionRow>();
-    for (const c of connectionsState) map.set(c.provider_id, c);
+    for (const c of connectionsState) {
+      const slug = connectionProviderSlug(c);
+      if (slug) map.set(slug, c);
+    }
     return map;
   }, [connectionsState]);
+
+  useEffect(() => {
+    const hotelbeds = catalog.find(
+      (p) => p.id === "hotelbeds" || p.name === "Hotelbeds"
+    );
+    console.log(
+      "[IntegrationsClient] Hotelbeds provider.id:",
+      hotelbeds?.id
+    );
+    console.log(
+      "[IntegrationsClient] connectionsByProvider keys:",
+      [...connectionsByProvider.keys()]
+    );
+    if (connectionsState[0]) {
+      console.log(
+        "[IntegrationsClient] sample connection row id vs provider_id:",
+        connectionsState[0].id,
+        connectionsState[0].provider_id
+      );
+    }
+  }, [catalog, connectionsByProvider, connectionsState]);
 
   async function refreshConnections() {
     try {
@@ -50,7 +92,9 @@ export function IntegrationsClient({ catalog, connections }: Props) {
       }
       const data = (await res.json()) as { connections?: AgencyConnectionRow[] };
       if (Array.isArray(data.connections)) {
-        setConnectionsState(data.connections);
+        setConnectionsState(
+          (data.connections as ConnectionRowPayload[]).map(normalizeConnection)
+        );
         setRefreshError(null);
       } else {
         const message = "Respuesta inválida al actualizar las conexiones";
@@ -94,7 +138,9 @@ export function IntegrationsClient({ catalog, connections }: Props) {
               <ConnectorCard
                 key={provider.id}
                 provider={provider}
-                connection={connectionsByProvider.get(provider.id)}
+                connection={connectionsByProvider.get(
+                  provider.id.trim().toLowerCase()
+                )}
                 onClick={() => setSelectedProvider(provider)}
               />
             ))}
@@ -105,7 +151,9 @@ export function IntegrationsClient({ catalog, connections }: Props) {
       {selectedProvider && (
         <ConnectorModal
           provider={selectedProvider}
-          existingConnection={connectionsByProvider.get(selectedProvider.id)}
+          existingConnection={connectionsByProvider.get(
+            selectedProvider.id.trim().toLowerCase()
+          )}
           onSaved={handleSaved}
           onDeleted={refreshConnections}
           onClose={() => setSelectedProvider(null)}
