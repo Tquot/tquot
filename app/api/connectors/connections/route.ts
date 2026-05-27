@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     if (err instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Body inválido", details: err.errors },
+        { error: "Body inválido", details: err.issues },
         { status: 400 }
       );
     }

@@ -58,6 +58,38 @@ interface DuffelCredentials {
   environment?: "test" | "production";
 }
 
+interface DuffelPassenger {
+  cabin_class?: string;
+}
+
+interface DuffelSegment {
+  origin?: { iata_code?: string };
+  destination?: { iata_code?: string };
+  departing_at?: string;
+  arriving_at?: string;
+  marketing_carrier?: { iata_code?: string };
+  operating_carrier?: { iata_code?: string };
+  marketing_carrier_flight_number?: string;
+  passengers?: DuffelPassenger[];
+  duration?: string;
+}
+
+interface DuffelSlice {
+  origin?: { iata_code?: string };
+  destination?: { iata_code?: string };
+  duration?: string;
+  segments?: DuffelSegment[];
+}
+
+interface DuffelOffer {
+  id?: string;
+  slices?: DuffelSlice[];
+  total_amount?: string;
+  total_currency?: string;
+  expires_at?: string;
+  owner?: { iata_code?: string };
+}
+
 function buildHeaders(creds: DuffelCredentials): Record<string, string> {
   return {
     Authorization: `Bearer ${creds.access_token}`,
@@ -90,7 +122,10 @@ export class DuffelAdapter implements ProviderAdapter {
         timeoutMs: 5_000,
       });
 
-      const data = await parseJsonOrThrow(response, this.providerId);
+      const data = await parseJsonOrThrow<{ data?: unknown }>(
+        response,
+        this.providerId
+      );
       const elapsedMs = Date.now() - startedAt;
 
       if (data?.data) {
@@ -153,7 +188,17 @@ export class DuffelAdapter implements ProviderAdapter {
           ...Array(params.passengers.infants).fill({ type: "infant_without_seat" }),
         ];
 
-        const body: any = {
+        const body: {
+          data: {
+            slices: Array<{
+              origin: string;
+              destination: string;
+              departure_date: string;
+            }>;
+            passengers: Array<{ type: string }>;
+            cabin_class?: string;
+          };
+        } = {
           data: {
             slices,
             passengers,
@@ -172,12 +217,14 @@ export class DuffelAdapter implements ProviderAdapter {
           signal: options?.signal,
         });
 
-        const data = await parseJsonOrThrow(response, this.providerId);
+        const data = await parseJsonOrThrow<{
+          data?: { offers?: DuffelOffer[] };
+        }>(response, this.providerId);
         const offers = data?.data?.offers ?? [];
 
         if (offers.length === 0) return [];
 
-        return offers.map((offer: any) =>
+        return offers.map((offer) =>
           this.normalizeFlight(offer, options?.includeRawData)
         );
       },
@@ -205,15 +252,15 @@ export class DuffelAdapter implements ProviderAdapter {
   // ───── Normalización ─────
 
   private normalizeFlight(
-    offer: any,
+    offer: DuffelOffer,
     includeRawData?: boolean
   ): NormalizedFlight {
-    const slices: FlightSlice[] = (offer.slices ?? []).map((s: any) => {
-      const segments: FlightSegment[] = (s.segments ?? []).map((seg: any) => ({
+    const slices: FlightSlice[] = (offer.slices ?? []).map((s) => {
+      const segments: FlightSegment[] = (s.segments ?? []).map((seg) => ({
         origin: seg.origin?.iata_code ?? "",
         destination: seg.destination?.iata_code ?? "",
-        departureTime: seg.departing_at,
-        arrivalTime: seg.arriving_at,
+        departureTime: seg.departing_at ?? "",
+        arrivalTime: seg.arriving_at ?? "",
         carrier: seg.marketing_carrier?.iata_code ?? seg.operating_carrier?.iata_code ?? "",
         flightNumber: seg.marketing_carrier_flight_number ?? "",
         cabinClass: seg.passengers?.[0]?.cabin_class ?? "economy",
@@ -231,7 +278,7 @@ export class DuffelAdapter implements ProviderAdapter {
     });
 
     return {
-      providerOfferId: offer.id,
+      providerOfferId: offer.id ?? "",
       slices,
       totalPrice: Number(offer.total_amount ?? 0),
       currency: offer.total_currency ?? "EUR",

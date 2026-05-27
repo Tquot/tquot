@@ -62,6 +62,53 @@ interface HotelbedsCredentials {
   environment?: "test" | "production";
 }
 
+interface HotelbedsSearchBody {
+  stay: { checkIn: string; checkOut: string };
+  occupancies: Array<{
+    rooms: number;
+    adults: number;
+    children: number;
+    paxes: Array<{ type: "AD" } | { type: "CH"; age: number }>;
+  }>;
+  language: string;
+  currency: string;
+  hotels?: { hotel: number[] };
+  geolocation?: {
+    latitude: number;
+    longitude: number;
+    radius: number;
+    unit: "km";
+  };
+}
+
+interface HotelbedsRawRate {
+  rateKey?: string;
+  boardCode?: string;
+  rateClass?: string;
+  cancellationPolicies?: Array<{ from?: string }>;
+  net?: string | number;
+  sellingRate?: string | number;
+  commission?: string | number;
+  currency?: string;
+}
+
+interface HotelbedsRawRoom {
+  name?: string;
+  rates?: HotelbedsRawRate[];
+}
+
+interface HotelbedsRawHotel {
+  code?: string | number;
+  name?: string;
+  categoryCode?: string;
+  destinationName?: string;
+  countryCode?: string;
+  address?: string;
+  latitude?: string | number;
+  longitude?: string | number;
+  rooms?: HotelbedsRawRoom[];
+}
+
 // ─────────────────────────────────────────────────────────────
 // Helper: generar X-Signature de Hotelbeds
 // ─────────────────────────────────────────────────────────────
@@ -110,7 +157,10 @@ export class HotelbedsAdapter implements ProviderAdapter {
         timeoutMs: 5_000,
       });
 
-      const data = await parseJsonOrThrow(response, this.providerId);
+      const data = await parseJsonOrThrow<{ countries?: unknown[] }>(
+        response,
+        this.providerId
+      );
       const elapsedMs = Date.now() - startedAt;
 
       if (data?.countries) {
@@ -162,7 +212,9 @@ export class HotelbedsAdapter implements ProviderAdapter {
           signal: options?.signal,
         });
 
-        const data = await parseJsonOrThrow(response, this.providerId);
+        const data = await parseJsonOrThrow<{
+          hotels?: { hotels?: HotelbedsRawHotel[] };
+        }>(response, this.providerId);
 
         if (!data?.hotels?.hotels || data.hotels.hotels.length === 0) {
           // Sin resultados no es un error, devolvemos array vacío
@@ -171,7 +223,7 @@ export class HotelbedsAdapter implements ProviderAdapter {
 
         const nights = nightsBetween(params.checkIn, params.checkOut);
 
-        return data.hotels.hotels.map((h: any) =>
+        return data.hotels.hotels.map((h) =>
           this.normalizeHotel(h, nights, options?.includeRawData)
         );
       },
@@ -199,8 +251,8 @@ export class HotelbedsAdapter implements ProviderAdapter {
 
   // ───── Construir body de búsqueda ─────
 
-  private buildSearchBody(params: HotelSearchParams): any {
-    const body: any = {
+  private buildSearchBody(params: HotelSearchParams): HotelbedsSearchBody {
+    const body: HotelbedsSearchBody = {
       stay: {
         checkIn: params.checkIn,
         checkOut: params.checkOut,
@@ -252,7 +304,7 @@ export class HotelbedsAdapter implements ProviderAdapter {
   // ───── Normalización ─────
 
   private normalizeHotel(
-    raw: any,
+    raw: HotelbedsRawHotel,
     nights: number,
     includeRawData?: boolean
   ): NormalizedHotel {
@@ -280,7 +332,10 @@ export class HotelbedsAdapter implements ProviderAdapter {
     };
   }
 
-  private normalizeRooms(rawRooms: any[], nights: number): NormalizedRoom[] {
+  private normalizeRooms(
+    rawRooms: HotelbedsRawRoom[],
+    nights: number
+  ): NormalizedRoom[] {
     const rooms: NormalizedRoom[] = [];
 
     for (const room of rawRooms) {
