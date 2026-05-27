@@ -134,10 +134,10 @@ export async function tryAdapter<T>(
 // Helpers para parseo de respuestas HTTP
 // ─────────────────────────────────────────────────────────────
 
-export async function parseJsonOrThrow(
+export async function parseJsonOrThrow<T = unknown>(
   response: Response,
   providerId: string
-): Promise<any> {
+): Promise<T> {
   if (!response.ok) {
     let bodyText = "";
     try {
@@ -166,7 +166,7 @@ export async function parseJsonOrThrow(
   }
 
   try {
-    return await response.json();
+    return (await response.json()) as T;
   } catch (err) {
     throw new ConnectorError(
       `Respuesta no es JSON válido: ${(err as Error).message}`,
