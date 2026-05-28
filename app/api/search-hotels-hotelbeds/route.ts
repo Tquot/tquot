@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
       return fallbackHotels(result.error);
     }
 
-    const hotels = result
+    const hotels = result.data
       .map(toHotelOption)
       .filter((h): h is HotelOption => Boolean(h))
       .filter((h) =>
