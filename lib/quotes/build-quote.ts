@@ -355,7 +355,9 @@ async function searchHotelsApi(
     checkIn: string;
     checkOut: string;
     adults: number;
+    children?: number;
     hotelLevel?: HotelLevel;
+    agencyId?: string;
   },
   apiOrigin = "",
 ): Promise<HotelOption[]> {
@@ -366,11 +368,47 @@ async function searchHotelsApi(
       checkIn: params.checkIn,
       checkOut: params.checkOut,
       adults: params.adults,
+      children: params.children,
       hotelLevel: params.hotelLevel,
+      agencyId: params.agencyId,
     },
     apiOrigin,
   );
   console.log("[buildQuote] /api/search-hotels returned", {
+    request: params,
+    response: data,
+  });
+  if (!data || data.fallback) return [];
+  const hotels = data.hotels;
+  return Array.isArray(hotels) && hotels.length > 0 ? hotels : [];
+}
+
+async function searchHotelsHotelbedsApi(
+  params: {
+    destination: string;
+    checkIn: string;
+    checkOut: string;
+    adults: number;
+    children?: number;
+    hotelLevel?: HotelLevel;
+    agencyId?: string;
+  },
+  apiOrigin = "",
+): Promise<HotelOption[]> {
+  const data = await postSearchApi<{ hotels?: HotelOption[]; fallback?: boolean }>(
+    "/api/search-hotels-hotelbeds",
+    {
+      destination: params.destination,
+      checkIn: params.checkIn,
+      checkOut: params.checkOut,
+      adults: params.adults,
+      children: params.children,
+      hotelLevel: params.hotelLevel,
+      agencyId: params.agencyId,
+    },
+    apiOrigin,
+  );
+  console.log("[buildQuote] /api/search-hotels-hotelbeds returned", {
     request: params,
     response: data,
   });
@@ -432,6 +470,7 @@ function mapApiHotelToQuoteItem(
   nights: number,
   id: string,
   alternative = false,
+  providerLabel = "Booking.com",
 ): QuoteItem | null {
   const pricePerNight = parsePriceString(hotel.pricePerNight);
   const totalPrice = Math.round(pricePerNight * nights);
@@ -449,7 +488,7 @@ function mapApiHotelToQuoteItem(
     id,
     type: "hotel",
     title: `${hotel.name} — ${nights} ${nights === 1 ? "noche" : "noches"} · ${hotel.roomType}`,
-    provider: "Booking.com",
+    provider: providerLabel,
     price: totalPrice,
     source: "api",
     alternative,
@@ -793,28 +832,35 @@ async function buildHotelsFromInventoryOrApiOrMock(params: {
 
   const inventoryRows = inventory?.hotels ?? [];
   const items: QuoteItem[] = [];
+  const hotelSearchParams = {
+    destination,
+    checkIn: dates.start,
+    checkOut: dates.end,
+    adults: pax.adults,
+    children: pax.children,
+    hotelLevel,
+  };
 
   if (alwaysIncludeApi) {
-    const apiHotels = await searchHotelsApi(
-      {
-        destination,
-        checkIn: dates.start,
-        checkOut: dates.end,
-        adults: pax.adults,
-        hotelLevel,
-      },
-      apiOrigin,
-    );
+    const [hotelbedsHotels, bookingHotels] = await Promise.all([
+      searchHotelsHotelbedsApi(hotelSearchParams, apiOrigin),
+      searchHotelsApi(hotelSearchParams, apiOrigin),
+    ]);
+    const apiHotels = [
+      ...hotelbedsHotels.map((hotel) => ({ hotel, provider: "Hotelbeds" as const })),
+      ...bookingHotels.map((hotel) => ({ hotel, provider: "Booking.com" as const })),
+    ];
 
     console.log("[buildQuote] hotels API refresh (level change)", apiHotels);
 
-    for (const hotel of apiHotels.slice(0, HOTEL_QUOTE_LIMIT)) {
+    for (const entry of apiHotels.slice(0, HOTEL_QUOTE_LIMIT)) {
       if (items.length >= HOTEL_QUOTE_LIMIT) break;
       const item = mapApiHotelToQuoteItem(
-        hotel,
+        entry.hotel,
         nights,
         `hotel-api-${items.length + 1}`,
         items.length > 0,
+        entry.provider,
       );
       if (item) items.push(item);
     }
@@ -845,27 +891,26 @@ async function buildHotelsFromInventoryOrApiOrMock(params: {
   }
 
   if (!alwaysIncludeApi && items.length < HOTEL_QUOTE_LIMIT) {
-    const apiHotels = await searchHotelsApi(
-      {
-        destination,
-        checkIn: dates.start,
-        checkOut: dates.end,
-        adults: pax.adults,
-        hotelLevel,
-      },
-      apiOrigin,
-    );
+    const [hotelbedsHotels, bookingHotels] = await Promise.all([
+      searchHotelsHotelbedsApi(hotelSearchParams, apiOrigin),
+      searchHotelsApi(hotelSearchParams, apiOrigin),
+    ]);
+    const apiHotels = [
+      ...hotelbedsHotels.map((hotel) => ({ hotel, provider: "Hotelbeds" as const })),
+      ...bookingHotels.map((hotel) => ({ hotel, provider: "Booking.com" as const })),
+    ];
 
     console.log("[buildQuote] hotels before mapping to QuoteItem", apiHotels);
 
     const remaining = HOTEL_QUOTE_LIMIT - items.length;
-    for (const hotel of apiHotels.slice(0, remaining)) {
+    for (const entry of apiHotels.slice(0, remaining)) {
       if (items.length >= HOTEL_QUOTE_LIMIT) break;
       const item = mapApiHotelToQuoteItem(
-        hotel,
+        entry.hotel,
         nights,
         `hotel-api-${items.length + 1}`,
         items.length > 0,
+        entry.provider,
       );
       if (item) items.push(item);
     }
