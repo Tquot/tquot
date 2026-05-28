@@ -819,7 +819,7 @@ function appendHotelbedsToQuoteItems(
       nights,
       `hotel-api-${items.length + 1}`,
       items.length > 0,
-      "Hotelbeds",
+      hotel.providerName ?? "Hotelbeds",
     );
     if (item) items.push(item);
   }

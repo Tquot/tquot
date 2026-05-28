@@ -37,6 +37,7 @@ export type HotelOption = {
   roomType: string;
   highlights: string[];
   distanceFromCenter: string;
+  providerName?: string;
 };
 
 type LocationMatch = {

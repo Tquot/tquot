@@ -117,6 +117,7 @@ function toHotelOption(hotel: {
     roomType: cheapest.roomType || "Habitación doble",
     highlights: ["Hotelbeds", "Tarifa neta"],
     distanceFromCenter: "Distance unavailable",
+    providerName: "Hotelbeds",
   };
 }
 
