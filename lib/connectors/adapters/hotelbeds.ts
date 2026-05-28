@@ -150,20 +150,20 @@ export class HotelbedsAdapter implements ProviderAdapter {
     const creds = this.validateCredentials(rawCreds);
 
     try {
-      const url = `${baseUrl(creds)}/hotel-content-api/1.0/types/countries?fields=code&limit=1`;
+      const url = `${baseUrl(creds)}/hotel-api/1.0/status`;
       const response = await fetchWithTimeout(url, {
         method: "GET",
         headers: buildHeaders(creds),
         timeoutMs: 5_000,
       });
 
-      const data = await parseJsonOrThrow<{ countries?: unknown[] }>(
+      const data = await parseJsonOrThrow<Record<string, unknown>>(
         response,
         this.providerId
       );
       const elapsedMs = Date.now() - startedAt;
 
-      if (data?.countries) {
+      if (data && typeof data === "object") {
         return {
           ok: true,
           message: "Conexión OK. API responde correctamente.",
@@ -173,7 +173,7 @@ export class HotelbedsAdapter implements ProviderAdapter {
 
       return {
         ok: false,
-        error: "Respuesta inesperada de Hotelbeds (no countries en payload).",
+        error: "Respuesta inesperada de Hotelbeds en /hotel-api/1.0/status.",
         elapsedMs,
       };
     } catch (err) {
