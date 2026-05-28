@@ -139,9 +139,19 @@ function baseUrl(creds: HotelbedsCredentials): string {
 // ─────────────────────────────────────────────────────────────
 
 export class HotelbedsAdapter implements ProviderAdapter {
-  readonly providerId = "hotelbeds";
+  readonly providerId: string;
   readonly providerName = "Hotelbeds";
   readonly categories: ProviderCategory[] = ["hotels"];
+
+  constructor(
+    providerId:
+      | "hotelbeds"
+      | "hotelbeds-hotels"
+      | "hotelbeds-activities"
+      | "hotelbeds-transfers" = "hotelbeds"
+  ) {
+    this.providerId = providerId;
+  }
 
   // ───── Test connection ─────
 
@@ -150,7 +160,8 @@ export class HotelbedsAdapter implements ProviderAdapter {
     const creds = this.validateCredentials(rawCreds);
 
     try {
-      const url = `${baseUrl(creds)}/hotel-api/1.0/status`;
+      const statusPath = this.getStatusPath();
+      const url = `${baseUrl(creds)}${statusPath}`;
       const response = await fetchWithTimeout(url, {
         method: "GET",
         headers: buildHeaders(creds),
@@ -173,7 +184,7 @@ export class HotelbedsAdapter implements ProviderAdapter {
 
       return {
         ok: false,
-        error: "Respuesta inesperada de Hotelbeds en /hotel-api/1.0/status.",
+        error: `Respuesta inesperada de Hotelbeds en ${statusPath}.`,
         elapsedMs,
       };
     } catch (err) {
@@ -247,6 +258,16 @@ export class HotelbedsAdapter implements ProviderAdapter {
       environment:
         raw.environment === "production" ? "production" : "test",
     };
+  }
+
+  private getStatusPath(): string {
+    if (this.providerId === "hotelbeds-activities") {
+      return "/activities-api/1.0/status";
+    }
+    if (this.providerId === "hotelbeds-transfers") {
+      return "/transfers-api/1.0/status";
+    }
+    return "/hotel-api/1.0/status";
   }
 
   // ───── Construir body de búsqueda ─────
