@@ -803,7 +803,77 @@ async function buildFlightsFromApiOrMock(params: {
 }
 
 const HOTEL_QUOTE_LIMIT = 10;
+const HOTEL_INVENTORY_LIMIT = 5;
+const HOTEL_HOTELBEDS_LIMIT = 8;
 const EXPERIENCE_QUOTE_LIMIT = 5;
+
+function appendHotelbedsToQuoteItems(
+  items: QuoteItem[],
+  hotelbedsHotels: HotelOption[],
+  nights: number,
+): void {
+  for (const hotel of hotelbedsHotels) {
+    if (items.length >= HOTEL_HOTELBEDS_LIMIT) break;
+    const item = mapApiHotelToQuoteItem(
+      hotel,
+      nights,
+      `hotel-api-${items.length + 1}`,
+      items.length > 0,
+      "Hotelbeds",
+    );
+    if (item) items.push(item);
+  }
+}
+
+function appendBookingToQuoteItems(
+  items: QuoteItem[],
+  bookingHotels: HotelOption[],
+  nights: number,
+): void {
+  for (const hotel of bookingHotels) {
+    if (items.length >= HOTEL_QUOTE_LIMIT) break;
+    const item = mapApiHotelToQuoteItem(
+      hotel,
+      nights,
+      `hotel-api-${items.length + 1}`,
+      items.length > 0,
+      "Booking.com",
+    );
+    if (item) items.push(item);
+  }
+}
+
+async function fillApiHotelsSequentially(
+  items: QuoteItem[],
+  hotelSearchParams: {
+    destination: string;
+    checkIn: string;
+    checkOut: string;
+    adults: number;
+    children?: number;
+    hotelLevel?: HotelLevel;
+    agencyId?: string;
+  },
+  nights: number,
+  apiOrigin: string,
+): Promise<void> {
+  if (items.length >= HOTEL_QUOTE_LIMIT) return;
+
+  if (items.length < HOTEL_HOTELBEDS_LIMIT) {
+    const hotelbedsHotels = await searchHotelsHotelbedsApi(
+      hotelSearchParams,
+      apiOrigin,
+    );
+    console.log("[buildQuote] Hotelbeds hotels", hotelbedsHotels);
+    appendHotelbedsToQuoteItems(items, hotelbedsHotels, nights);
+  }
+
+  if (items.length < HOTEL_QUOTE_LIMIT) {
+    const bookingHotels = await searchHotelsApi(hotelSearchParams, apiOrigin);
+    console.log("[buildQuote] Booking hotels", bookingHotels);
+    appendBookingToQuoteItems(items, bookingHotels, nights);
+  }
+}
 
 async function buildHotelsFromInventoryOrApiOrMock(params: {
   destination: string;
@@ -842,32 +912,16 @@ async function buildHotelsFromInventoryOrApiOrMock(params: {
   };
 
   if (alwaysIncludeApi) {
-    const [hotelbedsHotels, bookingHotels] = await Promise.all([
-      searchHotelsHotelbedsApi(hotelSearchParams, apiOrigin),
-      searchHotelsApi(hotelSearchParams, apiOrigin),
-    ]);
-    const apiHotels = [
-      ...hotelbedsHotels.map((hotel) => ({ hotel, provider: "Hotelbeds" as const })),
-      ...bookingHotels.map((hotel) => ({ hotel, provider: "Booking.com" as const })),
-    ];
-
-    console.log("[buildQuote] hotels API refresh (level change)", apiHotels);
-
-    for (const entry of apiHotels.slice(0, HOTEL_QUOTE_LIMIT)) {
-      if (items.length >= HOTEL_QUOTE_LIMIT) break;
-      const item = mapApiHotelToQuoteItem(
-        entry.hotel,
-        nights,
-        `hotel-api-${items.length + 1}`,
-        items.length > 0,
-        entry.provider,
-      );
-      if (item) items.push(item);
-    }
+    console.log("[buildQuote] hotels API refresh (level change)");
+    await fillApiHotelsSequentially(
+      items,
+      hotelSearchParams,
+      nights,
+      apiOrigin,
+    );
   }
 
-  const inventorySlots = HOTEL_QUOTE_LIMIT - items.length;
-  if (inventorySlots > 0 && inventoryRows.length > 0) {
+  if (!alwaysIncludeApi && inventoryRows.length > 0) {
     console.log("[buildQuote] INV-PROPIO hotels", {
       count: inventoryRows.length,
       destination,
@@ -878,7 +932,29 @@ async function buildHotelsFromInventoryOrApiOrMock(params: {
       })),
     });
 
-    for (const [index, row] of inventoryRows.slice(0, inventorySlots).entries()) {
+    for (const row of inventoryRows.slice(0, HOTEL_INVENTORY_LIMIT)) {
+      items.push(
+        mapInventoryHotelToQuoteItem(
+          row,
+          nights,
+          `hotel-inv-${row.id.slice(0, 8)}`,
+          items.length > 0,
+        ),
+      );
+    }
+  }
+
+  const inventorySlots = Math.min(
+    HOTEL_INVENTORY_LIMIT,
+    HOTEL_QUOTE_LIMIT - items.length,
+  );
+  if (alwaysIncludeApi && inventorySlots > 0 && inventoryRows.length > 0) {
+    console.log("[buildQuote] INV-PROPIO hotels (after API refresh)", {
+      count: inventoryRows.length,
+      destination,
+    });
+
+    for (const row of inventoryRows.slice(0, inventorySlots)) {
       items.push(
         mapInventoryHotelToQuoteItem(
           row,
@@ -891,29 +967,12 @@ async function buildHotelsFromInventoryOrApiOrMock(params: {
   }
 
   if (!alwaysIncludeApi && items.length < HOTEL_QUOTE_LIMIT) {
-    const [hotelbedsHotels, bookingHotels] = await Promise.all([
-      searchHotelsHotelbedsApi(hotelSearchParams, apiOrigin),
-      searchHotelsApi(hotelSearchParams, apiOrigin),
-    ]);
-    const apiHotels = [
-      ...hotelbedsHotels.map((hotel) => ({ hotel, provider: "Hotelbeds" as const })),
-      ...bookingHotels.map((hotel) => ({ hotel, provider: "Booking.com" as const })),
-    ];
-
-    console.log("[buildQuote] hotels before mapping to QuoteItem", apiHotels);
-
-    const remaining = HOTEL_QUOTE_LIMIT - items.length;
-    for (const entry of apiHotels.slice(0, remaining)) {
-      if (items.length >= HOTEL_QUOTE_LIMIT) break;
-      const item = mapApiHotelToQuoteItem(
-        entry.hotel,
-        nights,
-        `hotel-api-${items.length + 1}`,
-        items.length > 0,
-        entry.provider,
-      );
-      if (item) items.push(item);
-    }
+    await fillApiHotelsSequentially(
+      items,
+      hotelSearchParams,
+      nights,
+      apiOrigin,
+    );
   }
 
   if (items.length > 0) {
