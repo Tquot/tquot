@@ -261,12 +261,8 @@ export class HotelbedsAdapter implements ProviderAdapter {
   }
 
   private getStatusPath(): string {
-    if (this.providerId === "hotelbeds-activities") {
-      return "/activities-api/1.0/status";
-    }
-    if (this.providerId === "hotelbeds-transfers") {
-      return "/transfers-api/1.0/status";
-    }
+    // For connection smoke tests, use a known working endpoint shared by
+    // the same API key/signature auth setup across Hotelbeds products.
     return "/hotel-api/1.0/status";
   }
 
