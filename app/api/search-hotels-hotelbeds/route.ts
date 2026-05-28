@@ -94,6 +94,10 @@ export async function POST(request: NextRequest) {
       language: "es",
     });
 
+    if (!result.ok) {
+      return fallbackHotels(result.error);
+    }
+
     const hotels = result
       .map(toHotelOption)
       .filter((h): h is HotelOption => Boolean(h))
