@@ -19,8 +19,8 @@ function normalizeCityKey(value: string): string {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }
 
 /** Tourist destinations when OpenFlights / city-groups has no match. */
@@ -44,8 +44,8 @@ const HARDCODED_CITY_COORDINATES: Record<string, { lat: number; lng: number }> =
   milano: { lat: 45.4642, lng: 9.19 },
   munich: { lat: 48.1351, lng: 11.582 },
   munchen: { lat: 48.1351, lng: 11.582 },
-  new york: { lat: 40.7128, lng: -74.006 },
-  nueva york: { lat: 40.7128, lng: -74.006 },
+  new_york: { lat: 40.7128, lng: -74.006 },
+  nueva_york: { lat: 40.7128, lng: -74.006 },
   paris: { lat: 48.8566, lng: 2.3522 },
   praga: { lat: 50.0755, lng: 14.4378 },
   prague: { lat: 50.0755, lng: 14.4378 },
