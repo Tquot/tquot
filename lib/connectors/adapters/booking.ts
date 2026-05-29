@@ -1,9 +1,12 @@
 /**
  * Adaptador de Booking.com vía RapidAPI.
- * Reutiliza POST /api/search-hotels con la clave RapidAPI de la agencia.
+ * Usa lib/hotels/search-booking directamente (sin self-fetch HTTP).
  */
 
-import type { HotelOption } from "@/app/api/search-hotels/route";
+import {
+  searchBookingHotels,
+  type HotelOption,
+} from "@/lib/hotels/search-booking";
 import type {
   ProviderAdapter,
   ProviderCategory,
@@ -15,30 +18,10 @@ import type {
   SearchResult,
   AdapterCallOptions,
 } from "../types";
-import {
-  ConnectorError,
-  fetchWithTimeout,
-  tryAdapter,
-  nightsBetween,
-} from "../utils";
+import { ConnectorError, tryAdapter, nightsBetween } from "../utils";
 
 interface BookingCredentials {
   rapidapi_key: string;
-}
-
-type SearchHotelsApiResponse = {
-  hotels?: HotelOption[];
-  fallback?: boolean;
-  error?: string;
-};
-
-function resolveInternalApiOrigin(): string {
-  const base =
-    process.env.NEXT_PUBLIC_APP_URL ??
-    (process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "http://localhost:3000");
-  return base.replace(/\/$/, "");
 }
 
 function testSearchDates(): { checkIn: string; checkOut: string } {
@@ -89,75 +72,34 @@ export class BookingAdapter implements ProviderAdapter {
     return { rapidapi_key };
   }
 
-  private async callSearchHotelsApi(
-    creds: BookingCredentials,
-    body: Record<string, unknown>,
-    options?: AdapterCallOptions,
-  ): Promise<SearchHotelsApiResponse> {
-    const url = `${resolveInternalApiOrigin()}/api/search-hotels`;
-    const response = await fetchWithTimeout(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...body, rapidapiKey: creds.rapidapi_key }),
-      timeoutMs: options?.timeoutMs ?? 10_000,
-      signal: options?.signal,
-    });
-
-    let data: SearchHotelsApiResponse;
-    try {
-      data = (await response.json()) as SearchHotelsApiResponse;
-    } catch {
-      throw new ConnectorError(
-        "Respuesta no válida de /api/search-hotels",
-        "API_ERROR",
-        this.providerId,
-        response.status,
-      );
-    }
-
-    if (!response.ok) {
-      throw new ConnectorError(
-        data.error ?? `HTTP ${response.status} desde /api/search-hotels`,
-        "API_ERROR",
-        this.providerId,
-        response.status,
-        data,
-      );
-    }
-
-    if (data.fallback) {
-      throw new ConnectorError(
-        data.error ?? "Booking.com devolvió datos de fallback",
-        "NO_RESULTS",
-        this.providerId,
-        response.status,
-        data,
-      );
-    }
-
-    return data;
-  }
-
   async testConnection(rawCreds: Credentials): Promise<TestConnectionResult> {
     const startedAt = Date.now();
     const creds = this.validateCredentials(rawCreds);
     const { checkIn, checkOut } = testSearchDates();
 
     try {
-      const data = await this.callSearchHotelsApi(creds, {
+      const result = await searchBookingHotels({
         destination: "Madrid",
         checkIn,
         checkOut,
         adults: 2,
+        rapidapiKey: creds.rapidapi_key,
       });
 
-      const hotels = data.hotels ?? [];
       const elapsedMs = Date.now() - startedAt;
 
-      if (hotels.length > 0) {
+      if (result.fallback) {
+        return {
+          ok: false,
+          error: result.error ?? "Booking.com devolvió datos de fallback.",
+          elapsedMs,
+        };
+      }
+
+      if ((result.hotels ?? []).length > 0) {
         return {
           ok: true,
-          message: `Conexión OK. ${hotels.length} hotel(es) de prueba encontrados.`,
+          message: `Conexión OK. ${result.hotels.length} hotel(es) de prueba encontrados.`,
           elapsedMs,
         };
       }
@@ -199,20 +141,25 @@ export class BookingAdapter implements ProviderAdapter {
       const adults = params.rooms[0]?.adults ?? 2;
       const propertyIds = params.destination.hotelCodes;
 
-      const data = await this.callSearchHotelsApi(
-        creds,
-        {
-          destination,
-          checkIn: params.checkIn,
-          checkOut: params.checkOut,
-          adults,
-          ...(propertyIds?.length ? { propertyIds } : {}),
-        },
-        options,
-      );
+      const result = await searchBookingHotels({
+        destination,
+        checkIn: params.checkIn,
+        checkOut: params.checkOut,
+        adults,
+        rapidapiKey: creds.rapidapi_key,
+        ...(propertyIds?.length ? { propertyIds } : {}),
+      });
+
+      if (result.fallback) {
+        throw new ConnectorError(
+          result.error ?? "Booking.com devolvió datos de fallback",
+          "NO_RESULTS",
+          this.providerId,
+        );
+      }
 
       const nights = nightsBetween(params.checkIn, params.checkOut);
-      const hotels = (data.hotels ?? [])
+      const hotels = (result.hotels ?? [])
         .map((hotel) => this.normalizeHotelOption(hotel, nights))
         .filter((hotel): hotel is NormalizedHotel => Boolean(hotel));
 
