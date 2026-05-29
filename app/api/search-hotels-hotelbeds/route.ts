@@ -218,7 +218,7 @@ export async function POST(request: NextRequest) {
         if (!option) return null;
         return { ...option, connectionId: hotelbedsConnection.id };
       })
-      .filter((h): h is HotelOption => Boolean(h))
+      .filter((h): h is HotelOption => h !== null && h !== undefined)
       .filter((h) =>
         hotelLevel ? passesApiHotelLevelFilter(h.stars, hotelLevel as HotelLevel) : true
       );
