@@ -213,12 +213,12 @@ export async function POST(request: NextRequest) {
     }
 
     const hotels = result.data
-      .map((hotel) => {
+      .map((hotel): HotelOption | null => {
         const option = toHotelOption(hotel);
         if (!option) return null;
-        return { ...option, connectionId: hotelbedsConnection.id };
+        return { ...option, connectionId: hotelbedsConnection.id } as HotelOption;
       })
-      .filter((h): h is HotelOption => h !== null && h !== undefined)
+      .filter((h): h is HotelOption => h !== null)
       .filter((h) =>
         hotelLevel ? passesApiHotelLevelFilter(h.stars, hotelLevel as HotelLevel) : true
       );
