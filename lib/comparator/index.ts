@@ -202,8 +202,8 @@ async function consultProvider(
     checkIn: input.checkIn,
     checkOut: input.checkOut,
     rooms: input.rooms,
-    currency: input.currency,
-    language: input.language,
+    currency: input.currency ?? "EUR",
+    language: input.language ?? "ENG",
   };
 
   const result = await adapter.searchHotels(provider.credentials, params, {
