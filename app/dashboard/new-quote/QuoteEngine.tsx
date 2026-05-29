@@ -25,6 +25,10 @@ import {
 } from "@/lib/quotes/build-quote";
 import type { RefineAction, RefineApplyResult, RefineQuotePatch } from "@/lib/quotes/refine/types";
 import { isServerRefinementAction } from "@/lib/quotes/refine/utils";
+import type {
+  ComparatorOutput,
+  ComparatorResultRow,
+} from "@/lib/comparator";
 import { tripRequestToParsedTripInput } from "@/lib/quotes/map-parser";
 import type { TripRequest } from "@/lib/parser/schema";
 import {
@@ -51,6 +55,13 @@ type ProcessStep = {
 type ChatMessage = {
   role: "agent" | "ai";
   content: string;
+};
+
+type ComparatorPanelState = {
+  itemId: string;
+  loading: boolean;
+  error: string | null;
+  results: ComparatorOutput | null;
 };
 
 function buildProcessSteps(t: DashboardTranslation): ProcessStep[] {
@@ -410,6 +421,9 @@ export function QuoteEngine() {
     destination: null,
   });
   const [parserQuestions, setParserQuestions] = useState<string[] | null>(null);
+  const [comparatorPanel, setComparatorPanel] = useState<ComparatorPanelState | null>(
+    null,
+  );
 
   const flightsIncluded =
     tripInput?.includeFlights ??
@@ -497,6 +511,108 @@ export function QuoteEngine() {
       syncQuotePricing(next);
       return next;
     });
+  }
+
+  async function handleCompareHotel(itemId: string) {
+    if (!quote || !tripInput) {
+      return;
+    }
+
+    const item = quote.hotels.find((entry) => entry.id === itemId);
+    if (!item?.hotelDetails) {
+      setComparatorPanel({
+        itemId,
+        loading: false,
+        error: "Este hotel no tiene datos de proveedor para comparar.",
+        results: null,
+      });
+      return;
+    }
+
+    const { connectionId, hotelCode } = item.hotelDetails;
+    if (!connectionId || !hotelCode) {
+      setComparatorPanel({
+        itemId,
+        loading: false,
+        error: "Faltan connectionId o código de hotel para comparar precios.",
+        results: null,
+      });
+      return;
+    }
+
+    setComparatorPanel({
+      itemId,
+      loading: true,
+      error: null,
+      results: null,
+    });
+
+    try {
+      const response = await fetch("/api/comparator", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hotelMappings: [{ connectionId, hotelCodes: [hotelCode] }],
+          checkIn: tripInput.dates.start,
+          checkOut: tripInput.dates.end,
+          rooms: [
+            {
+              adults: quote.summary.passengers.adults,
+              childrenAges: [],
+            },
+          ],
+        }),
+      });
+
+      const data = (await response.json()) as ComparatorOutput & { error?: string };
+      if (!response.ok) {
+        throw new Error(data.error ?? "Error al comparar precios");
+      }
+
+      setComparatorPanel({
+        itemId,
+        loading: false,
+        error: null,
+        results: data,
+      });
+    } catch (error) {
+      setComparatorPanel({
+        itemId,
+        loading: false,
+        error:
+          error instanceof Error ? error.message : "Error al comparar precios",
+        results: null,
+      });
+    }
+  }
+
+  function handleSelectComparatorPrice(row: ComparatorResultRow) {
+    if (!comparatorPanel || row.status !== "ok" || !row.bestRoom) {
+      return;
+    }
+
+    setQuote((current) => {
+      if (!current) {
+        return current;
+      }
+
+      const next = cloneQuote(current);
+      const item = next.hotels.find((entry) => entry.id === comparatorPanel.itemId);
+      if (!item) {
+        return current;
+      }
+
+      item.price = row.bestRoom!.netPrice;
+      item.provider = row.providerName;
+      item.hotelDetails = {
+        ...item.hotelDetails,
+        providerId: row.providerId,
+      };
+      applyItemMargin(item, getItemMarginPercent(item));
+      syncQuotePricing(next);
+      return next;
+    });
+    setComparatorPanel(null);
   }
 
   function sendChatMessage() {
@@ -1329,6 +1445,7 @@ export function QuoteEngine() {
                     items={quote.hotels}
                     onSelectItem={handleSelectQuoteItem}
                     onMarginChange={handleQuoteItemMarginChange}
+                    onCompareItem={handleCompareHotel}
                   />
                 </div>
               ) : null}
@@ -1424,6 +1541,130 @@ export function QuoteEngine() {
           </section>
         ) : null}
       </main>
+
+      {comparatorPanel && quote ? (
+        <HotelComparatorPanel
+          item={quote.hotels.find((entry) => entry.id === comparatorPanel.itemId) ?? null}
+          panel={comparatorPanel}
+          locale={locale}
+          onClose={() => setComparatorPanel(null)}
+          onSelectPrice={handleSelectComparatorPrice}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function comparatorStatusLabel(row: ComparatorResultRow): string {
+  if (row.status === "ok") {
+    return "Disponible";
+  }
+  if (row.status === "no_results") {
+    return "Sin resultados";
+  }
+  if (row.status === "timeout") {
+    return "Timeout";
+  }
+  return row.errorMessage ?? "Error";
+}
+
+function HotelComparatorPanel({
+  item,
+  panel,
+  locale,
+  onClose,
+  onSelectPrice,
+}: {
+  item: QuoteItem | null;
+  panel: ComparatorPanelState;
+  locale: Locale;
+  onClose: () => void;
+  onSelectPrice: (row: ComparatorResultRow) => void;
+}) {
+  const cheapestProviderId = panel.results?.cheapest?.providerId;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center">
+      <button
+        type="button"
+        aria-label="Cerrar comparador"
+        onClick={onClose}
+        className="absolute inset-0 bg-[#03080F]/80 backdrop-blur-sm"
+      />
+      <div className="relative z-10 w-full max-w-lg rounded-3xl border border-white/[0.08] bg-[#03080F] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.55)]">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[#00C9A7]">
+              Comparador de precios
+            </p>
+            <h3 className="mt-1 text-lg font-bold text-white">
+              {item?.title ?? "Hotel"}
+            </h3>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm font-semibold text-[#8B9CB3] hover:text-white"
+          >
+            Cerrar
+          </button>
+        </div>
+
+        {panel.loading ? (
+          <p className="py-8 text-center text-sm text-[#8B9CB3]">
+            Consultando proveedores…
+          </p>
+        ) : null}
+
+        {panel.error ? (
+          <p className="rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
+            {panel.error}
+          </p>
+        ) : null}
+
+        {!panel.loading && panel.results ? (
+          <div className="space-y-2">
+            {panel.results.results.map((row) => {
+              const isCheapest =
+                row.status === "ok" && row.providerId === cheapestProviderId;
+              const price =
+                row.status === "ok" && row.bestRoom
+                  ? formatCurrency(row.bestRoom.netPrice, locale)
+                  : "—";
+
+              return (
+                <div
+                  key={`${row.providerId}-${row.providerName}`}
+                  className={`flex flex-wrap items-center gap-3 rounded-2xl border px-4 py-3 ${
+                    isCheapest
+                      ? "border-[#00C9A7]/40 bg-[#00C9A7]/10"
+                      : "border-white/[0.08] bg-white/[0.03]"
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-white">{row.providerName}</p>
+                    <p className="text-xs text-[#8B9CB3]">
+                      {comparatorStatusLabel(row)}
+                    </p>
+                  </div>
+                  <p className="text-lg font-bold tabular-nums text-[#E8EEF7]">
+                    {price}
+                  </p>
+                  {row.status === "ok" && row.bestRoom ? (
+                    <button
+                      type="button"
+                      onClick={() => onSelectPrice(row)}
+                      className="rounded-xl border border-[#00C9A7]/30 bg-[#00C9A7]/10 px-3 py-1.5 text-xs font-bold text-[#00C9A7] hover:bg-[#00C9A7]/15"
+                    >
+                      Usar
+                    </button>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

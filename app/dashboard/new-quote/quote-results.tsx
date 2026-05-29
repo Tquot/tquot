@@ -323,12 +323,14 @@ function QuoteItemCard({
   onSelect,
   onToggle,
   onMarginChange,
+  onCompare,
   selectionMode = "exclusive",
 }: {
   item: QuoteItem;
   onSelect?: (itemId: string) => void;
   onToggle?: (itemId: string) => void;
   onMarginChange?: (itemId: string, marginPercent: number) => void;
+  onCompare?: (itemId: string) => void;
   selectionMode?: "exclusive" | "independent";
 }) {
   const { locale, t } = useDashboardLanguage();
@@ -339,6 +341,8 @@ function QuoteItemCard({
   const isIncluded = !item.alternative;
   const isSelected = isSelectable && isIncluded;
   const marginPercent = getItemMarginPercent(item);
+  const showCompareButton =
+    item.type === "hotel" && Boolean(item.hotelDetails) && Boolean(onCompare);
 
   const typeLabels: Record<QuoteItem["type"], string> = {
     flight: t.itemTypeFlight,
@@ -483,6 +487,19 @@ function QuoteItemCard({
           </label>
         ) : null}
 
+        {showCompareButton ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onCompare?.(item.id);
+            }}
+            className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2 text-xs font-bold text-[#E8EEF7] transition-colors hover:border-[#00C9A7]/40 hover:text-[#00C9A7]"
+          >
+            Ver precios en mis proveedores
+          </button>
+        ) : null}
+
         {isSelectable && !isIndependent ? (
           <button
             type="button"
@@ -506,6 +523,7 @@ type QuoteItemListProps = {
   onSelectItem?: (itemId: string) => void;
   onToggleItem?: (itemId: string) => void;
   onMarginChange?: (itemId: string, marginPercent: number) => void;
+  onCompareItem?: (itemId: string) => void;
   selectionMode?: "exclusive" | "independent";
   passengerCount?: number;
 };
@@ -533,6 +551,7 @@ function renderQuoteItemList(items: QuoteItem[], props: QuoteItemListProps) {
     onSelectItem,
     onToggleItem,
     onMarginChange,
+    onCompareItem,
     selectionMode = "exclusive",
     passengerCount,
   } = props;
@@ -553,6 +572,7 @@ function renderQuoteItemList(items: QuoteItem[], props: QuoteItemListProps) {
         onSelect={onSelectItem}
         onToggle={onToggleItem}
         onMarginChange={onMarginChange}
+        onCompare={onCompareItem}
         selectionMode={selectionMode}
       />
     ),
@@ -658,6 +678,7 @@ export function QuoteItemsSection({
   onSelectItem,
   onToggleItem,
   onMarginChange,
+  onCompareItem,
   selectionMode = "exclusive",
   passengerCount,
 }: {
@@ -667,6 +688,7 @@ export function QuoteItemsSection({
   onSelectItem?: (itemId: string) => void;
   onToggleItem?: (itemId: string) => void;
   onMarginChange?: (itemId: string, marginPercent: number) => void;
+  onCompareItem?: (itemId: string) => void;
   selectionMode?: "exclusive" | "independent";
   passengerCount?: number;
 }) {
@@ -681,6 +703,7 @@ export function QuoteItemsSection({
           onSelectItem,
           onToggleItem,
           onMarginChange,
+          onCompareItem,
           selectionMode,
           passengerCount,
         })}
