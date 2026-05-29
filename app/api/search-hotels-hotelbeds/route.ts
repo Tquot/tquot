@@ -199,7 +199,7 @@ export async function POST(request: NextRequest) {
       checkOut,
       rooms: [{ adults, childrenAges: Array(children).fill(8) }],
       currency: "EUR",
-      language: "es",
+      language: "ENG",
     });
 
     if (!result.ok) {
