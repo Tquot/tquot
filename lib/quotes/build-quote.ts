@@ -395,26 +395,38 @@ async function searchHotelsHotelbedsApi(
   },
   apiOrigin = "",
 ): Promise<HotelOption[]> {
-  const data = await postSearchApi<{ hotels?: HotelOption[]; fallback?: boolean }>(
-    "/api/search-hotels-hotelbeds",
-    {
-      destination: params.destination,
-      checkIn: params.checkIn,
-      checkOut: params.checkOut,
-      adults: params.adults,
-      children: params.children,
-      hotelLevel: params.hotelLevel,
-      agencyId: params.agencyId,
-    },
-    apiOrigin,
-  );
-  console.log("[buildQuote] /api/search-hotels-hotelbeds returned", {
-    request: params,
-    response: data,
-  });
-  if (!data || data.fallback) return [];
-  const hotels = data.hotels;
-  return Array.isArray(hotels) && hotels.length > 0 ? hotels : [];
+  try {
+    const path = "/api/search-hotels-hotelbeds";
+    const url = apiOrigin ? `${apiOrigin.replace(/\/$/, "")}${path}` : path;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        destination: params.destination,
+        checkIn: params.checkIn,
+        checkOut: params.checkOut,
+        adults: params.adults,
+        children: params.children,
+        hotelLevel: params.hotelLevel,
+        agencyId: params.agencyId,
+      }),
+    });
+    const data = (await response.json()) as {
+      hotels?: HotelOption[];
+      fallback?: boolean;
+    };
+    const hotels = Array.isArray(data?.hotels) ? data.hotels : [];
+    console.log("[buildQuote] /api/search-hotels-hotelbeds", {
+      status: response.status,
+      fallback: data?.fallback === true,
+      hotelCount: hotels.length,
+    });
+    if (!response.ok || !data || data.fallback) return [];
+    return hotels.length > 0 ? hotels : [];
+  } catch (error) {
+    console.warn("[buildQuote] /api/search-hotels-hotelbeds failed", error);
+    return [];
+  }
 }
 
 function flightDetailsFromOption(flight: FlightOption): QuoteItemFlightDetails {
