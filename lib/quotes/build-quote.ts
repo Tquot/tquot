@@ -85,6 +85,12 @@ export type QuoteItemFlightDetails = {
   priceNumeric: number;
 };
 
+export type QuoteItemHotelDetails = {
+  hotelCode?: string;
+  providerId?: string;
+  connectionId?: string;
+};
+
 export interface QuoteItem {
   id: string;
   type: QuoteItemType;
@@ -98,6 +104,8 @@ export interface QuoteItem {
   description?: string;
   /** Rich flight display data from API search results. */
   flightDetails?: QuoteItemFlightDetails;
+  /** Provider identifiers for hotel price comparator. */
+  hotelDetails?: QuoteItemHotelDetails;
   /** When true, shown as a selectable option but excluded from quote totals. */
   alternative?: boolean;
   /** Per-line margin %; drives markup and finalPrice when edited in the UI. */
@@ -477,12 +485,29 @@ function mapApiFlightToQuoteItem(
   });
 }
 
+function buildHotelDetails(
+  hotel: HotelOption,
+  providerId?: string,
+): QuoteItemHotelDetails | undefined {
+  const hotelCode = hotel.hotelCode ?? hotel.propertyId;
+  const connectionId = hotel.connectionId;
+  if (!hotelCode && !providerId && !connectionId) {
+    return undefined;
+  }
+  return {
+    ...(hotelCode ? { hotelCode } : {}),
+    ...(providerId ? { providerId } : {}),
+    ...(connectionId ? { connectionId } : {}),
+  };
+}
+
 function mapApiHotelToQuoteItem(
   hotel: HotelOption,
   nights: number,
   id: string,
   alternative = false,
   providerLabel = "Booking.com",
+  providerId?: string,
 ): QuoteItem | null {
   const pricePerNight = parsePriceString(hotel.pricePerNight);
   const totalPrice = Math.round(pricePerNight * nights);
@@ -496,6 +521,8 @@ function mapApiHotelToQuoteItem(
     return null;
   }
 
+  const hotelDetails = buildHotelDetails(hotel, providerId);
+
   return draftItem({
     id,
     type: "hotel",
@@ -504,6 +531,7 @@ function mapApiHotelToQuoteItem(
     price: totalPrice,
     source: "api",
     alternative,
+    ...(hotelDetails ? { hotelDetails } : {}),
   });
 }
 
@@ -832,6 +860,7 @@ function appendHotelbedsToQuoteItems(
       `hotel-api-${items.length + 1}`,
       items.length > 0,
       hotel.providerName ?? "Hotelbeds",
+      "hotelbeds",
     );
     if (item) items.push(item);
   }
@@ -850,6 +879,7 @@ function appendBookingToQuoteItems(
       `hotel-api-${items.length + 1}`,
       items.length > 0,
       "Booking.com",
+      "booking",
     );
     if (item) items.push(item);
   }

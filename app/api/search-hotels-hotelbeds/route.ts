@@ -90,6 +90,7 @@ const BodySchema = z.object({
 });
 
 function toHotelOption(hotel: {
+  providerHotelId: string;
   name: string;
   category: number | null;
   address: string | null;
@@ -118,6 +119,7 @@ function toHotelOption(hotel: {
     highlights: ["Hotelbeds", "Tarifa neta"],
     distanceFromCenter: "Distance unavailable",
     providerName: "Hotelbeds",
+    hotelCode: hotel.providerHotelId,
   };
 }
 
@@ -211,7 +213,11 @@ export async function POST(request: NextRequest) {
     }
 
     const hotels = result.data
-      .map(toHotelOption)
+      .map((hotel) => {
+        const option = toHotelOption(hotel);
+        if (!option) return null;
+        return { ...option, connectionId: hotelbedsConnection.id };
+      })
       .filter((h): h is HotelOption => Boolean(h))
       .filter((h) =>
         hotelLevel ? passesApiHotelLevelFilter(h.stars, hotelLevel as HotelLevel) : true

@@ -38,6 +38,9 @@ export type HotelOption = {
   highlights: string[];
   distanceFromCenter: string;
   providerName?: string;
+  hotelCode?: string;
+  propertyId?: string;
+  connectionId?: string;
 };
 
 type LocationMatch = {
@@ -304,6 +307,20 @@ function getHotelName(hotel: Record<string, unknown>) {
   return getStringValue(hotel.name);
 }
 
+function getPropertyId(hotel: Record<string, unknown>): string | undefined {
+  const property = asRecord(hotel.property);
+  return (
+    getOptionalString(
+      hotel.hotel_id,
+      hotel.hotelId,
+      hotel.property_id,
+      hotel.propertyId,
+      property.id,
+      hotel.id,
+    ) ?? undefined
+  );
+}
+
 function getPricePerNight(hotel: Record<string, unknown>, nights: number) {
   const priceBreakdown = asRecord(hotel.priceBreakdown);
   const grossPrice = asRecord(priceBreakdown.grossPrice);
@@ -414,6 +431,7 @@ function normalizeHotelOptions(
 
   return hotels.slice(0, 3).map((hotel): HotelOption => {
     const hotelObject = asRecord(hotel);
+    const propertyId = getPropertyId(hotelObject);
 
     return {
       name: getHotelName(hotelObject),
@@ -424,6 +442,7 @@ function normalizeHotelOptions(
       roomType: getRoomType(hotelObject),
       highlights: getHighlights(hotelObject),
       distanceFromCenter: getDistanceFromCenter(hotelObject),
+      ...(propertyId ? { propertyId } : {}),
     };
   });
 }
