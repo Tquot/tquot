@@ -13,6 +13,8 @@ type SearchHotelsRequest = {
   checkOut?: unknown;
   adults?: unknown;
   hotelLevel?: unknown;
+  rapidapiKey?: unknown;
+  propertyIds?: unknown;
 };
 
 const HOTEL_LEVELS = new Set<HotelLevel>([
@@ -503,6 +505,19 @@ function filterHotelsByLevel(
   );
 }
 
+function filterHotelsByPropertyIds(
+  hotels: HotelOption[],
+  propertyIds?: string[],
+): HotelOption[] {
+  if (!propertyIds?.length) {
+    return hotels;
+  }
+  const idSet = new Set(propertyIds.map(String));
+  return hotels.filter(
+    (hotel) => hotel.propertyId !== undefined && idSet.has(String(hotel.propertyId)),
+  );
+}
+
 function fallbackHotels(
   message: string,
   destination: string,
@@ -554,8 +569,6 @@ async function rapidApiGet(url: string, rapidApiKey: string, label: string) {
 }
 
 export async function POST(request: Request) {
-  const rapidApiKey = process.env.RAPIDAPI_KEY;
-
   let body: SearchHotelsRequest;
 
   try {
@@ -566,6 +579,17 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+
+  const rapidapiKeyFromBody = isNonEmptyString(body.rapidapiKey)
+    ? body.rapidapiKey.trim()
+    : undefined;
+  const rapidApiKey = rapidapiKeyFromBody ?? process.env.RAPIDAPI_KEY;
+
+  const propertyIds = Array.isArray(body.propertyIds)
+    ? body.propertyIds
+        .filter((id): id is string => typeof id === "string" && id.trim().length > 0)
+        .map((id) => id.trim())
+    : undefined;
 
   const { destination, checkIn, checkOut, adults, hotelLevel: hotelLevelRaw } =
     body;
@@ -648,15 +672,17 @@ export async function POST(request: Request) {
       "searchStays",
     );
     const nights = countNights(checkIn.trim(), checkOut.trim());
-    const hotels = filterHotelsByLevel(
+    let hotels = filterHotelsByLevel(
       normalizeHotelOptions(hotelPayload, nights),
       hotelLevel,
     );
+    hotels = filterHotelsByPropertyIds(hotels, propertyIds);
 
     if (hotels.length === 0) {
       console.error("[search-hotels] RapidAPI returned no hotel options", {
         payload: hotelPayload,
         hotelLevel,
+        propertyIds,
       });
 
       return fallbackHotels(

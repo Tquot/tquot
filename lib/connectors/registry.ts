@@ -14,6 +14,7 @@ import type { ProviderAdapter } from "./types";
 
 // ─── Adaptadores implementados ───
 import { HotelbedsAdapter } from "./adapters/hotelbeds";
+import { BookingAdapter } from "./adapters/booking";
 import { DuffelAdapter } from "./adapters/duffel";
 
 // ─── Stubs (importados solo para que TypeScript valide su forma) ───
@@ -43,6 +44,7 @@ function bootstrapAdapters() {
   registry.set("hotelbeds", new HotelbedsAdapter("hotelbeds"));
   registry.set("hotelbeds-activities", new HotelbedsAdapter("hotelbeds-activities"));
   registry.set("hotelbeds-transfers", new HotelbedsAdapter("hotelbeds-transfers"));
+  registry.set("booking", new BookingAdapter());
   registry.set("duffel", new DuffelAdapter());
 
   // Cuando se implemente RateHawk de verdad, descomentar:
