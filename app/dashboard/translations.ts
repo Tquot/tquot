@@ -153,6 +153,20 @@ const es = {
   itemMarginPercent: "Margen %",
   itemSelected: "Seleccionado",
   itemUseInQuote: "Usar en cotización",
+  compareHotelPrices: "Ver precios en mis proveedores",
+  useThisPrice: "Usar",
+  comparatorTitle: "Comparador de precios",
+  comparatorAvailable: "Disponible",
+  comparatorCheapest: "Más barato",
+  comparatorNoConnection:
+    "Faltan connectionId o código de hotel para comparar precios.",
+  comparatorLoading: "Consultando proveedores…",
+  comparatorNoHotelDetails:
+    "Este hotel no tiene datos de proveedor para comparar.",
+  comparatorGenericError: "Error al comparar precios",
+  comparatorNoResults: "Sin resultados",
+  comparatorTimeout: "Timeout",
+  comparatorClose: "Cerrar",
   sectionSubtitleSelectable:
     "{included} incluido(s) · {total} opción{plural}",
   sectionSubtitleLines: "{total} línea{plural}",
@@ -374,6 +388,20 @@ const en: Record<keyof typeof es, string> = {
   itemMarginPercent: "Margin %",
   itemSelected: "Selected",
   itemUseInQuote: "Use in quote",
+  compareHotelPrices: "Compare provider prices",
+  useThisPrice: "Use",
+  comparatorTitle: "Price comparator",
+  comparatorAvailable: "Available",
+  comparatorCheapest: "Cheapest",
+  comparatorNoConnection:
+    "Missing connection or hotel code to compare prices.",
+  comparatorLoading: "Querying providers…",
+  comparatorNoHotelDetails:
+    "This hotel has no provider data to compare.",
+  comparatorGenericError: "Error comparing prices",
+  comparatorNoResults: "No results",
+  comparatorTimeout: "Timeout",
+  comparatorClose: "Close",
   sectionSubtitleSelectable:
     "{included} included · {total} option{plural}",
   sectionSubtitleLines: "{total} line{plural}",

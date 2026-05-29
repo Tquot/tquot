@@ -523,7 +523,7 @@ export function QuoteEngine() {
       setComparatorPanel({
         itemId,
         loading: false,
-        error: "Este hotel no tiene datos de proveedor para comparar.",
+        error: t.comparatorNoHotelDetails,
         results: null,
       });
       return;
@@ -534,7 +534,7 @@ export function QuoteEngine() {
       setComparatorPanel({
         itemId,
         loading: false,
-        error: "Faltan connectionId o código de hotel para comparar precios.",
+        error: t.comparatorNoConnection,
         results: null,
       });
       return;
@@ -566,7 +566,7 @@ export function QuoteEngine() {
 
       const data = (await response.json()) as ComparatorOutput & { error?: string };
       if (!response.ok) {
-        throw new Error(data.error ?? "Error al comparar precios");
+        throw new Error(data.error ?? t.comparatorGenericError);
       }
 
       setComparatorPanel({
@@ -580,7 +580,7 @@ export function QuoteEngine() {
         itemId,
         loading: false,
         error:
-          error instanceof Error ? error.message : "Error al comparar precios",
+          error instanceof Error ? error.message : t.comparatorGenericError,
         results: null,
       });
     }
@@ -1555,17 +1555,20 @@ export function QuoteEngine() {
   );
 }
 
-function comparatorStatusLabel(row: ComparatorResultRow): string {
+function comparatorStatusLabel(
+  row: ComparatorResultRow,
+  t: DashboardTranslation,
+): string {
   if (row.status === "ok") {
-    return "Disponible";
+    return t.comparatorAvailable;
   }
   if (row.status === "no_results") {
-    return "Sin resultados";
+    return t.comparatorNoResults;
   }
   if (row.status === "timeout") {
-    return "Timeout";
+    return t.comparatorTimeout;
   }
-  return row.errorMessage ?? "Error";
+  return row.errorMessage ?? t.comparatorGenericError;
 }
 
 function HotelComparatorPanel({
@@ -1581,13 +1584,14 @@ function HotelComparatorPanel({
   onClose: () => void;
   onSelectPrice: (row: ComparatorResultRow) => void;
 }) {
+  const { t } = useDashboardLanguage();
   const cheapestProviderId = panel.results?.cheapest?.providerId;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center">
       <button
         type="button"
-        aria-label="Cerrar comparador"
+        aria-label={t.comparatorClose}
         onClick={onClose}
         className="absolute inset-0 bg-[#03080F]/80 backdrop-blur-sm"
       />
@@ -1595,10 +1599,10 @@ function HotelComparatorPanel({
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[#00C9A7]">
-              Comparador de precios
+              {t.comparatorTitle}
             </p>
             <h3 className="mt-1 text-lg font-bold text-white">
-              {item?.title ?? "Hotel"}
+              {item?.title ?? t.itemTypeHotel}
             </h3>
           </div>
           <button
@@ -1606,13 +1610,13 @@ function HotelComparatorPanel({
             onClick={onClose}
             className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm font-semibold text-[#8B9CB3] hover:text-white"
           >
-            Cerrar
+            {t.comparatorClose}
           </button>
         </div>
 
         {panel.loading ? (
           <p className="py-8 text-center text-sm text-[#8B9CB3]">
-            Consultando proveedores…
+            {t.comparatorLoading}
           </p>
         ) : null}
 
@@ -1642,9 +1646,16 @@ function HotelComparatorPanel({
                   }`}
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-white">{row.providerName}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-white">{row.providerName}</p>
+                      {isCheapest ? (
+                        <span className="rounded-full border border-[#00C9A7]/35 bg-[#00C9A7]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#00C9A7]">
+                          {t.comparatorCheapest}
+                        </span>
+                      ) : null}
+                    </div>
                     <p className="text-xs text-[#8B9CB3]">
-                      {comparatorStatusLabel(row)}
+                      {comparatorStatusLabel(row, t)}
                     </p>
                   </div>
                   <p className="text-lg font-bold tabular-nums text-[#E8EEF7]">
@@ -1656,7 +1667,7 @@ function HotelComparatorPanel({
                       onClick={() => onSelectPrice(row)}
                       className="rounded-xl border border-[#00C9A7]/30 bg-[#00C9A7]/10 px-3 py-1.5 text-xs font-bold text-[#00C9A7] hover:bg-[#00C9A7]/15"
                     >
-                      Usar
+                      {t.useThisPrice}
                     </button>
                   ) : null}
                 </div>

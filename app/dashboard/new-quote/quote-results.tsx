@@ -496,7 +496,7 @@ function QuoteItemCard({
             }}
             className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2 text-xs font-bold text-[#E8EEF7] transition-colors hover:border-[#00C9A7]/40 hover:text-[#00C9A7]"
           >
-            Ver precios en mis proveedores
+            {t.compareHotelPrices}
           </button>
         ) : null}
 
