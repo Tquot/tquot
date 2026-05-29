@@ -257,6 +257,7 @@ export type SearchResult<T> =
       errorCode?: string;       // "TIMEOUT", "AUTH", "RATE_LIMIT", "NO_RESULTS", "API_ERROR"
       elapsedMs: number;
       providerInfo: { id: string; name: string };
+      rawResponse?: unknown;
     };
 
 // ─────────────────────────────────────────────────────────────

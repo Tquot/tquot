@@ -121,7 +121,31 @@ function toHotelOption(hotel: {
   };
 }
 
-function fallbackHotels(message: string) {
+function logHotelbedsFallback(
+  message: string,
+  context: {
+    destination?: string;
+    coordinates?: { lat: number; lng: number } | null;
+    hotelbedsResponseBody?: unknown;
+  } = {},
+) {
+  console.warn("[search-hotels-hotelbeds] fallback", {
+    error: message,
+    destination: context.destination,
+    coordinates: context.coordinates ?? null,
+    hotelbedsResponseBody: context.hotelbedsResponseBody,
+  });
+}
+
+function fallbackHotels(
+  message: string,
+  context: {
+    destination?: string;
+    coordinates?: { lat: number; lng: number } | null;
+    hotelbedsResponseBody?: unknown;
+  } = {},
+) {
+  logHotelbedsFallback(message, context);
   return NextResponse.json({
     hotels: [] as HotelOption[],
     fallback: true,
@@ -144,20 +168,24 @@ export async function POST(request: NextRequest) {
     );
 
     if (!hotelbedsConnection) {
-      return fallbackHotels("Hotelbeds no conectado para esta agencia.");
+      return fallbackHotels("Hotelbeds no conectado para esta agencia.", {
+        destination,
+      });
     }
 
     const connectionData = await getConnectionWithCredentials(hotelbedsConnection.id);
     if (!connectionData) {
       return fallbackHotels(
-        "No se pudieron cargar las credenciales de Hotelbeds para esta agencia."
+        "No se pudieron cargar las credenciales de Hotelbeds para esta agencia.",
+        { destination },
       );
     }
 
     const coordinates = resolveDestinationCoordinates(destination);
     if (!coordinates) {
       return fallbackHotels(
-        `No se pudieron resolver coordenadas para "${destination}".`
+        `No se pudieron resolver coordenadas para "${destination}".`,
+        { destination, coordinates: null },
       );
     }
 
@@ -175,7 +203,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (!result.ok) {
-      return fallbackHotels(result.error);
+      return fallbackHotels(result.error, {
+        destination,
+        coordinates,
+        hotelbedsResponseBody: result.rawResponse,
+      });
     }
 
     const hotels = result.data

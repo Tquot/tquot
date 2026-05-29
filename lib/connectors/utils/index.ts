@@ -117,6 +117,7 @@ export async function tryAdapter<T>(
         errorCode: err.code,
         elapsedMs,
         providerInfo: { id: providerId, name: providerName },
+        rawResponse: err.rawResponse,
       };
     }
 
