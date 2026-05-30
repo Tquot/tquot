@@ -5,6 +5,9 @@ import { loginAction, type LoginState } from "./actions";
 
 const initialState: LoginState = {};
 
+const inputClass =
+  "w-full rounded-xl border border-tquot-border bg-tquot-surface px-4 py-3 text-tquot-text outline-none transition-colors placeholder:text-tquot-muted focus:border-tquot-accent focus:ring-2 focus:ring-tquot-accent/20";
+
 type LoginFormProps = {
   redirectTo?: string;
 };
@@ -22,7 +25,7 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
       ) : null}
 
       <div className="space-y-2">
-        <label htmlFor="email" className="text-sm font-medium text-[#E8EEF7]">
+        <label htmlFor="email" className="text-sm font-medium text-tquot-text">
           Email
         </label>
         <input
@@ -32,14 +35,14 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
           autoComplete="email"
           required
           placeholder="you@agency.com"
-          className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[#E8EEF7] placeholder:text-[#8B9CB3]/60 outline-none transition-colors focus:border-[#00C9A7]/50 focus:ring-2 focus:ring-[#00C9A7]/20"
+          className={inputClass}
         />
       </div>
 
       <div className="space-y-2">
         <label
           htmlFor="password"
-          className="text-sm font-medium text-[#E8EEF7]"
+          className="text-sm font-medium text-tquot-text"
         >
           Password
         </label>
@@ -50,14 +53,14 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
           autoComplete="current-password"
           required
           placeholder="••••••••"
-          className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-[#E8EEF7] placeholder:text-[#8B9CB3]/60 outline-none transition-colors focus:border-[#00C9A7]/50 focus:ring-2 focus:ring-[#00C9A7]/20"
+          className={inputClass}
         />
       </div>
 
       {state.error ? (
         <p
           role="alert"
-          className="rounded-lg border border-[#FF6B35]/30 bg-[#FF6B35]/10 px-4 py-3 text-sm text-[#FF6B35]"
+          className="rounded-lg border border-tquot-error/30 bg-red-50 px-4 py-3 text-sm text-tquot-error"
         >
           {state.error}
         </p>
@@ -66,7 +69,7 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
       <button
         type="submit"
         disabled={isPending}
-        className="w-full rounded-xl bg-[#00C9A7] px-4 py-3 text-sm font-semibold text-[#03080F] transition-all hover:bg-[#00E5BB] disabled:cursor-not-allowed disabled:opacity-60"
+        className="w-full rounded-xl bg-tquot-teal px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#00b396] disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isPending ? "Signing in…" : "Sign in"}
       </button>
