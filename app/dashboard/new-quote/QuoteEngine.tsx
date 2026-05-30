@@ -1688,7 +1688,7 @@ function HotelComparatorPanel({
       />
       <div className="relative z-10 w-full max-w-lg rounded-xl border border-tquot-border bg-tquot-surface p-5 shadow-lg">
         <div className="mb-4 flex items-start justify-between gap-3">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1 pr-2">
             <p className="text-xs font-semibold uppercase tracking-[0.26em] text-tquot-teal">
               {t.comparatorTitle}
             </p>
@@ -1699,9 +1699,10 @@ function HotelComparatorPanel({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-tquot-border bg-tquot-surface px-3 py-1.5 text-sm font-semibold text-tquot-muted hover:bg-tquot-bg hover:text-tquot-text"
+            aria-label={t.comparatorClose}
+            className="shrink-0 rounded-lg p-1.5 text-tquot-muted transition-colors hover:bg-tquot-bg hover:text-tquot-text"
           >
-            {t.comparatorClose}
+            <CloseIcon className="h-5 w-5" />
           </button>
         </div>
 
@@ -1712,13 +1713,13 @@ function HotelComparatorPanel({
         ) : null}
 
         {panel.error ? (
-          <p className="rounded-xl border border-tquot-warm/30 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="mb-3 rounded-xl border border-tquot-warm/30 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             {panel.error}
           </p>
         ) : null}
 
         {!panel.loading && panel.catalogProviders.length > 0 ? (
-          <div className="space-y-2">
+          <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
             {panel.catalogProviders.map((provider) => {
               const row = provider.connected
                 ? comparatorRowForProvider(panel.results, provider.providerId)
@@ -1790,8 +1791,31 @@ function HotelComparatorPanel({
             })}
           </div>
         ) : null}
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-4 w-full rounded-xl border border-tquot-border bg-tquot-surface px-4 py-3 text-sm font-semibold text-tquot-text transition-colors hover:bg-tquot-bg"
+        >
+          {t.comparatorClose}
+        </button>
       </div>
     </div>
+  );
+}
+
+function CloseIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
+    </svg>
   );
 }
 
