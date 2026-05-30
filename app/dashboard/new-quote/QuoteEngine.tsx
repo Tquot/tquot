@@ -1214,7 +1214,7 @@ export function QuoteEngine() {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[0.92fr_1.08fr]">
-          <div className="rounded-xl border border-tquot-border bg-tquot-surface p-6 shadow-sm">
+          <div className="rounded-xl border border-tquot-border border-l-4 border-l-tquot-teal bg-white p-6 shadow-md">
             <label
               htmlFor="client-request"
               className="mb-3 block text-sm font-medium text-tquot-text"
@@ -1232,7 +1232,7 @@ export function QuoteEngine() {
                 setParserQuestions(null);
               }}
               rows={10}
-              className="w-full resize-y rounded-xl border border-tquot-border bg-tquot-surface px-5 py-5 text-tquot-text placeholder:text-tquot-muted/60 outline-none transition-colors duration-200 focus:border-tquot-accent focus:ring-2 focus:ring-tquot-accent/20"
+              className="w-full resize-y rounded-xl border border-tquot-border bg-slate-50/50 px-5 py-5 text-tquot-text placeholder:text-tquot-muted/60 outline-none transition-colors duration-200 focus:border-tquot-accent focus:ring-2 focus:ring-tquot-accent/20"
               placeholder={t.quoteEngineRequestPlaceholder}
             />
 
@@ -1299,7 +1299,7 @@ export function QuoteEngine() {
             </button>
           </div>
 
-          <div className="rounded-xl border border-tquot-border bg-tquot-surface p-6 shadow-sm">
+          <div className="rounded-xl border border-tquot-border bg-white p-6 shadow-md">
             <div className="mb-5 flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.28em] text-tquot-accent">
@@ -1348,7 +1348,7 @@ export function QuoteEngine() {
         {isComplete && quote ? (
           <section
             ref={resultsSectionRef}
-            className="mt-8 scroll-mt-8 rounded-xl border border-tquot-border bg-tquot-surface p-6 shadow-sm"
+            className="mt-8 scroll-mt-8 rounded-xl border border-tquot-border bg-tquot-surface p-6 shadow-md"
           >
             <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
               <div>
@@ -1509,7 +1509,7 @@ export function QuoteEngine() {
               </section>
             </div>
 
-            <div className="mt-6 grid gap-4 rounded-xl border border-tquot-border bg-tquot-surface p-5 shadow-sm sm:grid-cols-3 sm:divide-x sm:divide-tquot-border">
+            <div className="mt-6 grid gap-4 rounded-xl border border-tquot-border bg-gradient-to-r from-tquot-teal/5 to-slate-50 p-5 shadow-sm sm:grid-cols-3 sm:divide-x sm:divide-tquot-border">
               <TotalCard
                 label={t.baseTotal}
                 value={quote.pricing.baseTotal}
@@ -1716,7 +1716,7 @@ function ProcessStepCard({
     <div
       className={`relative overflow-hidden rounded-xl border p-4 transition-all ${
         status === "active"
-          ? "border-tquot-accent bg-blue-50 shadow-sm ring-1 ring-tquot-accent/20"
+          ? "border-tquot-accent border-l-4 border-l-tquot-accent bg-blue-50 shadow-sm ring-1 ring-tquot-accent/20"
           : status === "done"
             ? "border-tquot-success/30 bg-emerald-50"
             : "border-tquot-border bg-tquot-bg"
