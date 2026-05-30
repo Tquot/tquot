@@ -1,15 +1,30 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { logoutAction } from "./actions";
+import {
+  DEFAULT_AGENCY_PROFILE,
+  readAgencyProfile,
+} from "./agency/agency-profile";
 import { useDashboardLanguage } from "./dashboard-language-provider";
 import { LocaleToggleButtons } from "./locale-toggle-buttons";
 import { type Locale, translations } from "./translations";
 
-const STAT_VALUES = ["0", "0", "1", "0"] as const;
+export type RecentQuoteRow = {
+  id: string;
+  reference: string;
+  origin: string;
+  destination: string;
+  departure_date: string;
+  total_public_price: number;
+  currency: string;
+  created_at: string;
+};
 
 type LanguageToggleProps = {
   email: string;
+  recentQuotes: RecentQuoteRow[];
 };
 
 function getGreeting(locale: Locale) {
@@ -21,16 +36,60 @@ function getGreeting(locale: Locale) {
   return t.greetingEvening;
 }
 
+function getDisplayName(email: string): string {
+  const profile = readAgencyProfile();
+  const agencyName = profile.agencyName.trim();
+  if (agencyName && agencyName !== DEFAULT_AGENCY_PROFILE.agencyName) {
+    return agencyName;
+  }
+  return email.split("@")[0];
+}
+
+function formatQuotePrice(value: number, currency: string, locale: Locale) {
+  return new Intl.NumberFormat(locale === "es" ? "es-ES" : "en-US", {
+    style: "currency",
+    currency,
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatQuoteDate(date: string, locale: Locale) {
+  return new Intl.DateTimeFormat(locale === "es" ? "es-ES" : "en-US", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(date));
+}
+
 const navLinkClass =
   "hidden rounded-lg px-3 py-2 text-sm font-medium text-tquot-muted transition-colors hover:bg-tquot-bg hover:text-tquot-accent md:inline-flex";
 
-export function LanguageToggle({ email }: LanguageToggleProps) {
+const quickLinkClass =
+  "rounded-xl border border-tquot-border bg-tquot-surface p-5 shadow-sm transition-colors hover:border-tquot-accent/30 hover:text-tquot-accent";
+
+export function LanguageToggle({ email, recentQuotes }: LanguageToggleProps) {
   const { locale, t } = useDashboardLanguage();
-  const stats = [
-    { id: "today", label: t.statsToday, value: STAT_VALUES[0] },
-    { id: "month", label: t.statsMonth, value: STAT_VALUES[1] },
-    { id: "agencies", label: t.statsAgencies, value: STAT_VALUES[2] },
-    { id: "pdfs", label: t.statsPdfs, value: STAT_VALUES[3] },
+  const [displayName, setDisplayName] = useState(() => email.split("@")[0]);
+
+  useEffect(() => {
+    setDisplayName(getDisplayName(email));
+  }, [email]);
+
+  const quickLinks = [
+    {
+      href: "/dashboard/new-quote",
+      label: t.newQuote,
+      className:
+        "rounded-xl bg-tquot-teal p-5 text-base font-semibold text-white shadow-md transition-colors hover:bg-[#00b396] sm:col-span-2 lg:col-span-1",
+    },
+    { href: "/dashboard/inventory", label: t.inventory, className: quickLinkClass },
+    {
+      href: "/dashboard/integrations",
+      label: t.integrations,
+      className: quickLinkClass,
+    },
+    { href: "/dashboard/margins", label: t.margins, className: quickLinkClass },
+    { href: "/dashboard/agency", label: t.agency, className: quickLinkClass },
   ];
 
   return (
@@ -51,7 +110,7 @@ export function LanguageToggle({ email }: LanguageToggleProps) {
               {t.inventory}
             </Link>
             <Link href="/dashboard/integrations" className={navLinkClass}>
-              Integraciones
+              {t.integrations}
             </Link>
             <Link href="/dashboard/agency" className={navLinkClass}>
               {t.agency}
@@ -81,55 +140,75 @@ export function LanguageToggle({ email }: LanguageToggleProps) {
         <section className="mb-10">
           <h1 className="text-2xl font-semibold tracking-tight text-tquot-text sm:text-3xl">
             {getGreeting(locale)},{" "}
-            <span className="text-tquot-accent">{email.split("@")[0]}</span>
+            <span className="text-tquot-accent">{displayName}</span>
           </h1>
           <p className="mt-2 text-tquot-muted">{t.subtitle}</p>
         </section>
 
-        <section className="mb-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {stats.map((stat) => (
-            <div
-              key={stat.id}
-              className="rounded-xl border border-tquot-border bg-tquot-surface p-5 shadow-sm"
-            >
-              <p className="text-sm font-medium text-tquot-muted">{stat.label}</p>
-              <p className="mt-2 text-3xl font-semibold text-tquot-text">
-                {stat.value}
-              </p>
-            </div>
-          ))}
-        </section>
-
-        <section className="mb-14 flex justify-center">
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <Link
-              href="/dashboard/new-quote"
-              className="rounded-xl bg-tquot-teal px-10 py-4 text-center text-base font-semibold text-white shadow-sm transition-colors hover:bg-[#00b396]"
-            >
-              {t.newQuote}
-            </Link>
-            <Link
-              href="/dashboard/agency"
-              className="rounded-xl border border-tquot-border bg-tquot-surface px-10 py-4 text-center text-base font-semibold text-tquot-text shadow-sm transition-colors hover:border-tquot-accent/30 hover:text-tquot-accent"
-            >
-              {t.agency}
-            </Link>
-            <Link
-              href="/dashboard/inventory"
-              className="rounded-xl border border-tquot-border bg-tquot-surface px-10 py-4 text-center text-base font-semibold text-tquot-text shadow-sm transition-colors hover:border-tquot-accent/30 hover:text-tquot-accent"
-            >
-              {t.inventory}
-            </Link>
+        <section className="mb-12">
+          <h2 className="mb-4 text-base font-semibold text-tquot-text">
+            {t.quickAccess}
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {quickLinks.map((link) => (
+              <Link key={link.href} href={link.href} className={link.className}>
+                {link.label}
+              </Link>
+            ))}
           </div>
         </section>
 
         <section>
           <h2 className="mb-4 text-base font-semibold text-tquot-text">
-            {t.recentRequests}
+            {t.recentQuotes}
           </h2>
-          <div className="rounded-xl border border-tquot-border bg-tquot-surface px-6 py-14 text-center shadow-sm">
-            <p className="text-sm text-tquot-muted">{t.noRequests}</p>
-          </div>
+          {recentQuotes.length === 0 ? (
+            <div className="rounded-xl border border-tquot-border bg-tquot-surface px-6 py-14 text-center shadow-sm">
+              <p className="text-sm text-tquot-muted">{t.noRecentQuotes}</p>
+              <Link
+                href="/dashboard/new-quote"
+                className="mt-4 inline-flex rounded-xl bg-tquot-teal px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#00b396]"
+              >
+                {t.createFirstQuote}
+              </Link>
+            </div>
+          ) : (
+            <ul className="space-y-3">
+              {recentQuotes.map((quote) => (
+                <li
+                  key={quote.id}
+                  className="flex flex-col gap-3 rounded-xl border border-tquot-border bg-tquot-surface p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0">
+                    <p className="font-semibold text-tquot-text">
+                      {quote.origin} → {quote.destination}
+                    </p>
+                    <p className="mt-1 text-sm text-tquot-muted">
+                      {quote.reference} ·{" "}
+                      {formatQuoteDate(quote.departure_date, locale)}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-4">
+                    <p className="text-lg font-semibold tabular-nums text-tquot-teal">
+                      {formatQuotePrice(
+                        quote.total_public_price,
+                        quote.currency,
+                        locale,
+                      )}
+                    </p>
+                    <a
+                      href={`/api/quotes/${quote.id}/pdf?variant=client`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-lg border border-tquot-border px-4 py-2 text-sm font-medium text-tquot-text transition-colors hover:border-tquot-accent hover:text-tquot-accent"
+                    >
+                      {t.viewPdf}
+                    </a>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       </main>
     </div>
