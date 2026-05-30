@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { useSiteLanguage } from "@/app/language-provider";
 import { loginAction, type LoginState } from "./actions";
 
 const initialState: LoginState = {};
@@ -13,6 +14,7 @@ type LoginFormProps = {
 };
 
 export function LoginForm({ redirectTo }: LoginFormProps) {
+  const { t } = useSiteLanguage();
   const [state, formAction, isPending] = useActionState(
     loginAction,
     initialState,
@@ -26,7 +28,7 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
 
       <div className="space-y-2">
         <label htmlFor="email" className="text-sm font-medium text-tquot-text">
-          Email
+          {t.loginEmail}
         </label>
         <input
           id="email"
@@ -34,7 +36,7 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
           type="email"
           autoComplete="email"
           required
-          placeholder="you@agency.com"
+          placeholder={t.loginEmailPlaceholder}
           className={inputClass}
         />
       </div>
@@ -44,7 +46,7 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
           htmlFor="password"
           className="text-sm font-medium text-tquot-text"
         >
-          Password
+          {t.loginPassword}
         </label>
         <input
           id="password"
@@ -71,7 +73,7 @@ export function LoginForm({ redirectTo }: LoginFormProps) {
         disabled={isPending}
         className="w-full rounded-xl bg-tquot-teal px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#00b396] disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {isPending ? "Signing in…" : "Sign in"}
+        {isPending ? t.loginSigningIn : t.loginSignIn}
       </button>
     </form>
   );

@@ -27,9 +27,11 @@ export function DashboardLanguageProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const [locale, setLocaleState] = useState<Locale>(() =>
-    typeof window !== "undefined" ? readLocale() : "es",
-  );
+  const [locale, setLocaleState] = useState<Locale>("es");
+
+  useEffect(() => {
+    setLocaleState(readLocale());
+  }, []);
 
   useEffect(() => {
     const onLocaleChange = (event: Event) => {

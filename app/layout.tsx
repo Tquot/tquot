@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Outfit, Plus_Jakarta_Sans } from "next/font/google";
+import { SiteLanguageProvider } from "./language-provider";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -37,7 +38,7 @@ export default function RootLayout({
       <body
         className={`${jakarta.variable} ${outfit.variable} min-h-screen antialiased`}
       >
-        {children}
+        <SiteLanguageProvider>{children}</SiteLanguageProvider>
       </body>
     </html>
   );

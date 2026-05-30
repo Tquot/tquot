@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { DashboardLanguageProvider } from "./dashboard-language-provider";
 
 export default async function DashboardLayout({
   children,
@@ -16,5 +15,5 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  return <DashboardLanguageProvider>{children}</DashboardLanguageProvider>;
+  return children;
 }

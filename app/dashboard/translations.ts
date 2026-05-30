@@ -259,6 +259,64 @@ const es = {
   agencyPdfDataSubtitle:
     "Estos datos se guardan localmente y se usarán automáticamente en los PDFs de agente y cliente.",
   agencyPdfHeaderPreview: "Vista previa cabecera PDF",
+  landingNavFeatures: "Funciones",
+  landingNavSignIn: "Iniciar sesión",
+  landingNavDashboard: "Panel",
+  landingNavEarlyAccess: "Acceso anticipado",
+  landingBadge: "Para profesionales del viaje",
+  landingHeroTitlePrefix: "El motor de cotización con IA",
+  landingHeroTitleSuffix: "para agencias de viajes",
+  landingHeroSubtitle:
+    "Convierte cualquier solicitud del cliente en un PDF profesional en menos de",
+  landingHeroSeconds: "60 segundos",
+  landingCtaGetStarted: "Empezar",
+  landingCtaHowItWorks: "Cómo funciona",
+  landingStatPerQuote: "por cotización",
+  landingStatProductivity: "productividad",
+  landingStatAgencies: "agencias en Europa",
+  landingPreviewLabel: "Vista previa de cotización",
+  landingPreviewInput:
+    '"Familia de 4, Roma y Florencia, 10 noches en junio, hoteles 4 estrellas, Vaticano sin colas"',
+  landingPreviewItems:
+    "Vuelos · Hoteles · Traslados · Experiencias ·",
+  landingPreviewMargin: "+18% margen aplicado",
+  landingPreviewGenerating: "Generando PDF con tu marca…",
+  landingPlatformEyebrow: "Plataforma",
+  landingFeaturesTitle: "Todo lo que necesitas para cotizar más rápido",
+  landingFeaturesSubtitle:
+    "Del briefing desordenado a la propuesta firmada: un flujo inteligente.",
+  landingFeatureFreeTextTitle: "Texto libre",
+  landingFeatureFreeTextDesc:
+    "Pega emails, hilos de WhatsApp o notas. TQuot entiende lenguaje natural, sin formularios.",
+  landingFeatureAiSearchTitle: "Búsqueda web con IA",
+  landingFeatureAiSearchDesc:
+    "Precios en vivo de hoteles, vuelos y tours. Cotizaciones actualizadas sin búsquedas manuales.",
+  landingFeatureMarginTitle: "Motor de márgenes",
+  landingFeatureMarginDesc:
+    "Aplica márgenes, comisiones y redondeos automáticamente en cada línea.",
+  landingFeaturePdfTitle: "PDF con tu marca",
+  landingFeaturePdfDesc:
+    "Cotizaciones listas para el cliente con tu logo, colores y condiciones.",
+  landingCtaTitle: "¿Listo para cotizar a la velocidad de la IA?",
+  landingCtaSubtitle:
+    "Únete a la lista de acceso anticipado. Plazas limitadas para agencias fundadoras en Europa.",
+  landingCtaButton: "Empezar",
+  landingFooterRights: "Todos los derechos reservados.",
+  loginTagline: "De email a cotización en 60 segundos",
+  loginBullet1Title: "Entrada en texto libre",
+  loginBullet1Desc: "Emails, WhatsApp o notas — sin formularios.",
+  loginBullet2Title: "Búsqueda web con IA",
+  loginBullet2Desc: "Precios en vivo de hoteles, vuelos y tours.",
+  loginBullet3Title: "PDF con tu marca",
+  loginBullet3Desc: "Cotizaciones profesionales con márgenes automáticos.",
+  loginTitle: "Iniciar sesión en TQuot",
+  loginSubtitle: "Accede al panel de tu agencia",
+  loginBackHome: "← Volver al inicio",
+  loginEmail: "Email",
+  loginPassword: "Contraseña",
+  loginEmailPlaceholder: "tu@agencia.com",
+  loginSigningIn: "Iniciando sesión…",
+  loginSignIn: "Iniciar sesión",
 } as const;
 
 const en: Record<keyof typeof es, string> = {
@@ -517,6 +575,63 @@ const en: Record<keyof typeof es, string> = {
   agencyPdfDataSubtitle:
     "These details are saved locally and used automatically in agent and client PDFs.",
   agencyPdfHeaderPreview: "PDF header preview",
+  landingNavFeatures: "Features",
+  landingNavSignIn: "Sign in",
+  landingNavDashboard: "Dashboard",
+  landingNavEarlyAccess: "Early access",
+  landingBadge: "Built for travel professionals",
+  landingHeroTitlePrefix: "The AI quote engine",
+  landingHeroTitleSuffix: "for travel agencies",
+  landingHeroSubtitle:
+    "Transform any client request into a professional PDF quote in under",
+  landingHeroSeconds: "60 seconds",
+  landingCtaGetStarted: "Get started",
+  landingCtaHowItWorks: "See how it works",
+  landingStatPerQuote: "per quote",
+  landingStatProductivity: "productivity",
+  landingStatAgencies: "agencies in Europe",
+  landingPreviewLabel: "Quote preview",
+  landingPreviewInput:
+    '"Family of 4, Rome + Florence, 10 nights in June, 4-star hotels, skip-the-line Vatican"',
+  landingPreviewItems: "Flights · Hotels · Transfers · Experiences ·",
+  landingPreviewMargin: "+18% margin applied",
+  landingPreviewGenerating: "Generating branded PDF…",
+  landingPlatformEyebrow: "Platform",
+  landingFeaturesTitle: "Everything you need to quote faster",
+  landingFeaturesSubtitle:
+    "From messy client briefs to signed proposals—one intelligent workflow.",
+  landingFeatureFreeTextTitle: "Free-text input",
+  landingFeatureFreeTextDesc:
+    "Paste emails, WhatsApp threads, or rough notes. TQuot understands natural language—no forms.",
+  landingFeatureAiSearchTitle: "AI web search",
+  landingFeatureAiSearchDesc:
+    "Live pricing from hotels, flights, and tours. Stay current without manual lookups.",
+  landingFeatureMarginTitle: "Margin engine",
+  landingFeatureMarginDesc:
+    "Apply markups, commissions, and rounding rules automatically on every line.",
+  landingFeaturePdfTitle: "Branded PDF",
+  landingFeaturePdfDesc:
+    "Client-ready quotes with your logo, colors, and terms in seconds.",
+  landingCtaTitle: "Ready to quote at the speed of AI?",
+  landingCtaSubtitle:
+    "Join the waitlist for early access. Limited spots for founding agency partners across Europe.",
+  landingCtaButton: "Get started",
+  landingFooterRights: "All rights reserved.",
+  loginTagline: "From email to quote in 60 seconds",
+  loginBullet1Title: "Free-text input",
+  loginBullet1Desc: "Emails, WhatsApp, or notes — no forms.",
+  loginBullet2Title: "AI web search",
+  loginBullet2Desc: "Live prices for hotels, flights, and tours.",
+  loginBullet3Title: "Branded PDF",
+  loginBullet3Desc: "Professional quotes with automatic margins.",
+  loginTitle: "Sign in to TQuot",
+  loginSubtitle: "Access your agency dashboard",
+  loginBackHome: "← Back to home",
+  loginEmail: "Email",
+  loginPassword: "Password",
+  loginEmailPlaceholder: "you@agency.com",
+  loginSigningIn: "Signing in…",
+  loginSignIn: "Sign in",
 };
 
 export const translations = { es, en } as const;

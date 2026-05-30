@@ -3,12 +3,25 @@
 import { useDashboardLanguage } from "./dashboard-language-provider";
 import type { Locale } from "./translations";
 
-export function LocaleToggleButtons({ className = "" }: { className?: string }) {
+type LocaleToggleButtonsProps = {
+  className?: string;
+  variant?: "light" | "dark";
+};
+
+export function LocaleToggleButtons({
+  className = "",
+  variant = "light",
+}: LocaleToggleButtonsProps) {
   const { locale, setLocale } = useDashboardLanguage();
+  const isDark = variant === "dark";
 
   return (
     <div
-      className={`flex rounded-lg border border-tquot-border bg-tquot-bg p-0.5 ${className}`}
+      className={`flex rounded-lg border p-0.5 ${
+        isDark
+          ? "border-white/20 bg-white/10"
+          : "border-tquot-border bg-tquot-bg"
+      } ${className}`}
     >
       {(["es", "en"] as Locale[]).map((code) => (
         <button
@@ -17,8 +30,12 @@ export function LocaleToggleButtons({ className = "" }: { className?: string }) 
           onClick={() => setLocale(code)}
           className={`rounded-md px-2.5 py-1 text-xs font-semibold uppercase tracking-wide transition-colors ${
             locale === code
-              ? "bg-tquot-surface text-tquot-accent shadow-sm"
-              : "text-tquot-muted hover:text-tquot-text"
+              ? isDark
+                ? "bg-white/20 text-white shadow-sm"
+                : "bg-tquot-surface text-tquot-accent shadow-sm"
+              : isDark
+                ? "text-white/70 hover:text-white"
+                : "text-tquot-muted hover:text-tquot-text"
           }`}
         >
           {code}
