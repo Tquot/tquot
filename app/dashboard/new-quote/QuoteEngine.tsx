@@ -1240,7 +1240,7 @@ export function QuoteEngine() {
               <div className="mt-6 space-y-4">
                 {enrichedTrip._resolved.origin?.needsAgentChoice ? (
                   <AirportPicker
-                    label="Origen"
+                    label={t.origin}
                     resolved={enrichedTrip._resolved.origin}
                     onSelect={(iata) =>
                       setAirportChoices((current) => ({
@@ -1252,7 +1252,7 @@ export function QuoteEngine() {
                 ) : null}
                 {enrichedTrip._resolved.destination?.needsAgentChoice ? (
                   <AirportPicker
-                    label="Destino"
+                    label={t.destination}
                     resolved={enrichedTrip._resolved.destination}
                     onSelect={(iata) =>
                       setAirportChoices((current) => ({

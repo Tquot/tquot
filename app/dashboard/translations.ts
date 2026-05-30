@@ -171,6 +171,8 @@ const es = {
   airportPickerHasAirports: "{city} tiene {count} aeropuertos",
   airportPickerSearchAll: "Buscar en todos los aeropuertos",
   airportPickerMain: "Principal",
+  origin: "Origen",
+  destination: "Destino",
   sectionSubtitleSelectable:
     "{included} incluido(s) · {total} opción{plural}",
   sectionSubtitleLines: "{total} línea{plural}",
@@ -410,6 +412,8 @@ const en: Record<keyof typeof es, string> = {
   airportPickerHasAirports: "{city} has {count} airports",
   airportPickerSearchAll: "Search all airports",
   airportPickerMain: "Main",
+  origin: "Origin",
+  destination: "Destination",
   sectionSubtitleSelectable:
     "{included} included · {total} option{plural}",
   sectionSubtitleLines: "{total} line{plural}",
