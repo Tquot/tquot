@@ -57,12 +57,27 @@ type ChatMessage = {
   content: string;
 };
 
+type CatalogProviderEntry = {
+  providerId: string;
+  providerName: string;
+  connected: boolean;
+  connectionId?: string;
+  logoUrl: string | null;
+};
+
 type ComparatorPanelState = {
   itemId: string;
   loading: boolean;
   error: string | null;
   results: ComparatorOutput | null;
+  catalogProviders: CatalogProviderEntry[];
 };
+
+const HOTEL_PROVIDER_CATEGORY = "hotels";
+
+function connectionProviderSlug(providerId: string | undefined): string {
+  return (providerId ?? "").trim().toLowerCase();
+}
 
 function buildProcessSteps(t: DashboardTranslation): ProcessStep[] {
   return [
@@ -525,63 +540,140 @@ export function QuoteEngine() {
         loading: false,
         error: t.comparatorNoHotelDetails,
         results: null,
+        catalogProviders: [],
       });
       return;
     }
 
-    const { connectionId, hotelCode } = item.hotelDetails;
-    if (!connectionId || !hotelCode) {
-      setComparatorPanel({
-        itemId,
-        loading: false,
-        error: t.comparatorNoConnection,
-        results: null,
-      });
-      return;
-    }
+    const hotelCode = item.hotelDetails.hotelCode;
 
     setComparatorPanel({
       itemId,
       loading: true,
       error: null,
       results: null,
+      catalogProviders: [],
     });
 
     try {
-      const response = await fetch("/api/comparator", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          hotelMappings: [{ connectionId, hotelCodes: [hotelCode] }],
-          checkIn: tripInput.dates.start,
-          checkOut: tripInput.dates.end,
-          rooms: [
-            {
-              adults: quote.summary.passengers.adults,
-              childrenAges: [],
-            },
-          ],
-        }),
-      });
+      const [catalogResponse, connectionsResponse] = await Promise.all([
+        fetch("/api/connectors/catalog"),
+        fetch("/api/connectors/connections"),
+      ]);
 
-      const data = (await response.json()) as ComparatorOutput & { error?: string };
-      if (!response.ok) {
-        throw new Error(data.error ?? t.comparatorGenericError);
+      const catalogPayload = (await catalogResponse.json()) as {
+        providers?: Array<{
+          id: string;
+          name: string;
+          category: string;
+          logo_url: string | null;
+        }>;
+        error?: string;
+      };
+      const connectionsPayload = (await connectionsResponse.json()) as {
+        connections?: Array<{ id: string; provider_id: string }>;
+        error?: string;
+      };
+
+      if (!catalogResponse.ok) {
+        throw new Error(catalogPayload.error ?? t.comparatorGenericError);
+      }
+      if (!connectionsResponse.ok) {
+        throw new Error(connectionsPayload.error ?? t.comparatorGenericError);
+      }
+
+      const connectionsByProvider = new Map<
+        string,
+        { id: string; provider_id: string }
+      >();
+      for (const connection of connectionsPayload.connections ?? []) {
+        const slug = connectionProviderSlug(connection.provider_id);
+        if (slug && !connectionsByProvider.has(slug)) {
+          connectionsByProvider.set(slug, connection);
+        }
+      }
+
+      const hotelCatalog = (catalogPayload.providers ?? []).filter(
+        (provider) => provider.category === HOTEL_PROVIDER_CATEGORY,
+      );
+
+      const catalogProviders: CatalogProviderEntry[] = hotelCatalog.map(
+        (provider) => {
+          const slug = connectionProviderSlug(provider.id);
+          const connection = connectionsByProvider.get(slug);
+          return {
+            providerId: provider.id,
+            providerName: provider.name,
+            connected: Boolean(connection),
+            connectionId: connection?.id,
+            logoUrl: provider.logo_url,
+          };
+        },
+      );
+
+      let results: ComparatorOutput | null = null;
+      let error: string | null = null;
+
+      const hotelMappings = catalogProviders
+        .filter((provider) => provider.connected && provider.connectionId)
+        .map((provider) => ({
+          connectionId: provider.connectionId!,
+          hotelCodes: hotelCode ? [hotelCode] : [],
+        }))
+        .filter((mapping) => mapping.hotelCodes.length > 0);
+
+      if (!hotelCode) {
+        error = t.comparatorNoConnection;
+      } else if (hotelMappings.length > 0) {
+        try {
+          const response = await fetch("/api/comparator", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              hotelMappings,
+              checkIn: tripInput.dates.start,
+              checkOut: tripInput.dates.end,
+              rooms: [
+                {
+                  adults: quote.summary.passengers.adults,
+                  childrenAges: [],
+                },
+              ],
+            }),
+          });
+
+          const data = (await response.json()) as ComparatorOutput & {
+            error?: string;
+          };
+          if (!response.ok) {
+            throw new Error(data.error ?? t.comparatorGenericError);
+          }
+          results = data;
+        } catch (apiError) {
+          error =
+            apiError instanceof Error
+              ? apiError.message
+              : t.comparatorGenericError;
+        }
       }
 
       setComparatorPanel({
         itemId,
         loading: false,
-        error: null,
-        results: data,
+        error,
+        results,
+        catalogProviders,
       });
-    } catch (error) {
+    } catch (compareError) {
       setComparatorPanel({
         itemId,
         loading: false,
         error:
-          error instanceof Error ? error.message : t.comparatorGenericError,
+          compareError instanceof Error
+            ? compareError.message
+            : t.comparatorGenericError,
         results: null,
+        catalogProviders: [],
       });
     }
   }
@@ -1562,6 +1654,40 @@ function comparatorStatusLabel(
   return row.errorMessage ?? t.comparatorGenericError;
 }
 
+function comparatorRowForProvider(
+  results: ComparatorOutput | null,
+  providerId: string,
+): ComparatorResultRow | undefined {
+  const slug = connectionProviderSlug(providerId);
+  return results?.results.find(
+    (row) => connectionProviderSlug(row.providerId) === slug,
+  );
+}
+
+function ProviderAbbrevBadge({
+  name,
+  logoUrl,
+}: {
+  name: string;
+  logoUrl: string | null;
+}) {
+  if (logoUrl) {
+    return (
+      <img
+        src={logoUrl}
+        alt={name}
+        className="h-10 w-10 shrink-0 rounded object-contain"
+      />
+    );
+  }
+
+  return (
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-tquot-bg font-mono text-xs font-semibold text-tquot-muted">
+      {name.slice(0, 2).toUpperCase()}
+    </div>
+  );
+}
+
 function HotelComparatorPanel({
   item,
   panel,
@@ -1617,42 +1743,64 @@ function HotelComparatorPanel({
           </p>
         ) : null}
 
-        {!panel.loading && panel.results ? (
+        {!panel.loading && panel.catalogProviders.length > 0 ? (
           <div className="space-y-2">
-            {panel.results.results.map((row) => {
+            {panel.catalogProviders.map((provider) => {
+              const row = provider.connected
+                ? comparatorRowForProvider(panel.results, provider.providerId)
+                : undefined;
               const isCheapest =
-                row.status === "ok" && row.providerId === cheapestProviderId;
+                Boolean(row) &&
+                row!.status === "ok" &&
+                connectionProviderSlug(row!.providerId) ===
+                  connectionProviderSlug(cheapestProviderId ?? "");
               const price =
-                row.status === "ok" && row.bestRoom
+                row?.status === "ok" && row.bestRoom
                   ? formatCurrency(row.bestRoom.netPrice, locale)
                   : "—";
+              const statusLabel = !provider.connected
+                ? t.comparatorNotConnected
+                : row
+                  ? comparatorStatusLabel(row, t)
+                  : t.comparatorNoResults;
 
               return (
                 <div
-                  key={`${row.providerId}-${row.providerName}`}
+                  key={provider.providerId}
                   className={`flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 ${
                     isCheapest
                       ? "border-tquot-teal/40 bg-tquot-teal/10"
                       : "border-tquot-border bg-tquot-bg"
                   }`}
                 >
+                  <ProviderAbbrevBadge
+                    name={provider.providerName}
+                    logoUrl={provider.logoUrl}
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-tquot-text">{row.providerName}</p>
+                      <p className="font-semibold text-tquot-text">
+                        {provider.providerName}
+                      </p>
                       {isCheapest ? (
                         <span className="rounded-full border border-tquot-teal/35 bg-tquot-teal/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-tquot-teal">
                           {t.comparatorCheapest}
                         </span>
                       ) : null}
                     </div>
-                    <p className="text-xs text-tquot-muted">
-                      {comparatorStatusLabel(row, t)}
-                    </p>
+                    <p className="text-xs text-tquot-muted">{statusLabel}</p>
                   </div>
                   <p className="text-lg font-bold tabular-nums text-tquot-text">
-                    {price}
+                    {provider.connected ? price : "—"}
                   </p>
-                  {row.status === "ok" && row.bestRoom ? (
+                  {!provider.connected ? (
+                    <Link
+                      href="/dashboard/integrations"
+                      className="rounded-lg border border-tquot-border bg-tquot-surface px-3 py-1.5 text-xs font-bold text-tquot-accent hover:bg-tquot-bg"
+                    >
+                      {t.comparatorConnect}
+                    </Link>
+                  ) : row?.status === "ok" && row.bestRoom ? (
                     <button
                       type="button"
                       onClick={() => onSelectPrice(row)}
