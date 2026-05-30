@@ -43,6 +43,8 @@ import type { DashboardTranslation } from "../translations";
 import type { Locale } from "../translations";
 import { LocaleToggleButtons } from "../locale-toggle-buttons";
 import { formatMessage } from "../format-message";
+import { ProviderLogo } from "@/app/components/provider-logo";
+import { providerSlug } from "@/lib/connectors/provider-logo";
 import { FlightQuoteItemsSection, QuoteItemsSection } from "./quote-results";
 
 type StepStatus = "pending" | "active" | "done";
@@ -74,10 +76,6 @@ type ComparatorPanelState = {
 };
 
 const HOTEL_PROVIDER_CATEGORY = "hotels";
-
-function connectionProviderSlug(providerId: string | undefined): string {
-  return (providerId ?? "").trim().toLowerCase();
-}
 
 function buildProcessSteps(t: DashboardTranslation): ProcessStep[] {
   return [
@@ -587,7 +585,7 @@ export function QuoteEngine() {
         { id: string; provider_id: string }
       >();
       for (const connection of connectionsPayload.connections ?? []) {
-        const slug = connectionProviderSlug(connection.provider_id);
+        const slug = providerSlug(connection.provider_id);
         if (slug && !connectionsByProvider.has(slug)) {
           connectionsByProvider.set(slug, connection);
         }
@@ -599,7 +597,7 @@ export function QuoteEngine() {
 
       const catalogProviders: CatalogProviderEntry[] = hotelCatalog.map(
         (provider) => {
-          const slug = connectionProviderSlug(provider.id);
+          const slug = providerSlug(provider.id);
           const connection = connectionsByProvider.get(slug);
           return {
             providerId: provider.id,
@@ -1658,33 +1656,9 @@ function comparatorRowForProvider(
   results: ComparatorOutput | null,
   providerId: string,
 ): ComparatorResultRow | undefined {
-  const slug = connectionProviderSlug(providerId);
+  const slug = providerSlug(providerId);
   return results?.results.find(
-    (row) => connectionProviderSlug(row.providerId) === slug,
-  );
-}
-
-function ProviderAbbrevBadge({
-  name,
-  logoUrl,
-}: {
-  name: string;
-  logoUrl: string | null;
-}) {
-  if (logoUrl) {
-    return (
-      <img
-        src={logoUrl}
-        alt={name}
-        className="h-10 w-10 shrink-0 rounded object-contain"
-      />
-    );
-  }
-
-  return (
-    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-tquot-bg font-mono text-xs font-semibold text-tquot-muted">
-      {name.slice(0, 2).toUpperCase()}
-    </div>
+    (row) => providerSlug(row.providerId) === slug,
   );
 }
 
@@ -1752,8 +1726,8 @@ function HotelComparatorPanel({
               const isCheapest =
                 Boolean(row) &&
                 row!.status === "ok" &&
-                connectionProviderSlug(row!.providerId) ===
-                  connectionProviderSlug(cheapestProviderId ?? "");
+                providerSlug(row!.providerId) ===
+                  providerSlug(cheapestProviderId ?? "");
               const price =
                 row?.status === "ok" && row.bestRoom
                   ? formatCurrency(row.bestRoom.netPrice, locale)
@@ -1773,9 +1747,11 @@ function HotelComparatorPanel({
                       : "border-tquot-border bg-tquot-bg"
                   }`}
                 >
-                  <ProviderAbbrevBadge
+                  <ProviderLogo
+                    key={provider.providerId}
+                    providerId={provider.providerId}
                     name={provider.providerName}
-                    logoUrl={provider.logoUrl}
+                    imageClassName="h-10 w-10 shrink-0 rounded object-contain bg-tquot-surface"
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">

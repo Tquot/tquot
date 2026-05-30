@@ -1,5 +1,6 @@
 "use client";
 
+import { ProviderLogo } from "@/app/components/provider-logo";
 import type {
   AgencyConnectionRow,
   ProviderCatalogRow,
@@ -34,17 +35,12 @@ export function ConnectorCard({ provider, connection, onClick }: Props) {
     >
       <div className="mb-3 flex items-start justify-between">
         <div className="flex items-center gap-3">
-          {provider.logo_url ? (
-            <img
-              src={provider.logo_url}
-              alt={provider.name}
-              className="h-10 w-10 rounded object-contain"
-            />
-          ) : (
-            <div className="flex h-10 w-10 items-center justify-center rounded bg-neutral-100 font-mono text-xs font-semibold text-neutral-600">
-              {provider.name.slice(0, 2).toUpperCase()}
-            </div>
-          )}
+          <ProviderLogo
+            providerId={provider.id}
+            name={provider.name}
+            imageClassName="h-10 w-10 shrink-0 rounded object-contain bg-white"
+            fallbackClassName="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-neutral-100 font-mono text-xs font-semibold text-neutral-600"
+          />
           <div>
             <div className="font-medium text-neutral-900">{provider.name}</div>
             <div className="text-xs text-neutral-500">
