@@ -29,6 +29,32 @@ const sourceLeftAccent: Record<QuoteItemSource, string> = {
   api: "border-l-4 border-l-tquot-accent",
 };
 
+const quoteCardShell =
+  "rounded-xl border p-4 shadow-md transition-all duration-200";
+
+function quoteCardClass({
+  isSelected,
+  isSelectable,
+  isInteractive = true,
+  extra = "",
+}: {
+  isSelected: boolean;
+  isSelectable: boolean;
+  isInteractive?: boolean;
+  extra?: string;
+}) {
+  if (isSelected) {
+    return `${quoteCardShell} border-tquot-teal bg-gradient-to-r from-tquot-teal/5 to-white ring-1 ring-tquot-teal/25 ${extra}`;
+  }
+  if (isSelectable && isInteractive) {
+    return `${quoteCardShell} cursor-pointer border-tquot-border bg-gradient-to-r from-white to-slate-50/50 hover:border-tquot-teal/40 ${extra}`;
+  }
+  return `${quoteCardShell} border-tquot-border bg-gradient-to-r from-white to-slate-50/50 ${extra}`;
+}
+
+const priceBreakdownClass =
+  "mt-3 grid grid-cols-3 gap-2 border-t border-tquot-border bg-slate-50/80 pt-3 text-xs";
+
 function formatCurrency(value: number, locale: Locale) {
   return new Intl.NumberFormat(locale === "es" ? "es-ES" : "en-US", {
     style: "currency",
@@ -54,7 +80,7 @@ function SectionHeading({
   subtitle: string;
 }) {
   return (
-    <div className="mb-4">
+    <div className="mb-4 rounded-lg bg-white/60 p-3 backdrop-blur-sm">
       <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-tquot-teal">
         {eyebrow}
       </p>
@@ -137,13 +163,10 @@ function FlightQuoteItemCard({
           onSelect?.(item.id);
         }
       }}
-      className={`rounded-xl border bg-tquot-surface p-4 shadow-sm transition-all duration-200 ${
-        isSelected
-          ? "border-tquot-teal ring-1 ring-tquot-teal/25"
-          : isSelectable
-            ? "cursor-pointer border-tquot-border hover:border-tquot-teal/40"
-            : "border-tquot-border"
-      }`}
+      className={quoteCardClass({
+        isSelected,
+        isSelectable,
+      })}
     >
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-1 items-start gap-3">
@@ -200,7 +223,7 @@ function FlightQuoteItemCard({
         </div>
       </div>
 
-      <div className="mb-4 rounded-xl border border-tquot-border bg-tquot-bg px-5 py-4">
+      <div className="mb-4 rounded-xl border border-tquot-border bg-slate-50 px-5 py-4">
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wider text-tquot-muted">
@@ -255,7 +278,7 @@ function FlightQuoteItemCard({
         </div>
       ) : null}
 
-      <div className="mb-3 grid grid-cols-3 gap-2 text-xs">
+      <div className={priceBreakdownClass}>
         <div>
           <p className="text-tquot-muted">{t.itemBase}</p>
           <p className="font-semibold text-tquot-text">
@@ -370,13 +393,12 @@ function QuoteItemCard({
           onSelect?.(item.id);
         }
       }}
-      className={`rounded-xl border bg-tquot-surface p-4 shadow-sm transition-all duration-200 ${sourceLeftAccent[item.source]} ${
-        isSelected
-          ? "border-tquot-teal ring-1 ring-tquot-teal/25"
-          : isSelectable && !isIndependent
-            ? "cursor-pointer border-tquot-border hover:border-tquot-teal/40"
-            : "border-tquot-border"
-      }`}
+      className={quoteCardClass({
+        isSelected,
+        isSelectable,
+        isInteractive: !isIndependent,
+        extra: sourceLeftAccent[item.source],
+      })}
     >
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
@@ -443,7 +465,7 @@ function QuoteItemCard({
         </p>
       </div>
 
-      <div className="mb-3 grid grid-cols-3 gap-2 text-xs">
+      <div className={priceBreakdownClass}>
         <div>
           <p className="text-tquot-muted">{t.itemBase}</p>
           <p className="font-semibold text-tquot-text">
