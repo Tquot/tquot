@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useDashboardLanguage } from "@/app/dashboard/dashboard-language-provider";
+import { formatMessage } from "@/app/dashboard/format-message";
 import type { ResolvedLocation } from "@/lib/parser/airport-resolution";
 
 interface AirportPickerProps {
@@ -16,6 +18,7 @@ export function AirportPicker({
   onSelect,
   defaultMode = "single",
 }: AirportPickerProps) {
+  const { t } = useDashboardLanguage();
   const initialSelected =
     defaultMode === "all" ? "all" : (resolved.airports[0]?.iata ?? "all");
   const [selected, setSelected] = useState(initialSelected);
@@ -48,10 +51,13 @@ export function AirportPicker({
     <div className="rounded-lg border border-amber-300 bg-amber-50 p-4">
       <div className="flex items-baseline justify-between">
         <div className="text-xs uppercase tracking-wider text-amber-800">
-          {label} · Elige aeropuerto
+          {label} · {t.airportPickerChooseAirport}
         </div>
         <div className="text-xs text-amber-700">
-          {resolved.cityDisplayName} tiene {resolved.airports.length} aeropuertos
+          {formatMessage(t.airportPickerHasAirports, {
+            city: resolved.cityDisplayName,
+            count: resolved.airports.length,
+          })}
         </div>
       </div>
 
@@ -75,7 +81,7 @@ export function AirportPicker({
           />
           <div className="flex-1">
             <div className="font-medium text-neutral-900">
-              Buscar en todos los aeropuertos
+              {t.airportPickerSearchAll}
             </div>
             <div className="text-xs text-neutral-600">
               {resolved.airports.map((a) => a.iata).join(" · ")}
@@ -109,7 +115,7 @@ export function AirportPicker({
                 </span>
                 {idx === 0 && (
                   <span className="rounded bg-amber-200 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900">
-                    Principal
+                    {t.airportPickerMain}
                   </span>
                 )}
               </div>

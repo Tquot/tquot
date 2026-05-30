@@ -167,6 +167,10 @@ const es = {
   comparatorNoResults: "Sin resultados",
   comparatorTimeout: "Timeout",
   comparatorClose: "Cerrar",
+  airportPickerChooseAirport: "Elige aeropuerto",
+  airportPickerHasAirports: "{city} tiene {count} aeropuertos",
+  airportPickerSearchAll: "Buscar en todos los aeropuertos",
+  airportPickerMain: "Principal",
   sectionSubtitleSelectable:
     "{included} incluido(s) · {total} opción{plural}",
   sectionSubtitleLines: "{total} línea{plural}",
@@ -402,6 +406,10 @@ const en: Record<keyof typeof es, string> = {
   comparatorNoResults: "No results",
   comparatorTimeout: "Timeout",
   comparatorClose: "Close",
+  airportPickerChooseAirport: "Choose airport",
+  airportPickerHasAirports: "{city} has {count} airports",
+  airportPickerSearchAll: "Search all airports",
+  airportPickerMain: "Main",
   sectionSubtitleSelectable:
     "{included} included · {total} option{plural}",
   sectionSubtitleLines: "{total} line{plural}",
