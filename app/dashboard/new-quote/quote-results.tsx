@@ -400,6 +400,24 @@ function QuoteItemCard({
         extra: sourceLeftAccent[item.source],
       })}
     >
+      {item.type === "hotel" ? (
+        <div className="mb-3 overflow-hidden rounded-lg border border-tquot-border bg-tquot-bg">
+          {item.imageUrl ? (
+            <img
+              src={item.imageUrl}
+              alt=""
+              className="h-32 w-full object-cover"
+            />
+          ) : (
+            <div
+              className="flex h-32 w-full items-center justify-center text-4xl"
+              aria-hidden
+            >
+              🏨
+            </div>
+          )}
+        </div>
+      ) : null}
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex flex-wrap items-center gap-2">

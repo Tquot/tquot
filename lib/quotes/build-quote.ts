@@ -110,6 +110,8 @@ export interface QuoteItem {
   alternative?: boolean;
   /** Per-line margin %; drives markup and finalPrice when edited in the UI. */
   marginPercent?: number;
+  /** Optional hero image for hotel cards (e.g. destination-based Unsplash). */
+  imageUrl?: string;
 }
 
 export type QuoteSelectionGroup = "flight-outbound" | "flight-return" | "hotel";
@@ -532,6 +534,7 @@ function mapApiHotelToQuoteItem(
     source: "api",
     alternative,
     ...(hotelDetails ? { hotelDetails } : {}),
+    ...(hotel.imageUrl ? { imageUrl: hotel.imageUrl } : {}),
   });
 }
 

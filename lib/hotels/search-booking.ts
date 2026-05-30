@@ -18,6 +18,7 @@ export type HotelOption = {
   hotelCode?: string;
   propertyId?: string;
   connectionId?: string;
+  imageUrl?: string;
 };
 
 export type SearchBookingHotelsInput = {
