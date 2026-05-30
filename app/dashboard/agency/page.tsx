@@ -11,6 +11,12 @@ import {
   writeAgencyProfile,
 } from "./agency-profile";
 
+const backLinkClass =
+  "inline-flex items-center rounded-lg border border-tquot-border bg-tquot-surface px-4 py-2 text-sm text-tquot-muted shadow-sm transition-colors hover:bg-tquot-bg hover:text-tquot-accent";
+
+const inputClass =
+  "w-full rounded-xl border border-tquot-border bg-tquot-surface px-4 py-3 text-tquot-text outline-none transition-colors focus:border-tquot-accent focus:ring-2 focus:ring-tquot-accent/20";
+
 export default function AgencyPage() {
   const { t } = useDashboardLanguage();
   const [profile, setProfile] = useState<AgencyProfile>(DEFAULT_AGENCY_PROFILE);
@@ -53,60 +59,52 @@ export default function AgencyPage() {
   }
 
   return (
-    <div className="relative min-h-screen bg-[#03080F] px-6 py-10 text-[#E8EEF7]">
-      <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_40%_at_50%_-10%,rgba(0,201,167,0.12),transparent)]"
-        aria-hidden
-      />
-
-      <main className="relative mx-auto max-w-6xl">
+    <div className="min-h-screen px-6 py-10 text-tquot-text">
+      <main className="mx-auto max-w-6xl">
         <div className="mb-8 flex items-center justify-between gap-4">
-          <Link
-            href="/dashboard"
-            className="text-sm text-[#8B9CB3] transition-colors hover:text-[#00C9A7]"
-          >
+          <Link href="/dashboard" className={backLinkClass}>
             ← {t.backToDashboard}
           </Link>
-          <LocaleToggleButtons className="bg-white/[0.04]" />
+          <LocaleToggleButtons />
         </div>
 
         <section className="mb-8">
-          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-[#00C9A7]">
+          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-tquot-teal">
             {t.agencyEyebrow}
           </p>
-          <h1 className="mt-3 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+          <h1 className="mt-3 text-3xl font-bold tracking-tight text-tquot-text sm:text-4xl">
             {t.agencyPdfDataTitle}
           </h1>
-          <p className="mt-3 max-w-2xl text-[#8B9CB3]">{t.agencyPdfDataSubtitle}</p>
+          <p className="mt-3 max-w-2xl text-tquot-muted">{t.agencyPdfDataSubtitle}</p>
         </section>
 
         <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
-          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 backdrop-blur-sm">
+          <section className="rounded-xl border border-tquot-border bg-tquot-surface p-6 shadow-md">
             <div className="grid gap-5 sm:grid-cols-2">
               {fields.map((field) => (
                 <label key={field.key} className="block">
-                  <span className="mb-2 block text-sm font-medium text-[#E8EEF7]">
+                  <span className="mb-2 block text-sm font-medium text-tquot-text">
                     {field.label}
                   </span>
                   <input
                     type={field.type ?? "text"}
                     value={profile[field.key]}
                     onChange={(event) => updateField(field.key, event.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-[#03080F]/60 px-4 py-3 text-[#E8EEF7] outline-none transition-colors focus:border-[#00C9A7]/50 focus:ring-2 focus:ring-[#00C9A7]/20"
+                    className={inputClass}
                   />
                 </label>
               ))}
             </div>
 
             <label className="mt-5 block">
-              <span className="mb-2 block text-sm font-medium text-[#E8EEF7]">
+              <span className="mb-2 block text-sm font-medium text-tquot-text">
                 {t.agencyLogoUpload}
               </span>
               <input
                 type="file"
                 accept="image/*"
                 onChange={(event) => handleLogoUpload(event.target.files?.[0])}
-                className="block w-full rounded-xl border border-white/10 bg-[#03080F]/60 px-4 py-3 text-sm text-[#8B9CB3] file:mr-4 file:rounded-lg file:border-0 file:bg-[#00C9A7] file:px-4 file:py-2 file:font-semibold file:text-[#03080F]"
+                className="block w-full rounded-xl border border-tquot-border bg-tquot-surface px-4 py-3 text-sm text-tquot-muted file:mr-4 file:rounded-lg file:border-0 file:bg-tquot-teal file:px-4 file:py-2 file:font-semibold file:text-white"
               />
             </label>
 
@@ -114,18 +112,18 @@ export default function AgencyPage() {
               <button
                 type="button"
                 onClick={handleSave}
-                className="rounded-xl bg-[#00C9A7] px-8 py-3 text-sm font-semibold text-[#03080F] shadow-[0_0_32px_-8px_rgba(0,201,167,0.5)] transition-all hover:bg-[#00E5BB]"
+                className="rounded-xl bg-tquot-teal px-8 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#00b396]"
               >
                 {t.agencySaveShort}
               </button>
               {saved ? (
-                <p className="text-sm font-medium text-[#00C9A7]">{t.agencySavedShort}</p>
+                <p className="text-sm font-medium text-tquot-teal">{t.agencySavedShort}</p>
               ) : null}
             </div>
           </section>
 
-          <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 backdrop-blur-sm">
-            <h2 className="mb-4 text-lg font-semibold text-white">
+          <section className="rounded-xl border border-tquot-border bg-tquot-surface p-6 shadow-md">
+            <h2 className="mb-4 text-lg font-semibold text-tquot-text">
               {t.agencyPdfHeaderPreview}
             </h2>
             <div className="rounded-2xl bg-white p-6 text-[#03080F] shadow-2xl">

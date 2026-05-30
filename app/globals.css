@@ -40,7 +40,7 @@ html {
 }
 
 body {
-  background-color: var(--tquot-bg);
+  background: linear-gradient(160deg, #f8faff 0%, #fafaf7 40%, #f5f7fa 100%);
   color: var(--tquot-text);
   font-family: var(--font-jakarta), system-ui, sans-serif;
 }

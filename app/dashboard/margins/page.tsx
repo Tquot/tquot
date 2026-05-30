@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { AgencyMarginCategory } from "@/lib/quotes/build-quote";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useDashboardLanguage } from "../dashboard-language-provider";
+import { formatMessage } from "../format-message";
 import { LocaleToggleButtons } from "../locale-toggle-buttons";
 
 type MarginField = {
@@ -20,6 +21,12 @@ const MARGIN_FIELDS: MarginField[] = [
   { category: "transfers", label: "Transfers", defaultPercent: 15 },
   { category: "seguros", label: "Seguros", defaultPercent: 20 },
 ];
+
+const backLinkClass =
+  "inline-flex items-center rounded-lg border border-tquot-border bg-tquot-surface px-4 py-2 text-sm text-tquot-muted shadow-sm transition-colors hover:bg-tquot-bg hover:text-tquot-accent";
+
+const inputClass =
+  "w-full rounded-xl border border-tquot-border bg-tquot-surface px-4 py-3 pr-10 text-tquot-text outline-none transition-colors focus:border-tquot-accent focus:ring-2 focus:ring-tquot-accent/20";
 
 function defaultMargins(): Record<AgencyMarginCategory, number> {
   return MARGIN_FIELDS.reduce(
@@ -128,51 +135,42 @@ export default function MarginsPage() {
   }
 
   return (
-    <div className="relative min-h-screen bg-[#03080F] px-6 py-10 text-[#E8EEF7]">
-      <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_40%_at_50%_-10%,rgba(0,201,167,0.12),transparent)]"
-        aria-hidden
-      />
-
-      <main className="relative mx-auto max-w-3xl">
+    <div className="min-h-screen px-6 py-10 text-tquot-text">
+      <main className="mx-auto max-w-3xl">
         <div className="mb-8 flex items-center justify-between gap-4">
-          <Link
-            href="/dashboard"
-            className="text-sm text-[#8B9CB3] transition-colors hover:text-[#00C9A7]"
-          >
+          <Link href="/dashboard" className={backLinkClass}>
             ← {t.backToDashboard}
           </Link>
-          <LocaleToggleButtons className="bg-white/[0.04]" />
+          <LocaleToggleButtons />
         </div>
 
         <section className="mb-8">
-          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-[#00C9A7]">
+          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-tquot-teal">
             TQuot
           </p>
-          <h1 className="mt-3 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            Márgenes por categoría
+          <h1 className="mt-3 text-3xl font-bold tracking-tight text-tquot-text sm:text-4xl">
+            {t.marginsTitle}
           </h1>
-          <p className="mt-3 max-w-2xl text-[#8B9CB3]">
-            Configura el margen comercial de tu agencia para cada tipo de servicio.
-            Los cambios se guardan automáticamente.
-          </p>
+          <p className="mt-3 max-w-2xl text-tquot-muted">{t.marginsSubtitle}</p>
         </section>
 
-        <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 backdrop-blur-sm">
+        <section className="rounded-xl border border-tquot-border bg-tquot-surface p-6 shadow-md">
           {isLoading ? (
-            <p className="text-sm text-[#8B9CB3]">Cargando márgenes…</p>
+            <p className="text-sm text-tquot-muted">{t.marginsLoading}</p>
           ) : (
             <div className="space-y-5">
               {MARGIN_FIELDS.map((field) => (
                 <label key={field.category} className="block">
                   <div className="mb-2 flex items-center justify-between gap-3">
-                    <span className="text-sm font-medium text-[#E8EEF7]">
+                    <span className="text-sm font-medium text-tquot-text">
                       {field.label}
                     </span>
-                    <span className="text-xs text-[#8B9CB3]">
+                    <span className="text-xs text-tquot-muted">
                       {savingCategory === field.category
-                        ? "Guardando…"
-                        : `Por defecto ${field.defaultPercent}%`}
+                        ? t.marginsSaving
+                        : formatMessage(t.marginsDefaultHint, {
+                            percent: String(field.defaultPercent),
+                          })}
                     </span>
                   </div>
                   <div className="relative">
@@ -184,9 +182,9 @@ export default function MarginsPage() {
                       onChange={(event) =>
                         handleMarginChange(field.category, event.target.value)
                       }
-                      className="w-full rounded-xl border border-white/10 bg-[#03080F]/60 px-4 py-3 pr-10 text-[#E8EEF7] outline-none transition-colors focus:border-[#00C9A7]/50 focus:ring-2 focus:ring-[#00C9A7]/20"
+                      className={inputClass}
                     />
-                    <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-[#8B9CB3]">
+                    <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-tquot-muted">
                       %
                     </span>
                   </div>
@@ -196,7 +194,7 @@ export default function MarginsPage() {
           )}
 
           {error ? (
-            <p className="mt-4 text-sm font-medium text-amber-300">{error}</p>
+            <p className="mt-4 text-sm font-medium text-tquot-warm">{error}</p>
           ) : null}
         </section>
       </main>

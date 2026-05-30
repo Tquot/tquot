@@ -93,8 +93,12 @@ export function LanguageToggle({ email, recentQuotes }: LanguageToggleProps) {
   ];
 
   return (
-    <div className="min-h-screen bg-tquot-bg text-tquot-text">
+    <div className="min-h-screen text-tquot-text">
       <header className="sticky top-0 z-10 border-b border-tquot-border bg-tquot-surface/95 backdrop-blur-sm">
+        <div
+          className="h-0.5 bg-gradient-to-r from-tquot-teal to-tquot-accent"
+          aria-hidden
+        />
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-4">
           <Link href="/dashboard" className="flex items-center gap-2.5">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-tquot-teal text-sm font-bold text-white">

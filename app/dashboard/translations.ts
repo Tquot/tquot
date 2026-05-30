@@ -7,7 +7,18 @@ const es = {
   subtitle: "Panel de agencia TQuot",
   quickAccess: "Accesos rápidos",
   integrations: "Integraciones",
+  integrationsSubtitle:
+    "Conecta los proveedores con los que trabaja tu agencia. TQuot usará tus credenciales para buscar disponibilidad y precios en cada uno.",
+  integrationsAgencyNotConfigured:
+    "Agencia no configurada. Crea tu agencia antes de conectar proveedores.",
+  integrationsLoading: "Cargando…",
   margins: "Márgenes",
+  marginsTitle: "Márgenes por categoría",
+  marginsSubtitle:
+    "Configura el margen comercial de tu agencia para cada tipo de servicio. Los cambios se guardan automáticamente.",
+  marginsLoading: "Cargando márgenes…",
+  marginsSaving: "Guardando…",
+  marginsDefaultHint: "Por defecto {percent}%",
   recentQuotes: "Últimas cotizaciones",
   noRecentQuotes: "Aún no has guardado ninguna cotización.",
   createFirstQuote: "Crear tu primera cotización",
@@ -257,7 +268,18 @@ const en: Record<keyof typeof es, string> = {
   subtitle: "TQuot agency dashboard",
   quickAccess: "Quick access",
   integrations: "Integrations",
+  integrationsSubtitle:
+    "Connect the providers your agency works with. TQuot will use your credentials to search availability and prices across each one.",
+  integrationsAgencyNotConfigured:
+    "Agency not configured. Set up your agency before connecting providers.",
+  integrationsLoading: "Loading…",
   margins: "Margins",
+  marginsTitle: "Margins by category",
+  marginsSubtitle:
+    "Configure your agency's commercial margin for each service type. Changes save automatically.",
+  marginsLoading: "Loading margins…",
+  marginsSaving: "Saving…",
+  marginsDefaultHint: "Default {percent}%",
   recentQuotes: "Recent quotes",
   noRecentQuotes: "You haven't saved any quotes yet.",
   createFirstQuote: "Create your first quote",

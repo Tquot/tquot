@@ -81,6 +81,15 @@ function emptyForm(fields: Field[]) {
   }, {});
 }
 
+const backLinkClass =
+  "inline-flex items-center rounded-lg border border-tquot-border bg-tquot-surface px-4 py-2 text-sm text-tquot-muted shadow-sm transition-colors hover:bg-tquot-bg hover:text-tquot-accent";
+
+const inputClass =
+  "w-full rounded-xl border border-tquot-border bg-tquot-surface px-4 py-3 text-tquot-text outline-none transition-colors focus:border-tquot-accent focus:ring-2 focus:ring-tquot-accent/20";
+
+const tealOutlineButtonClass =
+  "rounded-xl border border-tquot-teal/30 bg-tquot-teal/10 px-5 py-2.5 text-sm font-semibold text-tquot-teal transition-colors hover:bg-tquot-teal/15 disabled:cursor-not-allowed disabled:opacity-50";
+
 export function InventoryClient() {
   const { locale, t } = useDashboardLanguage();
   const [activeCategory, setActiveCategory] =
@@ -288,34 +297,26 @@ export function InventoryClient() {
   }
 
   return (
-    <div className="relative min-h-screen bg-[#03080F] px-6 py-10 text-[#E8EEF7]">
-      <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_40%_at_50%_-10%,rgba(0,201,167,0.12),transparent)]"
-        aria-hidden
-      />
-
-      <main className="relative mx-auto max-w-6xl">
+    <div className="min-h-screen px-6 py-10 text-tquot-text">
+      <main className="mx-auto max-w-6xl">
         <div className="mb-8 flex items-center justify-between gap-4">
-          <Link
-            href="/dashboard"
-            className="text-sm text-[#8B9CB3] transition-colors hover:text-[#00C9A7]"
-          >
+          <Link href="/dashboard" className={backLinkClass}>
             ← {t.backToDashboard}
           </Link>
-          <LocaleToggleButtons className="bg-white/[0.04]" />
+          <LocaleToggleButtons />
         </div>
 
         <section className="mb-8">
-          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-[#00C9A7]">
+          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-tquot-teal">
             {t.inventoryEyebrow}
           </p>
-          <h1 className="mt-3 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+          <h1 className="mt-3 text-3xl font-bold tracking-tight text-tquot-text sm:text-4xl">
             {t.inventoryTitle}
           </h1>
-          <p className="mt-3 max-w-2xl text-[#8B9CB3]">{t.inventorySubtitle}</p>
+          <p className="mt-3 max-w-2xl text-tquot-muted">{t.inventorySubtitle}</p>
         </section>
 
-        <section className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 backdrop-blur-sm">
+        <section className="rounded-xl border border-tquot-border bg-tquot-surface p-6 shadow-md">
           <div className="mb-6 flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
             <div className="flex flex-wrap gap-2">
               {categories.map((item) => (
@@ -325,8 +326,8 @@ export function InventoryClient() {
                   onClick={() => selectCategory(item.id)}
                   className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
                     activeCategory === item.id
-                      ? "bg-[#00C9A7] text-[#03080F]"
-                      : "border border-white/10 bg-white/[0.04] text-[#8B9CB3] hover:text-white"
+                      ? "bg-tquot-teal text-white"
+                      : "border border-tquot-border bg-tquot-surface text-tquot-muted hover:text-tquot-text"
                   }`}
                 >
                   {locale === "es" ? item.es : item.en}
@@ -348,14 +349,14 @@ export function InventoryClient() {
                 type="button"
                 onClick={openFilePicker}
                 disabled={isImporting}
-                className="rounded-xl border border-[#00C9A7]/35 bg-[#00C9A7]/10 px-5 py-2.5 text-sm font-semibold text-[#00C9A7] transition-colors hover:bg-[#00C9A7]/15 disabled:cursor-not-allowed disabled:opacity-50"
+                className={tealOutlineButtonClass}
               >
                 {isImporting ? t.inventoryImporting : t.inventoryImport}
               </button>
               <button
                 type="button"
                 onClick={() => setIsAdding((current) => !current)}
-                className="rounded-xl bg-[#00C9A7] px-5 py-2.5 text-sm font-semibold text-[#03080F] transition-colors hover:bg-[#00E5BB]"
+                className="rounded-xl bg-tquot-teal px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#00b396]"
               >
                 {isAdding ? t.inventoryClose : t.inventoryAddNew}
               </button>
@@ -363,27 +364,27 @@ export function InventoryClient() {
           </div>
 
           {error ? (
-            <div className="mb-5 rounded-xl border border-[#FF6B35]/30 bg-[#FF6B35]/10 px-4 py-3 text-sm text-[#FF6B35]">
+            <div className="mb-5 rounded-xl border border-tquot-warm/30 bg-amber-50 px-4 py-3 text-sm text-tquot-warm">
               {error}
             </div>
           ) : null}
 
           {isAdding ? (
-            <div className="mb-6 rounded-2xl border border-white/[0.06] bg-[#03080F]/50 p-5">
+            <div className="mb-6 rounded-xl border border-tquot-border bg-tquot-bg p-5">
               <div className="grid gap-4 sm:grid-cols-2">
                 <label>
-                  <span className="mb-2 block text-sm font-medium text-[#E8EEF7]">
+                  <span className="mb-2 block text-sm font-medium text-tquot-text">
                     {t.inventoryNameLabel}
                   </span>
                   <input
                     value={name}
                     onChange={(event) => setName(event.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-[#03080F]/60 px-4 py-3 text-[#E8EEF7] outline-none transition-colors focus:border-[#00C9A7]/50 focus:ring-2 focus:ring-[#00C9A7]/20"
+                    className={inputClass}
                   />
                 </label>
                 {category.fields.map((field) => (
                   <label key={field.key}>
-                    <span className="mb-2 block text-sm font-medium text-[#E8EEF7]">
+                    <span className="mb-2 block text-sm font-medium text-tquot-text">
                       {field.label}
                     </span>
                     <input
@@ -395,7 +396,7 @@ export function InventoryClient() {
                           [field.key]: event.target.value,
                         }))
                       }
-                      className="w-full rounded-xl border border-white/10 bg-[#03080F]/60 px-4 py-3 text-[#E8EEF7] outline-none transition-colors focus:border-[#00C9A7]/50 focus:ring-2 focus:ring-[#00C9A7]/20"
+                      className={inputClass}
                     />
                   </label>
                 ))}
@@ -403,7 +404,7 @@ export function InventoryClient() {
               <button
                 type="button"
                 onClick={handleAdd}
-                className="mt-5 rounded-xl bg-[#00C9A7] px-6 py-3 text-sm font-semibold text-[#03080F] transition-colors hover:bg-[#00E5BB]"
+                className="mt-5 rounded-xl bg-tquot-teal px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#00b396]"
               >
                 {t.inventorySaveItem}
               </button>
@@ -416,7 +417,7 @@ export function InventoryClient() {
                 type="button"
                 onClick={() => void handleDeleteSelected()}
                 disabled={isDeletingSelected}
-                className="rounded-xl border border-[#FF6B35]/35 bg-[#FF6B35]/10 px-5 py-2.5 text-sm font-semibold text-[#FF6B35] transition-colors hover:bg-[#FF6B35]/15 disabled:cursor-not-allowed disabled:opacity-50"
+                className="rounded-xl border border-tquot-warm/30 bg-amber-50 px-5 py-2.5 text-sm font-semibold text-tquot-warm transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isDeletingSelected
                   ? t.inventoryDeletingSelected
@@ -427,9 +428,9 @@ export function InventoryClient() {
             </div>
           ) : null}
 
-          <div className="overflow-hidden rounded-2xl border border-white/[0.06]">
+          <div className="overflow-hidden rounded-xl border border-tquot-border">
             <table className="w-full min-w-[820px] text-left text-sm">
-              <thead className="bg-white/[0.04] text-[#8B9CB3]">
+              <thead className="border-b border-tquot-border bg-tquot-bg text-tquot-muted">
                 <tr>
                   <th className="w-12 px-4 py-3">
                     <label className="flex cursor-pointer items-center gap-2">
@@ -444,7 +445,7 @@ export function InventoryClient() {
                         }}
                         onChange={toggleSelectAllInView}
                         disabled={isLoading || filteredItems.length === 0}
-                        className="h-4 w-4 rounded border-white/20 bg-[#03080F]/60 accent-[#00C9A7]"
+                        className="h-4 w-4 rounded accent-tquot-teal"
                         aria-label={t.inventorySelectAll}
                       />
                       <span className="sr-only">{t.inventorySelectAll}</span>
@@ -458,33 +459,33 @@ export function InventoryClient() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/[0.06]">
+              <tbody className="divide-y divide-tquot-border bg-tquot-surface">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-[#8B9CB3]">
+                    <td colSpan={5} className="px-4 py-8 text-center text-tquot-muted">
                       {t.inventoryLoading}
                     </td>
                   </tr>
                 ) : filteredItems.length > 0 ? (
                   filteredItems.map((item) => (
-                    <tr key={item.id} className="bg-[#03080F]/30">
+                    <tr key={item.id}>
                       <td className="px-4 py-4">
                         <input
                           type="checkbox"
                           checked={selectedIds.has(item.id)}
                           onChange={() => toggleSelectItem(item.id)}
-                          className="h-4 w-4 rounded border-white/20 bg-[#03080F]/60 accent-[#00C9A7]"
+                          className="h-4 w-4 rounded accent-tquot-teal"
                           aria-label={item.name}
                         />
                       </td>
-                      <td className="px-4 py-4 font-medium text-white">{item.name}</td>
-                      <td className="px-4 py-4 text-[#8B9CB3]">
+                      <td className="px-4 py-4 font-medium text-tquot-text">{item.name}</td>
+                      <td className="px-4 py-4 text-tquot-muted">
                         <div className="flex flex-wrap gap-2">
                           {Object.entries(item.data).map(([key, value]) =>
                             value ? (
                               <span
                                 key={key}
-                                className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs"
+                                className="rounded-full border border-tquot-border bg-tquot-bg px-2.5 py-1 text-xs text-tquot-muted"
                               >
                                 {key}: {value}
                               </span>
@@ -492,14 +493,14 @@ export function InventoryClient() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-4 text-[#8B9CB3]">
+                      <td className="px-4 py-4 text-tquot-muted">
                         {new Date(item.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-4 text-right">
                         <button
                           type="button"
                           onClick={() => handleDelete(item.id)}
-                          className="rounded-lg border border-[#FF6B35]/30 bg-[#FF6B35]/10 px-3 py-1.5 text-xs font-semibold text-[#FF6B35] transition-colors hover:bg-[#FF6B35]/15"
+                          className="rounded-lg border border-tquot-warm/30 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-tquot-warm transition-colors hover:bg-amber-100"
                         >
                           {t.inventoryDelete}
                         </button>
@@ -508,7 +509,7 @@ export function InventoryClient() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-[#8B9CB3]">
+                    <td colSpan={5} className="px-4 py-8 text-center text-tquot-muted">
                       {t.inventoryEmpty}
                     </td>
                   </tr>
