@@ -12,9 +12,9 @@ import type { DashboardTranslation } from "../translations";
 import { useState } from "react";
 
 const sourceStyles: Record<QuoteItemSource, string> = {
-  mock: "border-slate-400/30 bg-slate-400/10 text-slate-300",
-  inventory: "border-[#00C9A7]/30 bg-[#00C9A7]/10 text-[#00C9A7]",
-  api: "border-purple-400/30 bg-purple-400/10 text-purple-300",
+  mock: "border-tquot-warm/30 bg-amber-50 text-tquot-warm",
+  inventory: "border-tquot-teal/30 bg-tquot-teal/10 text-tquot-teal",
+  api: "border-tquot-accent/30 bg-blue-50 text-tquot-accent",
 };
 
 const sourceLabels: Record<QuoteItemSource, string> = {
@@ -25,8 +25,8 @@ const sourceLabels: Record<QuoteItemSource, string> = {
 
 const sourceLeftAccent: Record<QuoteItemSource, string> = {
   mock: "",
-  inventory: "border-l-4 border-l-[#00C9A7]",
-  api: "border-l-4 border-l-purple-400",
+  inventory: "border-l-4 border-l-tquot-teal",
+  api: "border-l-4 border-l-tquot-accent",
 };
 
 function formatCurrency(value: number, locale: Locale) {
@@ -55,15 +55,15 @@ function SectionHeading({
 }) {
   return (
     <div className="mb-4">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-[#00C9A7]">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-tquot-teal">
         {eyebrow}
       </p>
-      <h3 className="mt-1 text-lg font-bold text-white">{title}</h3>
+      <h3 className="mt-1 text-lg font-bold text-tquot-text">{title}</h3>
       <div
-        className="mt-2 h-px w-full max-w-[12rem] bg-gradient-to-r from-[#00C9A7] via-[#00E5BB]/60 to-transparent"
+        className="mt-2 h-0.5 w-full max-w-[12rem] bg-tquot-teal"
         aria-hidden
       />
-      <p className="mt-2 text-xs leading-5 text-[#8B9CB3]">{subtitle}</p>
+      <p className="mt-2 text-xs leading-5 text-tquot-muted">{subtitle}</p>
     </div>
   );
 }
@@ -78,13 +78,13 @@ function AirlineLogo({ airline, logoUrl }: { airline: string; logoUrl: string })
         src={logoUrl}
         alt={airline}
         onError={() => setFailed(true)}
-        className="h-10 w-10 rounded-full border border-white/10 bg-white object-contain p-1"
+        className="h-10 w-10 rounded-full border border-tquot-border bg-tquot-surface object-contain p-1 shadow-sm"
       />
     );
   }
 
   return (
-    <span className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] text-sm font-bold text-[#00C9A7]">
+    <span className="flex h-10 w-10 items-center justify-center rounded-full border border-tquot-border bg-tquot-surface text-sm font-bold text-tquot-teal shadow-sm">
       {initial}
     </span>
   );
@@ -137,12 +137,12 @@ function FlightQuoteItemCard({
           onSelect?.(item.id);
         }
       }}
-      className={`rounded-3xl border bg-[#03080F]/60 p-4 shadow-[0_16px_44px_rgba(0,0,0,0.24)] transition-all duration-200 ${
+      className={`rounded-xl border bg-tquot-surface p-4 shadow-sm transition-all duration-200 ${
         isSelected
-          ? "border-[#00C9A7]/55 ring-1 ring-[#00C9A7]/35"
+          ? "border-tquot-teal ring-1 ring-tquot-teal/25"
           : isSelectable
-            ? "cursor-pointer border-white/[0.08] hover:scale-[1.01] hover:border-[#00C9A7]/25"
-            : "border-white/[0.08]"
+            ? "cursor-pointer border-tquot-border hover:border-tquot-teal/40"
+            : "border-tquot-border"
       }`}
     >
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -150,11 +150,11 @@ function FlightQuoteItemCard({
           <AirlineLogo airline={details.airline} logoUrl={details.airlineLogoUrl} />
           <div className="min-w-0 flex-1">
             <div className="mb-1 flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8B9CB3]">
+              <span className="rounded-full border border-tquot-border bg-tquot-bg px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-tquot-muted">
                 {t.itemTypeFlight}
               </span>
               {isDirect ? (
-                <span className="rounded-full border border-emerald-400/35 bg-emerald-400/10 px-2 py-0.5 text-xs font-semibold text-emerald-300">
+                <span className="rounded-full border border-tquot-success/30 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-tquot-success">
                   Directo
                 </span>
               ) : null}
@@ -162,8 +162,8 @@ function FlightQuoteItemCard({
                 <span
                   className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${
                     isSelected
-                      ? "border-[#00C9A7]/40 bg-[#00C9A7]/15 text-[#00C9A7]"
-                      : "border-amber-400/30 bg-amber-400/10 text-amber-200"
+                      ? "border-tquot-teal/30 bg-tquot-teal/10 text-tquot-teal"
+                      : "border-tquot-warm/30 bg-amber-50 text-tquot-warm"
                   }`}
                 >
                   {isSelected ? t.itemIncluded : t.itemAlternative}
@@ -175,64 +175,64 @@ function FlightQuoteItemCard({
                 {sourceLabels[item.source]}
               </span>
             </div>
-            <p className="text-lg font-bold tracking-wide text-white">
+            <p className="text-lg font-bold tracking-wide text-tquot-text">
               {details.originIata} → {details.destinationIata}
             </p>
-            <p className="text-sm text-[#8B9CB3]">
+            <p className="text-sm text-tquot-muted">
               {details.originCity} → {details.destinationCity}
             </p>
-            <p className="mt-1 text-sm text-[#8B9CB3]">
+            <p className="mt-1 text-sm text-tquot-muted">
               {details.airline} · {details.flightNumber}
             </p>
           </div>
         </div>
         <div className="text-right">
-          <p className="text-xs text-[#4A6A85]">por persona</p>
-          <p className="text-lg font-bold text-[#E8EEF7]">
+          <p className="text-xs text-tquot-muted">por persona</p>
+          <p className="text-lg font-semibold text-tquot-text">
             {formatCurrency(pricePerPerson, locale)}
           </p>
-          <p className="mt-1 text-xs text-[#4A6A85]">total</p>
+          <p className="mt-1 text-xs text-tquot-muted">total</p>
           <p
-            className={`text-xl font-black ${isSelected || !isSelectable ? "text-[#00C9A7]" : "text-[#8B9CB3]"}`}
+            className={`text-xl font-black ${isSelected || !isSelectable ? "text-tquot-teal" : "text-tquot-muted"}`}
           >
             {formatCurrency(item.finalPrice, locale)}
           </p>
         </div>
       </div>
 
-      <div className="mb-4 rounded-2xl border border-white/10 bg-gradient-to-r from-white/[0.04] via-[#00C9A7]/[0.06] to-white/[0.04] px-5 py-4">
+      <div className="mb-4 rounded-xl border border-tquot-border bg-tquot-bg px-5 py-4">
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#4A6A85]">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-tquot-muted">
               {details.originIata}
             </p>
-            <p className="text-3xl font-black tabular-nums text-white sm:text-4xl">
+            <p className="text-3xl font-black tabular-nums text-tquot-text sm:text-4xl">
               {details.departureTime}
             </p>
-            <p className="text-xs text-[#8B9CB3]">{details.departureDate}</p>
+            <p className="text-xs text-tquot-muted">{details.departureDate}</p>
           </div>
           <div className="flex min-w-[5rem] flex-col items-center gap-1.5 px-1 sm:min-w-[7rem]">
             <div className="flex w-full items-center gap-1">
-              <span className="h-2 w-2 shrink-0 rounded-full bg-[#00C9A7] shadow-[0_0_12px_rgba(0,201,167,0.8)]" />
-              <span className="h-px flex-1 bg-gradient-to-r from-[#00C9A7] to-[#00E5BB]/50" />
-              <span className="shrink-0 text-sm text-[#00C9A7]" aria-hidden>
+              <span className="h-2 w-2 shrink-0 rounded-full bg-tquot-teal" />
+              <span className="h-px flex-1 bg-tquot-teal" />
+              <span className="shrink-0 text-sm text-tquot-teal" aria-hidden>
                 ✈
               </span>
-              <span className="h-px flex-1 bg-gradient-to-r from-[#00E5BB]/50 to-[#00C9A7]" />
-              <span className="h-2 w-2 shrink-0 rounded-full border-2 border-[#00C9A7] bg-transparent" />
+              <span className="h-px flex-1 bg-tquot-teal/50" />
+              <span className="h-2 w-2 shrink-0 rounded-full border-2 border-tquot-teal bg-transparent" />
             </div>
-            <p className="text-sm font-semibold text-[#E8EEF7]">{details.duration}</p>
-            <p className="text-xs text-[#8B9CB3]">
+            <p className="text-sm font-semibold text-tquot-text">{details.duration}</p>
+            <p className="text-xs text-tquot-muted">
               {isDirect
                 ? "Directo"
                 : `${details.stops} escala${details.stops === 1 ? "" : "s"}`}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-[#4A6A85]">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-tquot-muted">
               {details.destinationIata}
             </p>
-            <p className="text-3xl font-black tabular-nums text-white sm:text-4xl">
+            <p className="text-3xl font-black tabular-nums text-tquot-text sm:text-4xl">
               {details.arrivalTime}
             </p>
           </div>
@@ -240,7 +240,7 @@ function FlightQuoteItemCard({
       </div>
 
       {details.cabinClass || details.baggageIncluded ? (
-        <p className="mb-3 text-sm text-[#8B9CB3]">
+        <p className="mb-3 text-sm text-tquot-muted">
           {[details.cabinClass, details.baggageIncluded].filter(Boolean).join(" · ")}
         </p>
       ) : null}
@@ -248,7 +248,7 @@ function FlightQuoteItemCard({
       {!isDirect && details.layovers.length > 0 ? (
         <div className="mb-4 space-y-1">
           {details.layovers.map((layover, index) => (
-            <p key={`${layover.iata}-${index}`} className="text-sm text-[#8B9CB3]">
+            <p key={`${layover.iata}-${index}`} className="text-sm text-tquot-muted">
               Escala en {layover.airport} ({layover.iata}) · {layover.duration}
             </p>
           ))}
@@ -257,20 +257,20 @@ function FlightQuoteItemCard({
 
       <div className="mb-3 grid grid-cols-3 gap-2 text-xs">
         <div>
-          <p className="text-[#4A6A85]">{t.itemBase}</p>
-          <p className="font-semibold text-[#E8EEF7]">
+          <p className="text-tquot-muted">{t.itemBase}</p>
+          <p className="font-semibold text-tquot-text">
             {formatCurrency(item.price, locale)}
           </p>
         </div>
         <div>
-          <p className="text-[#4A6A85]">{t.itemMargin}</p>
-          <p className="font-semibold text-[#F5C518]">
+          <p className="text-tquot-muted">{t.itemMargin}</p>
+          <p className="font-semibold text-tquot-warm">
             {formatCurrency(item.markup, locale)}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[#4A6A85]">{t.itemClient}</p>
-          <p className="font-semibold text-[#00C9A7]">
+          <p className="text-tquot-muted">{t.itemClient}</p>
+          <p className="font-semibold text-tquot-teal">
             {formatCurrency(item.finalPrice, locale)}
           </p>
         </div>
@@ -279,7 +279,7 @@ function FlightQuoteItemCard({
       <div className="flex flex-wrap items-end gap-3">
         {onMarginChange ? (
           <label className="flex min-w-[7rem] flex-col gap-1 text-xs">
-            <span className="text-[#4A6A85]">{t.itemMarginPercent}</span>
+            <span className="text-tquot-muted">{t.itemMarginPercent}</span>
             <div className="flex items-center gap-1">
               <input
                 type="number"
@@ -292,9 +292,9 @@ function FlightQuoteItemCard({
                   onMarginChange(item.id, Number.isFinite(next) ? next : 0);
                 }}
                 onClick={(event) => event.stopPropagation()}
-                className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-white outline-none focus:border-[#00C9A7]/50"
+                className="w-full rounded-xl border border-tquot-border bg-tquot-surface px-3 py-2 text-sm font-semibold text-tquot-text outline-none focus:border-tquot-accent focus:ring-2 focus:ring-tquot-accent/20"
               />
-              <span className="text-[#8B9CB3]">%</span>
+              <span className="text-tquot-muted">%</span>
             </div>
           </label>
         ) : null}
@@ -304,10 +304,10 @@ function FlightQuoteItemCard({
             type="button"
             onClick={() => onSelect?.(item.id)}
             disabled={isSelected}
-            className={`ml-auto rounded-2xl px-4 py-2 text-xs font-bold transition-colors ${
+            className={`ml-auto rounded-xl px-4 py-2 text-xs font-bold transition-colors ${
               isSelected
-                ? "cursor-default border border-[#00C9A7]/30 bg-[#00C9A7]/10 text-[#00C9A7]"
-                : "border border-white/10 bg-white/[0.06] text-[#E8EEF7] hover:border-[#00C9A7]/40 hover:text-[#00C9A7]"
+                ? "cursor-default border border-tquot-teal bg-tquot-teal text-white"
+                : "border border-tquot-border bg-tquot-surface text-tquot-text hover:border-tquot-teal hover:text-tquot-teal"
             }`}
           >
             {isSelected ? t.itemSelected : t.itemUseInQuote}
@@ -370,12 +370,12 @@ function QuoteItemCard({
           onSelect?.(item.id);
         }
       }}
-      className={`rounded-3xl border bg-[#03080F]/60 p-4 shadow-[0_16px_44px_rgba(0,0,0,0.24)] transition-all duration-200 ${sourceLeftAccent[item.source]} ${
+      className={`rounded-xl border bg-tquot-surface p-4 shadow-sm transition-all duration-200 ${sourceLeftAccent[item.source]} ${
         isSelected
-          ? "border-[#00C9A7]/55 ring-1 ring-[#00C9A7]/35"
+          ? "border-tquot-teal ring-1 ring-tquot-teal/25"
           : isSelectable && !isIndependent
-            ? "cursor-pointer border-white/[0.08] hover:scale-[1.01] hover:border-[#00C9A7]/25"
-            : "border-white/[0.08]"
+            ? "cursor-pointer border-tquot-border hover:border-tquot-teal/40"
+            : "border-tquot-border"
       }`}
     >
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
@@ -383,29 +383,29 @@ function QuoteItemCard({
           <div className="mb-1 flex flex-wrap items-center gap-2">
             {isIndependent ? (
               <label
-                className="flex cursor-pointer items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1"
+                className="flex cursor-pointer items-center gap-2 rounded-full border border-tquot-border bg-tquot-bg px-2.5 py-1"
                 onClick={(event) => event.stopPropagation()}
               >
                 <input
                   type="checkbox"
                   checked={isIncluded}
                   onChange={() => onToggle?.(item.id)}
-                  className="h-4 w-4 rounded border-white/20 bg-[#03080F]/60 accent-[#00C9A7]"
+                  className="h-4 w-4 rounded accent-tquot-teal"
                 />
-                <span className="text-xs font-semibold text-[#E8EEF7]">
+                <span className="text-xs font-semibold text-tquot-text">
                   {isIncluded ? t.itemIncludeInQuote : t.itemExcluded}
                 </span>
               </label>
             ) : null}
-            <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8B9CB3]">
+            <span className="rounded-full border border-tquot-border bg-tquot-bg px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-tquot-muted">
               {typeLabels[item.type]}
             </span>
             {isSelectable && !isIndependent ? (
               <span
                 className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${
                   isSelected
-                    ? "border-[#00C9A7]/40 bg-[#00C9A7]/15 text-[#00C9A7]"
-                    : "border-amber-400/30 bg-amber-400/10 text-amber-200"
+                    ? "border-tquot-teal/30 bg-tquot-teal/10 text-tquot-teal"
+                    : "border-tquot-warm/30 bg-amber-50 text-tquot-warm"
                 }`}
               >
                 {isSelected ? t.itemIncluded : t.itemAlternative}
@@ -415,8 +415,8 @@ function QuoteItemCard({
               <span
                 className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${
                   isIncluded
-                    ? "border-[#00C9A7]/40 bg-[#00C9A7]/15 text-[#00C9A7]"
-                    : "border-amber-400/30 bg-amber-400/10 text-amber-200"
+                    ? "border-tquot-teal/30 bg-tquot-teal/10 text-tquot-teal"
+                    : "border-tquot-warm/30 bg-amber-50 text-tquot-warm"
                 }`}
               >
                 {isIncluded ? t.itemIncluded : t.itemExcluded}
@@ -428,16 +428,16 @@ function QuoteItemCard({
               {sourceLabels[item.source]}
             </span>
           </div>
-          <h4 className="font-semibold text-white">{item.title}</h4>
-          <p className="mt-1 text-sm text-[#8B9CB3]">{item.provider}</p>
+          <h4 className="font-semibold text-tquot-text">{item.title}</h4>
+          <p className="mt-1 text-sm text-tquot-muted">{item.provider}</p>
           {item.description ? (
-            <p className="mt-2 text-sm leading-relaxed text-[#8B9CB3]/90">
+            <p className="mt-2 text-sm leading-relaxed text-tquot-muted">
               {item.description}
             </p>
           ) : null}
         </div>
         <p
-          className={`text-xl font-black ${isSelected || !isSelectable ? "text-[#00C9A7]" : "text-[#8B9CB3]"}`}
+          className={`text-xl font-black ${isSelected || !isSelectable ? "text-tquot-teal" : "text-tquot-muted"}`}
         >
           {formatCurrency(item.finalPrice, locale)}
         </p>
@@ -445,20 +445,20 @@ function QuoteItemCard({
 
       <div className="mb-3 grid grid-cols-3 gap-2 text-xs">
         <div>
-          <p className="text-[#4A6A85]">{t.itemBase}</p>
-          <p className="font-semibold text-[#E8EEF7]">
+          <p className="text-tquot-muted">{t.itemBase}</p>
+          <p className="font-semibold text-tquot-text">
             {formatCurrency(item.price, locale)}
           </p>
         </div>
         <div>
-          <p className="text-[#4A6A85]">{t.itemMargin}</p>
-          <p className="font-semibold text-[#F5C518]">
+          <p className="text-tquot-muted">{t.itemMargin}</p>
+          <p className="font-semibold text-tquot-warm">
             {formatCurrency(item.markup, locale)}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[#4A6A85]">{t.itemClient}</p>
-          <p className="font-semibold text-[#00C9A7]">
+          <p className="text-tquot-muted">{t.itemClient}</p>
+          <p className="font-semibold text-tquot-teal">
             {formatCurrency(item.finalPrice, locale)}
           </p>
         </div>
@@ -467,7 +467,7 @@ function QuoteItemCard({
       <div className="flex flex-wrap items-end gap-3">
         {onMarginChange ? (
           <label className="flex min-w-[7rem] flex-col gap-1 text-xs">
-            <span className="text-[#4A6A85]">{t.itemMarginPercent}</span>
+            <span className="text-tquot-muted">{t.itemMarginPercent}</span>
             <div className="flex items-center gap-1">
               <input
                 type="number"
@@ -480,9 +480,9 @@ function QuoteItemCard({
                   onMarginChange(item.id, Number.isFinite(next) ? next : 0);
                 }}
                 onClick={(event) => event.stopPropagation()}
-                className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-white outline-none focus:border-[#00C9A7]/50"
+                className="w-full rounded-xl border border-tquot-border bg-tquot-surface px-3 py-2 text-sm font-semibold text-tquot-text outline-none focus:border-tquot-accent focus:ring-2 focus:ring-tquot-accent/20"
               />
-              <span className="text-[#8B9CB3]">%</span>
+              <span className="text-tquot-muted">%</span>
             </div>
           </label>
         ) : null}
@@ -494,7 +494,7 @@ function QuoteItemCard({
               event.stopPropagation();
               onCompare?.(item.id);
             }}
-            className="rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-2 text-xs font-bold text-[#E8EEF7] transition-colors hover:border-[#00C9A7]/40 hover:text-[#00C9A7]"
+            className="rounded-xl border border-tquot-border bg-tquot-surface px-4 py-2 text-xs font-bold text-tquot-text transition-colors hover:border-tquot-accent hover:text-tquot-accent"
           >
             {t.compareHotelPrices}
           </button>
@@ -505,10 +505,10 @@ function QuoteItemCard({
             type="button"
             onClick={() => onSelect?.(item.id)}
             disabled={isSelected}
-            className={`ml-auto rounded-2xl px-4 py-2 text-xs font-bold transition-colors ${
+            className={`ml-auto rounded-xl px-4 py-2 text-xs font-bold transition-colors ${
               isSelected
-                ? "cursor-default border border-[#00C9A7]/30 bg-[#00C9A7]/10 text-[#00C9A7]"
-                : "border border-white/10 bg-white/[0.06] text-[#E8EEF7] hover:border-[#00C9A7]/40 hover:text-[#00C9A7]"
+                ? "cursor-default border border-tquot-teal bg-tquot-teal text-white"
+                : "border border-tquot-border bg-tquot-surface text-tquot-text hover:border-tquot-teal hover:text-tquot-teal"
             }`}
           >
             {isSelected ? t.itemSelected : t.itemUseInQuote}
@@ -621,7 +621,7 @@ function FlightDirectionGroup({
 
   return (
     <div className="space-y-3">
-      <h4 className="text-sm font-bold uppercase tracking-wide text-[#E8EEF7]">
+      <h4 className="border-b border-tquot-border pb-2 text-sm font-semibold uppercase tracking-wide text-tquot-text">
         {heading}
       </h4>
       <div className="space-y-3">{renderQuoteItemList(items, cardProps)}</div>
