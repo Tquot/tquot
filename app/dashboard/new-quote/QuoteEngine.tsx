@@ -1182,39 +1182,30 @@ export function QuoteEngine() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#03080F] px-4 py-8 text-[#E8EEF7] sm:px-6 lg:px-8">
-      <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_45%_at_50%_-12%,rgba(0,201,167,0.20),transparent_62%),radial-gradient(circle_at_12%_18%,rgba(74,106,133,0.22),transparent_28%),linear-gradient(180deg,rgba(3,8,15,0)_0%,#03080F_72%)]"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute left-1/2 top-0 h-px w-[min(920px,80vw)] -translate-x-1/2 bg-gradient-to-r from-transparent via-[#00C9A7]/70 to-transparent"
-        aria-hidden
-      />
-
-      <main className="relative mx-auto max-w-7xl">
+    <div className="min-h-screen bg-tquot-bg px-4 py-8 text-tquot-text sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-7xl">
         <Link
           href="/dashboard"
-          className="mb-8 inline-flex items-center rounded-full border border-white/[0.07] bg-white/[0.03] px-4 py-2 text-sm text-[#8B9CB3] shadow-[0_12px_40px_rgba(0,0,0,0.25)] transition-colors hover:border-[#00C9A7]/30 hover:text-[#00C9A7]"
+          className="mb-8 inline-flex items-center rounded-lg border border-tquot-border bg-tquot-surface px-4 py-2 text-sm text-tquot-muted shadow-sm transition-colors hover:bg-tquot-bg hover:text-tquot-accent"
         >
           ← {t.backToDashboard}
         </Link>
 
-        <section className="mb-8 overflow-hidden rounded-3xl border border-white/[0.08] bg-[linear-gradient(135deg,rgba(10,21,37,0.88),rgba(13,32,56,0.68))] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.45),0_0_60px_rgba(0,201,167,0.08)] backdrop-blur-xl sm:p-8">
+        <section className="mb-8 rounded-xl border border-tquot-border bg-tquot-surface p-6 shadow-sm sm:p-8">
           <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-start">
           <div>
             <div className="flex flex-wrap items-end gap-x-3 gap-y-1">
-              <span className="bg-gradient-to-r from-[#00C9A7] to-[#00E5BB] bg-clip-text text-5xl font-black tracking-tight text-transparent sm:text-6xl lg:text-7xl">
+              <span className="text-5xl font-black tracking-tight text-tquot-teal sm:text-6xl lg:text-7xl">
                 TQuot
               </span>
-              <span className="pb-1 text-sm font-semibold uppercase tracking-[0.35em] text-[#8B9CB3]">
+              <span className="pb-1 text-sm font-semibold uppercase tracking-[0.35em] text-tquot-muted">
                 AI Engine
               </span>
             </div>
-            <h1 className="mt-5 max-w-3xl text-4xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl">
+            <h1 className="mt-5 max-w-3xl text-4xl font-black tracking-tight text-tquot-text sm:text-5xl lg:text-6xl">
               {t.newQuote}
             </h1>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-[#8B9CB3] sm:text-lg">
+            <p className="mt-4 max-w-2xl text-base leading-7 text-tquot-muted sm:text-lg">
               {t.quoteEngineSubtitle}
             </p>
           </div>
@@ -1223,10 +1214,10 @@ export function QuoteEngine() {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[0.92fr_1.08fr]">
-          <div className="rounded-3xl border border-white/[0.08] bg-[linear-gradient(145deg,rgba(9,18,32,0.92),rgba(3,8,15,0.72))] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+          <div className="rounded-xl border border-tquot-border bg-tquot-surface p-6 shadow-sm">
             <label
               htmlFor="client-request"
-              className="mb-3 block text-sm font-medium text-[#E8EEF7]"
+              className="mb-3 block text-sm font-medium text-tquot-text"
             >
               {t.clientRequestLabel}
             </label>
@@ -1241,7 +1232,7 @@ export function QuoteEngine() {
                 setParserQuestions(null);
               }}
               rows={10}
-              className="w-full resize-y rounded-2xl border border-white/20 bg-[#03080F]/70 px-5 py-5 text-[#E8EEF7] shadow-inner shadow-black/30 placeholder:text-[#8B9CB3]/50 outline-none transition-all duration-200 focus:border-[#00C9A7]/60 focus:shadow-[inset_0_0_28px_rgba(0,201,167,0.14),0_0_36px_-6px_rgba(0,201,167,0.45)] focus:ring-2 focus:ring-[#00C9A7]/25"
+              className="w-full resize-y rounded-xl border border-tquot-border bg-tquot-surface px-5 py-5 text-tquot-text placeholder:text-tquot-muted/60 outline-none transition-colors duration-200 focus:border-tquot-accent focus:ring-2 focus:ring-tquot-accent/20"
               placeholder={t.quoteEngineRequestPlaceholder}
             />
 
@@ -1276,17 +1267,17 @@ export function QuoteEngine() {
 
             {parserQuestions && parserQuestions.length > 0 ? (
               <div
-                className="mt-6 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4"
+                className="mt-6 rounded-xl border border-tquot-warm/30 bg-amber-50 p-4"
                 role="status"
                 aria-live="polite"
               >
-                <p className="text-sm font-semibold text-amber-100">
+                <p className="text-sm font-semibold text-amber-900">
                   {t.chipParserNeedsDetails}
                 </p>
-                <p className="mt-1 text-xs text-amber-200/80">
+                <p className="mt-1 text-xs text-amber-800/80">
                   {t.parserQuestionsHint}
                 </p>
-                <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-[#E8EEF7]">
+                <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-tquot-text">
                   {parserQuestions.map((question) => (
                     <li key={question}>{question}</li>
                   ))}
@@ -1302,23 +1293,23 @@ export function QuoteEngine() {
                 isRunning ||
                 (awaitingAirportChoice && !airportChoiceComplete)
               }
-              className="mt-6 w-full rounded-2xl bg-[#00C9A7] px-8 py-4 text-sm font-bold text-[#03080F] shadow-[0_0_42px_-8px_rgba(0,201,167,0.7)] transition-all hover:-translate-y-0.5 hover:bg-[#00E5BB] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
+              className="mt-6 w-full rounded-xl bg-tquot-teal px-8 py-4 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#00b396] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isRunning ? t.processing : t.generateQuote}
             </button>
           </div>
 
-          <div className="rounded-3xl border border-white/[0.08] bg-[linear-gradient(145deg,rgba(9,18,32,0.92),rgba(3,8,15,0.72))] p-6 shadow-[0_20px_70px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+          <div className="rounded-xl border border-tquot-border bg-tquot-surface p-6 shadow-sm">
             <div className="mb-5 flex items-center justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#00C9A7]">
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-tquot-accent">
                   {t.livePipeline}
                 </p>
-                <h2 className="mt-2 text-xl font-bold text-white">
+                <h2 className="mt-2 text-xl font-bold text-tquot-text">
                   {t.processStepByStep}
                 </h2>
               </div>
-              <span className="rounded-full border border-[#00C9A7]/25 bg-[#00C9A7]/10 px-3 py-1 text-xs font-semibold text-[#00C9A7]">
+              <span className="rounded-full border border-tquot-teal/30 bg-tquot-teal/10 px-3 py-1 text-xs font-semibold text-tquot-teal">
                 {isRunning
                   ? t.statusRunning
                   : isComplete
@@ -1357,25 +1348,25 @@ export function QuoteEngine() {
         {isComplete && quote ? (
           <section
             ref={resultsSectionRef}
-            className="mt-8 scroll-mt-8 rounded-3xl border border-white/[0.08] bg-[linear-gradient(145deg,rgba(9,18,32,0.94),rgba(3,8,15,0.78))] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.42)] backdrop-blur-xl"
+            className="mt-8 scroll-mt-8 rounded-xl border border-tquot-border bg-tquot-surface p-6 shadow-sm"
           >
             <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-[#00C9A7]">
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-tquot-accent">
                   {t.proposalWorkspace}
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <span className="rounded-2xl border border-[#00C9A7]/35 bg-[#00C9A7]/10 px-3 py-1 font-mono text-sm font-bold tracking-wide text-[#00C9A7]">
+                  <span className="rounded-lg border border-tquot-teal/30 bg-tquot-teal/10 px-3 py-1 font-mono text-sm font-bold tracking-wide text-tquot-teal">
                     {quote.id}
                   </span>
                 </div>
-                <h2 className="mt-3 text-3xl font-black tracking-tight text-white sm:text-4xl">
+                <h2 className="mt-3 text-3xl font-black tracking-tight text-tquot-text sm:text-4xl">
                   {t.compiledQuote}
                 </h2>
-                <p className="mt-2 text-2xl font-bold leading-tight text-[#E8EEF7] sm:text-3xl">
+                <p className="mt-2 text-2xl font-bold leading-tight text-tquot-text sm:text-3xl">
                   {quote.summary.route}
                 </p>
-                <p className="mt-2 text-sm text-[#8B9CB3]">
+                <p className="mt-2 text-sm text-tquot-muted">
                   {formatMessage(
                     locale === "es"
                       ? "{days} días · {travelers} viajeros"
@@ -1391,7 +1382,7 @@ export function QuoteEngine() {
                 <button
                   type="button"
                   onClick={resetQuoteSession}
-                  className="rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-[#E8EEF7] transition-colors hover:bg-white/10"
+                  className="rounded-xl border border-tquot-border bg-tquot-surface px-5 py-3 text-sm font-semibold text-tquot-text shadow-sm transition-colors hover:bg-tquot-bg"
                 >
                   {t.newQuote}
                 </button>
@@ -1399,7 +1390,7 @@ export function QuoteEngine() {
                   type="button"
                   onClick={() => void handleSaveAndGenerateClientPdf()}
                   disabled={isSavingQuote}
-                  className="rounded-2xl border border-[#00C9A7]/30 bg-[#00C9A7]/10 px-5 py-3 text-sm font-semibold text-[#00C9A7] transition-colors hover:bg-[#00C9A7]/15 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-xl border border-tquot-teal/30 bg-tquot-teal/10 px-5 py-3 text-sm font-semibold text-tquot-teal transition-colors hover:bg-tquot-teal/15 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSavingQuote ? t.savingQuote : t.saveAndGeneratePdf}
                 </button>
@@ -1407,7 +1398,7 @@ export function QuoteEngine() {
                   type="button"
                   onClick={() => void handleAgentPdf()}
                   disabled={isSavingQuote}
-                  className="rounded-2xl border border-[#00C9A7]/30 bg-[#00C9A7]/10 px-5 py-3 text-sm font-semibold text-[#00C9A7] transition-colors hover:bg-[#00C9A7]/15 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-xl border border-tquot-teal/30 bg-tquot-teal/10 px-5 py-3 text-sm font-semibold text-tquot-teal transition-colors hover:bg-tquot-teal/15 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSavingQuote ? t.savingQuote : t.pdfAgent}
                 </button>
@@ -1415,7 +1406,7 @@ export function QuoteEngine() {
                   type="button"
                   onClick={() => void handleClientPdf()}
                   disabled={isSavingQuote}
-                  className="rounded-2xl bg-[#00C9A7] px-5 py-3 text-sm font-bold text-[#03080F] shadow-[0_0_34px_-10px_rgba(0,201,167,0.9)] transition-colors hover:bg-[#00E5BB] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-xl bg-tquot-teal px-5 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#00b396] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSavingQuote ? t.savingQuote : t.pdfClient}
                 </button>
@@ -1462,18 +1453,18 @@ export function QuoteEngine() {
             </div>
 
             <div className="mt-6 grid gap-6 lg:grid-cols-2">
-              <section className="rounded-3xl border border-white/[0.08] bg-[#03080F]/60 p-5 shadow-[0_16px_44px_rgba(0,0,0,0.22)]">
-                <h3 className="mb-3 text-lg font-semibold text-white">
+              <section className="rounded-xl border border-tquot-border bg-tquot-surface p-5 shadow-sm">
+                <h3 className="mb-3 text-lg font-semibold text-tquot-text">
                   {t.aiRefinementChat}
                 </h3>
                 <div className="mb-4 max-h-56 space-y-3 overflow-y-auto pr-1">
                   {chatMessages.map((message, index) => (
                     <div
                       key={`${message.role}-${index}`}
-                      className={`rounded-2xl px-4 py-3 text-sm ${
+                      className={`rounded-xl px-4 py-3 text-sm ${
                         message.role === "ai"
-                          ? "border border-[#00C9A7]/20 bg-[#00C9A7]/10 text-[#00C9A7]"
-                          : "bg-white/[0.05] text-[#E8EEF7]"
+                          ? "border border-tquot-border bg-tquot-bg text-tquot-text"
+                          : "border border-tquot-accent/20 bg-blue-50 text-tquot-text"
                       }`}
                     >
                       <span className="font-semibold">
@@ -1492,33 +1483,33 @@ export function QuoteEngine() {
                     }}
                     disabled={isRefining}
                     placeholder={t.chatPlaceholder}
-                    className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none focus:border-[#00C9A7]/50 disabled:opacity-50"
+                    className="min-w-0 flex-1 rounded-xl border border-tquot-border bg-tquot-surface px-4 py-3 text-sm text-tquot-text outline-none focus:border-tquot-accent focus:ring-2 focus:ring-tquot-accent/20 disabled:opacity-50"
                   />
                   <button
                     type="button"
                     onClick={sendChatMessage}
                     disabled={isRefining || !chatInput.trim()}
-                    className="rounded-2xl bg-[#00C9A7] px-4 py-3 text-sm font-bold text-[#03080F] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-xl bg-tquot-teal px-4 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isRefining ? "..." : t.send}
                   </button>
                 </div>
               </section>
 
-              <section className="rounded-3xl border border-white/[0.08] bg-[#03080F]/60 p-5 shadow-[0_16px_44px_rgba(0,0,0,0.22)]">
-                <label className="mb-3 block text-lg font-semibold text-white">
+              <section className="rounded-xl border border-tquot-border bg-tquot-surface p-5 shadow-sm">
+                <label className="mb-3 block text-lg font-semibold text-tquot-text">
                   {t.agentNotes}
                 </label>
                 <textarea
                   value={agentNotes}
                   onChange={(event) => setAgentNotes(event.target.value)}
                   rows={8}
-                  className="w-full resize-y rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white outline-none focus:border-[#00C9A7]/50"
+                  className="w-full resize-y rounded-xl border border-tquot-border bg-tquot-surface px-4 py-3 text-sm text-tquot-text outline-none focus:border-tquot-accent focus:ring-2 focus:ring-tquot-accent/20"
                 />
               </section>
             </div>
 
-            <div className="mt-6 grid gap-4 rounded-3xl border border-[#00C9A7]/20 bg-[linear-gradient(135deg,rgba(0,201,167,0.14),rgba(13,32,56,0.48))] p-5 shadow-[0_0_50px_-24px_rgba(0,201,167,0.9)] sm:grid-cols-3 sm:divide-x sm:divide-white/[0.08]">
+            <div className="mt-6 grid gap-4 rounded-xl border border-tquot-border bg-tquot-surface p-5 shadow-sm sm:grid-cols-3 sm:divide-x sm:divide-tquot-border">
               <TotalCard
                 label={t.baseTotal}
                 value={quote.pricing.baseTotal}
@@ -1593,35 +1584,35 @@ function HotelComparatorPanel({
         type="button"
         aria-label={t.comparatorClose}
         onClick={onClose}
-        className="absolute inset-0 bg-[#03080F]/80 backdrop-blur-sm"
+        className="absolute inset-0 bg-tquot-text/40"
       />
-      <div className="relative z-10 w-full max-w-lg rounded-3xl border border-white/[0.08] bg-[#03080F] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.55)]">
+      <div className="relative z-10 w-full max-w-lg rounded-xl border border-tquot-border bg-tquot-surface p-5 shadow-lg">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.26em] text-[#00C9A7]">
+            <p className="text-xs font-semibold uppercase tracking-[0.26em] text-tquot-accent">
               {t.comparatorTitle}
             </p>
-            <h3 className="mt-1 text-lg font-bold text-white">
+            <h3 className="mt-1 text-lg font-bold text-tquot-text">
               {item?.title ?? t.itemTypeHotel}
             </h3>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm font-semibold text-[#8B9CB3] hover:text-white"
+            className="rounded-lg border border-tquot-border bg-tquot-surface px-3 py-1.5 text-sm font-semibold text-tquot-muted hover:bg-tquot-bg hover:text-tquot-text"
           >
             {t.comparatorClose}
           </button>
         </div>
 
         {panel.loading ? (
-          <p className="py-8 text-center text-sm text-[#8B9CB3]">
+          <p className="py-8 text-center text-sm text-tquot-muted">
             {t.comparatorLoading}
           </p>
         ) : null}
 
         {panel.error ? (
-          <p className="rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
+          <p className="rounded-xl border border-tquot-warm/30 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             {panel.error}
           </p>
         ) : null}
@@ -1639,33 +1630,33 @@ function HotelComparatorPanel({
               return (
                 <div
                   key={`${row.providerId}-${row.providerName}`}
-                  className={`flex flex-wrap items-center gap-3 rounded-2xl border px-4 py-3 ${
+                  className={`flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 ${
                     isCheapest
-                      ? "border-[#00C9A7]/40 bg-[#00C9A7]/10"
-                      : "border-white/[0.08] bg-white/[0.03]"
+                      ? "border-tquot-teal/40 bg-tquot-teal/10"
+                      : "border-tquot-border bg-tquot-bg"
                   }`}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-white">{row.providerName}</p>
+                      <p className="font-semibold text-tquot-text">{row.providerName}</p>
                       {isCheapest ? (
-                        <span className="rounded-full border border-[#00C9A7]/35 bg-[#00C9A7]/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#00C9A7]">
+                        <span className="rounded-full border border-tquot-teal/35 bg-tquot-teal/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-tquot-teal">
                           {t.comparatorCheapest}
                         </span>
                       ) : null}
                     </div>
-                    <p className="text-xs text-[#8B9CB3]">
+                    <p className="text-xs text-tquot-muted">
                       {comparatorStatusLabel(row, t)}
                     </p>
                   </div>
-                  <p className="text-lg font-bold tabular-nums text-[#E8EEF7]">
+                  <p className="text-lg font-bold tabular-nums text-tquot-text">
                     {price}
                   </p>
                   {row.status === "ok" && row.bestRoom ? (
                     <button
                       type="button"
                       onClick={() => onSelectPrice(row)}
-                      className="rounded-xl border border-[#00C9A7]/30 bg-[#00C9A7]/10 px-3 py-1.5 text-xs font-bold text-[#00C9A7] hover:bg-[#00C9A7]/15"
+                      className="rounded-lg border border-tquot-teal/30 bg-tquot-teal/10 px-3 py-1.5 text-xs font-bold text-tquot-teal hover:bg-tquot-teal/15"
                     >
                       {t.useThisPrice}
                     </button>
@@ -1683,14 +1674,14 @@ function HotelComparatorPanel({
 function DataSourceBadge({ source }: { source: QuoteDataSource }) {
   if (source === "real") {
     return (
-      <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-400/35 bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold text-emerald-300">
+      <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-tquot-success/30 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-tquot-success">
         ✓ Datos reales
       </span>
     );
   }
 
   return (
-    <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-amber-400/35 bg-amber-400/10 px-2.5 py-1 text-xs font-semibold text-amber-300">
+    <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-tquot-warm/30 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-tquot-warm">
       ⚠ Datos de ejemplo
     </span>
   );
@@ -1723,26 +1714,20 @@ function ProcessStepCard({
 
   return (
     <div
-      className={`relative overflow-hidden rounded-3xl border p-4 transition-all ${
+      className={`relative overflow-hidden rounded-xl border p-4 transition-all ${
         status === "active"
-          ? "border-[#00C9A7]/55 bg-[linear-gradient(135deg,rgba(0,201,167,0.18),rgba(13,32,56,0.42))] shadow-[0_0_64px_-8px_rgba(0,201,167,0.85),0_0_24px_rgba(0,201,167,0.35)] ring-1 ring-[#00C9A7]/35"
+          ? "border-tquot-accent bg-blue-50 shadow-sm ring-1 ring-tquot-accent/20"
           : status === "done"
-            ? "border-emerald-400/25 bg-emerald-400/[0.06]"
-            : "border-white/[0.06] bg-[#03080F]/48"
+            ? "border-tquot-success/30 bg-emerald-50"
+            : "border-tquot-border bg-tquot-bg"
       }`}
     >
-      {status === "active" ? (
-        <div
-          className="absolute inset-x-0 top-0 h-px animate-pulse bg-gradient-to-r from-transparent via-[#00C9A7] to-transparent"
-          aria-hidden
-        />
-      ) : null}
       <div className="flex items-center gap-3">
         <StepIndicator status={status} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-3">
-            <p className="font-semibold text-white">{title}</p>
-            <span className="hidden rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8B9CB3] sm:inline-flex">
+            <p className="font-semibold text-tquot-text">{title}</p>
+            <span className="hidden rounded-full border border-tquot-border bg-tquot-surface px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-tquot-muted sm:inline-flex">
               {String(index + 1).padStart(2, "0")} · {statusLabel}
             </span>
           </div>
@@ -1751,11 +1736,11 @@ function ProcessStepCard({
               {[0, 1, 2].map((dot) => (
                 <span
                   key={dot}
-                  className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#00C9A7]"
+                  className="h-1.5 w-1.5 animate-pulse rounded-full bg-tquot-accent"
                   style={{ animationDelay: `${dot * 140}ms` }}
                 />
               ))}
-              <span className="ml-2 text-xs text-[#8B9CB3]">
+              <span className="ml-2 text-xs text-tquot-muted">
                 {labels.searching}
               </span>
             </div>
@@ -1767,7 +1752,7 @@ function ProcessStepCard({
           {chips.map((chip) => (
             <span
               key={chip}
-              className="rounded-full border border-[#00C9A7]/20 bg-[#00C9A7]/10 px-2.5 py-1 text-xs font-medium text-[#00C9A7]"
+              className="rounded-full border border-tquot-teal/20 bg-tquot-teal/10 px-2.5 py-1 text-xs font-medium text-tquot-teal"
             >
               {chip}
             </span>
@@ -1781,7 +1766,7 @@ function ProcessStepCard({
 function StepIndicator({ status }: { status: StepStatus }) {
   if (status === "done") {
     return (
-      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-400 text-xs font-bold text-[#03080F] shadow-[0_0_24px_rgba(52,211,153,0.35)]">
+      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-tquot-success text-xs font-bold text-white shadow-sm">
         ✓
       </span>
     );
@@ -1789,14 +1774,14 @@ function StepIndicator({ status }: { status: StepStatus }) {
 
   if (status === "active") {
     return (
-      <span className="relative flex h-7 w-7 items-center justify-center rounded-full border border-[#00C9A7]/35 bg-[#00C9A7]/10">
-        <span className="absolute h-7 w-7 animate-ping rounded-full border border-[#00C9A7]/50" />
-        <span className="h-2.5 w-2.5 rounded-full bg-[#00C9A7] shadow-[0_0_18px_rgba(0,201,167,0.8)]" />
+      <span className="relative flex h-7 w-7 items-center justify-center rounded-full border border-tquot-accent bg-blue-50">
+        <span className="absolute h-7 w-7 animate-ping rounded-full border border-tquot-accent/40" />
+        <span className="h-2.5 w-2.5 rounded-full bg-tquot-accent" />
       </span>
     );
   }
 
-  return <span className="h-7 w-7 rounded-full border border-white/15 bg-white/[0.03]" />;
+  return <span className="h-7 w-7 rounded-full border border-tquot-border bg-tquot-surface" />;
 }
 
 function TotalCard({
@@ -1812,18 +1797,18 @@ function TotalCard({
 }) {
   return (
     <div
-      className={`rounded-2xl border px-4 py-4 sm:px-5 sm:py-5 ${
+      className={`rounded-xl px-4 py-4 sm:px-5 sm:py-5 ${
         highlight
-          ? "border-[#00C9A7]/40 bg-[#00C9A7]/[0.08] shadow-[0_0_40px_-16px_rgba(0,201,167,0.6)]"
-          : "border-white/[0.08] bg-white/[0.03]"
+          ? "border border-tquot-teal/30 bg-tquot-teal/5"
+          : "border-0"
       }`}
     >
-      <p className="text-xs font-semibold uppercase tracking-wide text-[#4A6A85]">
+      <p className="text-xs font-semibold uppercase tracking-wide text-tquot-muted">
         {label}
       </p>
       <p
         className={`mt-2 tabular-nums text-3xl font-black sm:text-4xl ${
-          highlight ? "text-[#00C9A7]" : "text-white"
+          highlight ? "text-tquot-teal" : "text-tquot-text"
         }`}
       >
         {formatCurrency(value, locale)}
