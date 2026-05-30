@@ -8,17 +8,17 @@ export function LocaleToggleButtons({ className = "" }: { className?: string }) 
 
   return (
     <div
-      className={`flex rounded-full border border-white/10 bg-[#03080F]/60 p-1 shadow-inner shadow-black/30 ${className}`}
+      className={`flex rounded-lg border border-tquot-border bg-tquot-bg p-0.5 ${className}`}
     >
       {(["es", "en"] as Locale[]).map((code) => (
         <button
           key={code}
           type="button"
           onClick={() => setLocale(code)}
-          className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide transition-colors ${
+          className={`rounded-md px-2.5 py-1 text-xs font-semibold uppercase tracking-wide transition-colors ${
             locale === code
-              ? "bg-[#00C9A7] text-[#03080F]"
-              : "text-[#8B9CB3] hover:text-white"
+              ? "bg-tquot-surface text-tquot-accent shadow-sm"
+              : "text-tquot-muted hover:text-tquot-text"
           }`}
         >
           {code}
