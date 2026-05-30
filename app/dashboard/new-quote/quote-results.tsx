@@ -158,15 +158,58 @@ function flightStopsLabel(
 function FlightTableExpandedDetails({
   item,
   marginPercent,
+  passengerCount = 1,
   onMarginChange,
+  onFlightFareSelect,
 }: {
   item: QuoteItem;
   marginPercent: number;
+  passengerCount?: number;
   onMarginChange?: (itemId: string, marginPercent: number) => void;
+  onFlightFareSelect?: (itemId: string, offerId: string) => void;
 }) {
   const { locale, t } = useDashboardLanguage();
   const details = item.flightDetails!;
   const isDirect = details.stops === 0;
+  const adults = Math.max(1, passengerCount);
+  const selectedOfferId =
+    details.selectedOfferId ?? details.primaryOfferId ?? "";
+
+  const fareChoices: Array<{
+    offerId: string;
+    fareName: string;
+    priceNumeric: number;
+    cabinClass: string;
+    baggageIncluded: string;
+    isPrimary: boolean;
+  }> = [];
+
+  if (details.primaryOfferId) {
+    fareChoices.push({
+      offerId: details.primaryOfferId,
+      fareName: details.primaryFareName ?? details.primaryCabinClass ?? "—",
+      priceNumeric: details.primaryPriceNumeric ?? details.priceNumeric,
+      cabinClass: details.primaryCabinClass ?? details.cabinClass,
+      baggageIncluded:
+        details.primaryBaggageIncluded ?? details.baggageIncluded,
+      isPrimary: true,
+    });
+  }
+
+  for (const fare of details.fareOptions ?? []) {
+    if (!fare.offerId) continue;
+    fareChoices.push({
+      offerId: fare.offerId,
+      fareName: fare.fareName,
+      priceNumeric: fare.priceNumeric,
+      cabinClass: fare.cabinClass,
+      baggageIncluded: fare.baggageIncluded,
+      isPrimary: false,
+    });
+  }
+
+  const showFareSelector =
+    fareChoices.length > 1 && Boolean(onFlightFareSelect);
 
   return (
     <div
@@ -177,7 +220,51 @@ function FlightTableExpandedDetails({
         <p className="mb-2 text-xs text-tquot-muted">{details.departureDate}</p>
       ) : null}
 
-      {details.cabinClass || details.baggageIncluded ? (
+      {showFareSelector ? (
+        <fieldset className="mb-4 space-y-2">
+          <legend className="text-sm font-semibold text-tquot-text">
+            {t.flightFareTitle}
+          </legend>
+          {fareChoices.map((fare) => (
+            <label
+              key={fare.offerId}
+              className={`flex cursor-pointer gap-3 rounded-lg border px-3 py-2.5 transition-colors ${
+                selectedOfferId === fare.offerId
+                  ? "border-tquot-teal/40 bg-tquot-teal/10"
+                  : "border-tquot-border bg-tquot-surface hover:bg-tquot-bg"
+              }`}
+            >
+              <input
+                type="radio"
+                name={`fare-${item.id}`}
+                value={fare.offerId}
+                checked={selectedOfferId === fare.offerId}
+                onChange={() => onFlightFareSelect?.(item.id, fare.offerId)}
+                className="mt-1 accent-tquot-teal"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-tquot-text">{fare.fareName}</span>
+                  {fare.isPrimary ? (
+                    <span className="rounded-full border border-tquot-teal/30 bg-tquot-teal/10 px-2 py-0.5 text-[10px] font-semibold text-tquot-teal">
+                      {t.flightFareBestPrice}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="mt-0.5 block text-xs text-tquot-muted">
+                  {fare.cabinClass} · {fare.baggageIncluded}
+                </span>
+                <span className="mt-1 block text-sm font-semibold tabular-nums text-tquot-text">
+                  {formatCurrency(Math.round(fare.priceNumeric / adults), locale)}
+                  <span className="ml-1 text-xs font-normal text-tquot-muted">
+                    {locale === "es" ? "por persona" : "per person"}
+                  </span>
+                </span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
+      ) : details.cabinClass || details.baggageIncluded ? (
         <p className="mb-2 text-sm text-tquot-muted">
           {[details.cabinClass, details.baggageIncluded].filter(Boolean).join(" · ")}
         </p>
@@ -246,6 +333,7 @@ type FlightTableRowProps = {
   onToggleExpand: () => void;
   onSelect?: (itemId: string) => void;
   onMarginChange?: (itemId: string, marginPercent: number) => void;
+  onFlightFareSelect?: (itemId: string, offerId: string) => void;
 };
 
 function FlightTableRow({
@@ -255,6 +343,7 @@ function FlightTableRow({
   onToggleExpand,
   onSelect,
   onMarginChange,
+  onFlightFareSelect,
 }: FlightTableRowProps) {
   const { locale, t } = useDashboardLanguage();
   const details = item.flightDetails;
@@ -396,6 +485,7 @@ function FlightDirectionTable({
   items,
   onSelectItem,
   onMarginChange,
+  onFlightFareSelect,
   passengerCount,
 }: QuoteItemListProps & { items: QuoteItem[] }) {
   const { locale } = useDashboardLanguage();
@@ -453,6 +543,7 @@ function FlightDirectionTable({
                 }
                 onSelect={onSelectItem}
                 onMarginChange={onMarginChange}
+                onFlightFareSelect={onFlightFareSelect}
               />
             ))}
           </tbody>
@@ -684,6 +775,7 @@ type QuoteItemListProps = {
   onSelectItem?: (itemId: string) => void;
   onToggleItem?: (itemId: string) => void;
   onMarginChange?: (itemId: string, marginPercent: number) => void;
+  onFlightFareSelect?: (itemId: string, offerId: string) => void;
   onCompareItem?: (itemId: string) => void;
   selectionMode?: "exclusive" | "independent";
   passengerCount?: number;
@@ -712,6 +804,7 @@ function renderQuoteItemList(items: QuoteItem[], props: QuoteItemListProps) {
     onSelectItem,
     onToggleItem,
     onMarginChange,
+    onFlightFareSelect,
     onCompareItem,
     selectionMode = "exclusive",
     passengerCount,
@@ -731,6 +824,7 @@ function renderQuoteItemList(items: QuoteItem[], props: QuoteItemListProps) {
           items={flights}
           onSelectItem={onSelectItem}
           onMarginChange={onMarginChange}
+          onFlightFareSelect={onFlightFareSelect}
           passengerCount={passengerCount}
         />
       ) : null}
@@ -805,6 +899,7 @@ export function FlightQuoteItemsSection({
   items,
   onSelectItem,
   onMarginChange,
+  onFlightFareSelect,
   passengerCount,
 }: {
   eyebrow: string;
@@ -812,11 +907,17 @@ export function FlightQuoteItemsSection({
   items: QuoteItem[];
   onSelectItem?: (itemId: string) => void;
   onMarginChange?: (itemId: string, marginPercent: number) => void;
+  onFlightFareSelect?: (itemId: string, offerId: string) => void;
   passengerCount?: number;
 }) {
   const { locale, t } = useDashboardLanguage();
   const { outbound, returnFlights, other } = splitFlightsByDirection(items);
-  const cardProps = { onSelectItem, onMarginChange, passengerCount };
+  const cardProps = {
+    onSelectItem,
+    onMarginChange,
+    onFlightFareSelect,
+    passengerCount,
+  };
   const subtitle = buildSectionSubtitle(items, "exclusive", locale, t);
 
   return (

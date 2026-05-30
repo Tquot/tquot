@@ -2,7 +2,10 @@
  * Quote builder: flights and hotels from search APIs when available, mock fallback otherwise.
  */
 
-import type { FlightOption } from "@/app/api/search-flights/route";
+import type {
+  FlightFareOption,
+  FlightOption,
+} from "@/app/api/search-flights/route";
 import type { HotelOption } from "@/app/api/search-hotels/route";
 import { getCityIATA } from "@/lib/airports";
 import { buildFlightSearchParams } from "@/lib/flights/build-search-params";
@@ -83,6 +86,15 @@ export type QuoteItemFlightDetails = {
   layovers: Array<{ airport: string; iata: string; duration: string }>;
   stops: number;
   priceNumeric: number;
+  fareName?: string;
+  selectedOfferId?: string;
+  fareOptions?: FlightFareOption[];
+  /** Cheapest fare snapshot (Duffel grouping primary). */
+  primaryOfferId?: string;
+  primaryPriceNumeric?: number;
+  primaryCabinClass?: string;
+  primaryBaggageIncluded?: string;
+  primaryFareName?: string;
 };
 
 export type QuoteItemHotelDetails = {
@@ -457,6 +469,18 @@ function flightDetailsFromOption(flight: FlightOption): QuoteItemFlightDetails {
     layovers: flight.layovers,
     stops: Number(flight.stops) || 0,
     priceNumeric: flight.priceNumeric,
+    ...(flight.fareName ? { fareName: flight.fareName } : {}),
+    ...(flight.offerId
+      ? {
+          selectedOfferId: flight.offerId,
+          primaryOfferId: flight.offerId,
+        }
+      : {}),
+    primaryPriceNumeric: flight.priceNumeric,
+    primaryCabinClass: flight.cabinClass,
+    primaryBaggageIncluded: flight.baggageIncluded,
+    ...(flight.fareName ? { primaryFareName: flight.fareName } : {}),
+    ...(flight.fareOptions?.length ? { fareOptions: flight.fareOptions } : {}),
   };
 }
 

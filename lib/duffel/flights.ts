@@ -1,4 +1,8 @@
-import type { FlightLayover, FlightOption } from "@/app/api/search-flights/route";
+import type {
+  FlightFareOption,
+  FlightLayover,
+  FlightOption,
+} from "@/app/api/search-flights/route";
 import { getCityIATA } from "@/lib/airports";
 
 export const DUFFEL_OFFER_REQUESTS_URL =
@@ -187,6 +191,45 @@ function collectLayovers(segments: Record<string, unknown>[]): FlightLayover[] {
   return layovers;
 }
 
+function fareNameFromOffer(offer: Record<string, unknown>): string {
+  const slice = asRecord(asArray(offer.slices)[0]);
+  const segments = asArray(slice.segments).map(asRecord);
+  const firstSegment = segments[0] ?? {};
+  const cabinClass = formatCabinClass(firstSegment.passengers);
+  if (cabinClass !== "Unknown") {
+    return cabinClass;
+  }
+  return getString(offer.fare_brand_name, offer.owner_name, "Tarifa");
+}
+
+function offerToFareOption(offer: Record<string, unknown>): FlightFareOption {
+  const slice = asRecord(asArray(offer.slices)[0]);
+  const segments = asArray(slice.segments).map(asRecord);
+  const firstSegment = segments[0] ?? {};
+  const priceNumeric = parseOfferPrice(offer.total_amount);
+
+  return {
+    fareName: fareNameFromOffer(offer),
+    price: `${getString(offer.total_currency)} ${getString(offer.total_amount)}`,
+    priceNumeric,
+    baggageIncluded: formatBaggageIncluded(firstSegment.passengers),
+    cabinClass: formatCabinClass(firstSegment.passengers),
+    offerId:
+      typeof offer.id === "string" && offer.id.trim()
+        ? offer.id.trim()
+        : "",
+  };
+}
+
+function flightGroupKey(option: FlightOption): string {
+  return [
+    option.airline,
+    option.flightNumber,
+    option.departureTime,
+    option.arrivalTime,
+  ].join("|");
+}
+
 function mapOfferToFlightOption(offer: Record<string, unknown>): FlightOption {
   const slice = asRecord(asArray(offer.slices)[0]);
   const segments = asArray(slice.segments).map(asRecord);
@@ -226,8 +269,11 @@ function mapOfferToFlightOption(offer: Record<string, unknown>): FlightOption {
     firstSegment.operating_carrier_flight_number,
   );
   const priceNumeric = parseOfferPrice(offer.total_amount);
+  const fareName = fareNameFromOffer(offer);
 
   return {
+    offerId: getString(offer.id) !== "Unknown" ? getString(offer.id) : undefined,
+    fareName,
     price: `${getString(offer.total_currency)} ${getString(offer.total_amount)}`,
     airline: getString(operatingCarrier.name, owner.name, marketingCarrier.name),
     flightNumber:
@@ -314,9 +360,49 @@ export function countDuffelFlights(payload: unknown): number {
 
 export function normalizeDuffelFlights(payload: unknown): FlightOption[] {
   const data = asRecord(asRecord(payload).data);
-  const offers = asArray(data.offers).map(asRecord).map(mapOfferToFlightOption);
+  const rawOffers = asArray(data.offers).map(asRecord);
+  const mapped = rawOffers.map(mapOfferToFlightOption);
 
-  return offers.sort(compareFlightOptions).slice(0, 10);
+  const groups = new Map<string, { offers: Record<string, unknown>[]; options: FlightOption[] }>();
+
+  for (let index = 0; index < rawOffers.length; index += 1) {
+    const option = mapped[index];
+    const raw = rawOffers[index];
+    if (!option || !raw) continue;
+
+    const key = flightGroupKey(option);
+    const existing = groups.get(key);
+    if (existing) {
+      existing.offers.push(raw);
+      existing.options.push(option);
+    } else {
+      groups.set(key, { offers: [raw], options: [option] });
+    }
+  }
+
+  const grouped: FlightOption[] = [];
+
+  for (const { offers, options } of groups.values()) {
+    const sorted = options
+      .map((option, index) => ({ option, raw: offers[index] }))
+      .sort((left, right) => left.option.priceNumeric - right.option.priceNumeric);
+
+    const primaryEntry = sorted[0];
+    if (!primaryEntry) continue;
+
+    const primary = primaryEntry.option;
+    const alternates = sorted
+      .slice(1)
+      .map((entry) => offerToFareOption(entry.raw))
+      .filter((fare) => fare.offerId.length > 0);
+
+    grouped.push({
+      ...primary,
+      ...(alternates.length > 0 ? { fareOptions: alternates } : {}),
+    });
+  }
+
+  return grouped.sort(compareFlightOptions).slice(0, 10);
 }
 
 export function parseDuffelPayload(bodyText: string): unknown {

@@ -526,6 +526,51 @@ export function QuoteEngine() {
     });
   }
 
+  function handleFlightFareSelect(itemId: string, offerId: string) {
+    setQuote((current) => {
+      if (!current) {
+        return current;
+      }
+
+      const next = cloneQuote(current);
+      const item = next.flights.find((entry) => entry.id === itemId);
+      const details = item?.flightDetails;
+      if (!item || !details) {
+        return current;
+      }
+
+      if (details.primaryOfferId && offerId === details.primaryOfferId) {
+        details.selectedOfferId = details.primaryOfferId;
+        details.priceNumeric = details.primaryPriceNumeric ?? details.priceNumeric;
+        details.cabinClass = details.primaryCabinClass ?? details.cabinClass;
+        details.baggageIncluded =
+          details.primaryBaggageIncluded ?? details.baggageIncluded;
+        if (details.primaryFareName) {
+          details.fareName = details.primaryFareName;
+        }
+      } else {
+        const fare = details.fareOptions?.find((entry) => entry.offerId === offerId);
+        if (!fare) {
+          return current;
+        }
+        details.selectedOfferId = fare.offerId;
+        details.priceNumeric = fare.priceNumeric;
+        details.cabinClass = fare.cabinClass;
+        details.baggageIncluded = fare.baggageIncluded;
+        details.fareName = fare.fareName;
+      }
+
+      const basePrice =
+        details.priceNumeric > 0
+          ? details.priceNumeric
+          : item.price;
+      item.price = basePrice;
+      applyItemMargin(item, getItemMarginPercent(item));
+      syncQuotePricing(next);
+      return next;
+    });
+  }
+
   async function handleCompareHotel(itemId: string) {
     if (!quote || !tripInput) {
       return;
@@ -1514,6 +1559,7 @@ export function QuoteEngine() {
                     passengerCount={quote.summary.passengers.adults}
                     onSelectItem={handleSelectQuoteItem}
                     onMarginChange={handleQuoteItemMarginChange}
+                    onFlightFareSelect={handleFlightFareSelect}
                   />
                 </div>
               ) : null}

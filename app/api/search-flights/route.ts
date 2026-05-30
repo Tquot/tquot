@@ -21,6 +21,15 @@ export type FlightLayover = {
   duration: string;
 };
 
+export type FlightFareOption = {
+  fareName: string;
+  price: string;
+  priceNumeric: number;
+  baggageIncluded: string;
+  cabinClass: string;
+  offerId: string;
+};
+
 export type FlightOption = {
   price: string;
   airline: string;
@@ -41,6 +50,9 @@ export type FlightOption = {
   baggageIncluded: string;
   layovers: FlightLayover[];
   priceNumeric: number;
+  offerId?: string;
+  fareName?: string;
+  fareOptions?: FlightFareOption[];
 };
 
 function parsePriceNumeric(price: string): number {
