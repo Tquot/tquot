@@ -44,7 +44,7 @@ function quoteCardClass({
   extra?: string;
 }) {
   if (isSelected) {
-    return `${quoteCardShell} border-tquot-teal bg-gradient-to-r from-tquot-teal/5 to-white ring-1 ring-tquot-teal/25 ${extra}`;
+    return `${quoteCardShell} border-2 border-tquot-teal bg-gradient-to-r from-tquot-teal/5 to-white ring-1 ring-tquot-teal/25 ${extra}`;
   }
   if (isSelectable && isInteractive) {
     return `${quoteCardShell} cursor-pointer border-tquot-border bg-gradient-to-r from-white to-slate-50/50 hover:border-tquot-teal/40 ${extra}`;

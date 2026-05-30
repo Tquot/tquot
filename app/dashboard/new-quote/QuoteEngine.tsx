@@ -1302,7 +1302,7 @@ export function QuoteEngine() {
           <div className="rounded-xl border border-tquot-border bg-white p-6 shadow-md">
             <div className="mb-5 flex items-center justify-between gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-tquot-accent">
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-tquot-teal">
                   {t.livePipeline}
                 </p>
                 <h2 className="mt-2 text-xl font-bold text-tquot-text">
@@ -1352,7 +1352,7 @@ export function QuoteEngine() {
           >
             <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-tquot-accent">
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-tquot-teal">
                   {t.proposalWorkspace}
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -1589,7 +1589,7 @@ function HotelComparatorPanel({
       <div className="relative z-10 w-full max-w-lg rounded-xl border border-tquot-border bg-tquot-surface p-5 shadow-lg">
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.26em] text-tquot-accent">
+            <p className="text-xs font-semibold uppercase tracking-[0.26em] text-tquot-teal">
               {t.comparatorTitle}
             </p>
             <h3 className="mt-1 text-lg font-bold text-tquot-text">
@@ -1716,7 +1716,7 @@ function ProcessStepCard({
     <div
       className={`relative overflow-hidden rounded-xl border p-4 transition-all ${
         status === "active"
-          ? "border-tquot-accent border-l-4 border-l-tquot-accent bg-blue-50 shadow-sm ring-1 ring-tquot-accent/20"
+          ? "border-tquot-teal border-l-4 border-l-tquot-teal bg-tquot-teal/10 shadow-sm ring-1 ring-tquot-teal/20"
           : status === "done"
             ? "border-tquot-success/30 bg-emerald-50"
             : "border-tquot-border bg-tquot-bg"
@@ -1736,7 +1736,7 @@ function ProcessStepCard({
               {[0, 1, 2].map((dot) => (
                 <span
                   key={dot}
-                  className="h-1.5 w-1.5 animate-pulse rounded-full bg-tquot-accent"
+                  className="h-1.5 w-1.5 animate-pulse rounded-full bg-tquot-teal"
                   style={{ animationDelay: `${dot * 140}ms` }}
                 />
               ))}
@@ -1774,9 +1774,9 @@ function StepIndicator({ status }: { status: StepStatus }) {
 
   if (status === "active") {
     return (
-      <span className="relative flex h-7 w-7 items-center justify-center rounded-full border border-tquot-accent bg-blue-50">
-        <span className="absolute h-7 w-7 animate-ping rounded-full border border-tquot-accent/40" />
-        <span className="h-2.5 w-2.5 rounded-full bg-tquot-accent" />
+      <span className="relative flex h-7 w-7 items-center justify-center rounded-full border border-tquot-teal bg-tquot-teal/10">
+        <span className="absolute h-7 w-7 animate-ping rounded-full border border-tquot-teal/40" />
+        <span className="h-2.5 w-2.5 rounded-full bg-tquot-teal" />
       </span>
     );
   }
