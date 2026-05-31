@@ -381,6 +381,11 @@ export function normalizeDuffelFlights(payload: unknown): FlightOption[] {
   }
 
   const grouped: FlightOption[] = [];
+  const groupFareCounts: Array<{
+    airline: string;
+    flightNumber: string;
+    fareOptionsCount: number;
+  }> = [];
 
   for (const { offers, options } of groups.values()) {
     const sorted = options
@@ -396,11 +401,27 @@ export function normalizeDuffelFlights(payload: unknown): FlightOption[] {
       .map((entry) => offerToFareOption(entry.raw))
       .filter((fare) => fare.offerId.length > 0);
 
+    groupFareCounts.push({
+      airline: primary.airline,
+      flightNumber: primary.flightNumber,
+      fareOptionsCount: alternates.length,
+    });
+
     grouped.push({
       ...primary,
       ...(alternates.length > 0 ? { fareOptions: alternates } : {}),
     });
   }
+
+  console.log("[normalizeDuffelFlights] Total offers from Duffel:", rawOffers.length);
+  console.log(
+    "[normalizeDuffelFlights] Unique flight groups after grouping:",
+    groups.size,
+  );
+  console.log(
+    "[normalizeDuffelFlights] Fare options per group:",
+    groupFareCounts,
+  );
 
   return grouped.sort(compareFlightOptions).slice(0, 10);
 }
