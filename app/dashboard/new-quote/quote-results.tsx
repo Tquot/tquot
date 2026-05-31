@@ -930,6 +930,8 @@ function QuoteItemCard({
   onCompare?: (itemId: string) => void;
   selectionMode?: "exclusive" | "independent";
 }) {
+  const { locale, t } = useDashboardLanguage();
+
   if (item.type === "hotel") {
     return (
       <HotelQuoteItemCard
@@ -942,8 +944,6 @@ function QuoteItemCard({
       />
     );
   }
-
-  const { locale, t } = useDashboardLanguage();
   const selectionGroup = getQuoteSelectionGroup(item.id);
   const isIndependent = selectionMode === "independent";
   const isSelectable =
