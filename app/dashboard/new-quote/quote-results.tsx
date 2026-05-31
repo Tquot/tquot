@@ -155,6 +155,366 @@ function flightStopsLabel(
   return `${stops} stop${stops === 1 ? "" : "s"}`;
 }
 
+type HotelBoardCode = "SA" | "AD" | "MP" | "PC";
+
+const HOTEL_BOARD_CODES: HotelBoardCode[] = ["SA", "AD", "MP", "PC"];
+
+function parseHotelNightsFromTitle(title: string): number {
+  const match = title.match(
+    /—\s*(\d+)\s+(?:noche|noches|night|nights)\b/i,
+  );
+  if (!match) return 1;
+  const nights = Number.parseInt(match[1], 10);
+  return Number.isFinite(nights) && nights > 0 ? nights : 1;
+}
+
+function parseHotelRoomTypeFromTitle(title: string): string | null {
+  const separator = title.lastIndexOf(" · ");
+  if (separator === -1) return null;
+  const roomType = title.slice(separator + 3).trim();
+  return roomType.length > 0 ? roomType : null;
+}
+
+function hotelBoardLabel(
+  code: HotelBoardCode,
+  t: DashboardTranslation,
+): string {
+  const labels: Record<HotelBoardCode, string> = {
+    SA: t.hotelBoardSA,
+    AD: t.hotelBoardAD,
+    MP: t.hotelBoardMP,
+    PC: t.hotelBoardPC,
+  };
+  return labels[code];
+}
+
+function HotelQuoteItemExpanded({
+  item,
+  locale,
+  t,
+  nights,
+  roomType,
+  board,
+  onBoardChange,
+  marginPercent,
+  isSelectable,
+  isIndependent,
+  isSelected,
+  onSelect,
+  onMarginChange,
+  onCompare,
+}: {
+  item: QuoteItem;
+  locale: Locale;
+  t: DashboardTranslation;
+  nights: number;
+  roomType: string | null;
+  board: HotelBoardCode;
+  onBoardChange: (code: HotelBoardCode) => void;
+  marginPercent: number;
+  isSelectable: boolean;
+  isIndependent: boolean;
+  isSelected: boolean;
+  onSelect?: (itemId: string) => void;
+  onMarginChange?: (itemId: string, marginPercent: number) => void;
+  onCompare?: (itemId: string) => void;
+}) {
+  const pricePerNight = Math.round(item.price / nights);
+  const showCompareButton =
+    Boolean(item.hotelDetails) && Boolean(onCompare);
+
+  return (
+    <div
+      className="mt-3 border-t border-tquot-border pt-3"
+      onClick={(event) => event.stopPropagation()}
+    >
+      {item.description ? (
+        <p className="mb-3 text-sm leading-relaxed text-tquot-muted">
+          {item.description}
+        </p>
+      ) : null}
+
+      <fieldset className="mb-4">
+        <legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-tquot-muted">
+          {t.hotelBoardTitle}
+        </legend>
+        <div className="flex flex-wrap gap-2">
+          {HOTEL_BOARD_CODES.map((code) => (
+            <button
+              key={code}
+              type="button"
+              title={hotelBoardLabel(code, t)}
+              onClick={() => onBoardChange(code)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                board === code
+                  ? "border-tquot-teal bg-tquot-teal/10 text-tquot-teal"
+                  : "border-tquot-border bg-tquot-surface text-tquot-muted hover:border-tquot-teal/40 hover:text-tquot-text"
+              }`}
+            >
+              {code}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1.5 text-xs text-tquot-muted">{hotelBoardLabel(board, t)}</p>
+      </fieldset>
+
+      <dl className="mb-4 grid gap-2 text-sm sm:grid-cols-2">
+        <div>
+          <dt className="text-xs text-tquot-muted">{t.hotelRoomType}</dt>
+          <dd className="font-medium text-tquot-text">
+            {roomType ?? t.hotelRoomTypeUnknown}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-tquot-muted">{t.hotelPricePerNight}</dt>
+          <dd className="font-semibold tabular-nums text-tquot-text">
+            {formatCurrency(pricePerNight, locale)}
+          </dd>
+        </div>
+        <div className="sm:col-span-2">
+          <dt className="text-xs text-tquot-muted">{t.hotelPriceTotalStay}</dt>
+          <dd className="font-semibold tabular-nums text-tquot-text">
+            {formatCurrency(item.price, locale)}
+          </dd>
+        </div>
+      </dl>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="rounded-full border border-tquot-border bg-tquot-bg px-2.5 py-1 text-xs font-semibold text-tquot-text">
+          {item.provider}
+        </span>
+        <span
+          className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${sourceStyles[item.source]}`}
+        >
+          {sourceLabels[item.source]}
+        </span>
+      </div>
+
+      <div className={priceBreakdownClass}>
+        <div>
+          <p className="text-tquot-muted">{t.itemBase}</p>
+          <p className="font-semibold text-tquot-text">
+            {formatCurrency(item.price, locale)}
+          </p>
+        </div>
+        <div>
+          <p className="text-tquot-muted">{t.itemMargin}</p>
+          <p className="font-semibold text-tquot-warm">
+            {formatCurrency(item.markup, locale)}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-tquot-muted">{t.itemClient}</p>
+          <p className="font-semibold text-tquot-teal">
+            {formatCurrency(item.finalPrice, locale)}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-end gap-3">
+        {onMarginChange ? (
+          <label className="flex min-w-[7rem] flex-col gap-1 text-xs">
+            <span className="text-tquot-muted">{t.itemMarginPercent}</span>
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                min={0}
+                max={100}
+                step={0.5}
+                value={marginPercent}
+                onChange={(event) => {
+                  const next = Number(event.target.value);
+                  onMarginChange(item.id, Number.isFinite(next) ? next : 0);
+                }}
+                className="w-full rounded-xl border border-tquot-border bg-tquot-surface px-3 py-2 text-sm font-semibold text-tquot-text outline-none focus:border-tquot-accent focus:ring-2 focus:ring-tquot-accent/20"
+              />
+              <span className="text-tquot-muted">%</span>
+            </div>
+          </label>
+        ) : null}
+
+        {showCompareButton ? (
+          <button
+            type="button"
+            onClick={() => onCompare?.(item.id)}
+            className="rounded-xl border border-tquot-border bg-tquot-surface px-4 py-2 text-xs font-bold text-tquot-text transition-colors hover:border-tquot-accent hover:text-tquot-accent"
+          >
+            {t.compareHotelPrices}
+          </button>
+        ) : null}
+
+        {isSelectable && !isIndependent ? (
+          <button
+            type="button"
+            onClick={() => onSelect?.(item.id)}
+            disabled={isSelected}
+            className={`ml-auto rounded-xl px-4 py-2 text-xs font-bold transition-colors ${
+              isSelected
+                ? "cursor-default border border-tquot-teal bg-tquot-teal text-white"
+                : "border border-tquot-border bg-tquot-surface text-tquot-text hover:border-tquot-teal hover:text-tquot-teal"
+            }`}
+          >
+            {isSelected ? t.itemSelected : t.itemUseInQuote}
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function HotelQuoteItemCard({
+  item,
+  onSelect,
+  onToggle,
+  onMarginChange,
+  onCompare,
+  selectionMode = "exclusive",
+}: {
+  item: QuoteItem;
+  onSelect?: (itemId: string) => void;
+  onToggle?: (itemId: string) => void;
+  onMarginChange?: (itemId: string, marginPercent: number) => void;
+  onCompare?: (itemId: string) => void;
+  selectionMode?: "exclusive" | "independent";
+}) {
+  const { locale, t } = useDashboardLanguage();
+  const [expanded, setExpanded] = useState(false);
+  const [board, setBoard] = useState<HotelBoardCode>("SA");
+  const selectionGroup = getQuoteSelectionGroup(item.id);
+  const isIndependent = selectionMode === "independent";
+  const isSelectable =
+    isIndependent ? Boolean(onToggle) : selectionGroup !== null && Boolean(onSelect);
+  const isIncluded = !item.alternative;
+  const isSelected = isSelectable && isIncluded;
+  const marginPercent = getItemMarginPercent(item);
+  const nights = parseHotelNightsFromTitle(item.title);
+  const roomType = parseHotelRoomTypeFromTitle(item.title);
+
+  const typeLabels: Record<QuoteItem["type"], string> = {
+    flight: t.itemTypeFlight,
+    hotel: t.itemTypeHotel,
+    experience: t.itemTypeExperience,
+  };
+
+  return (
+    <article
+      role="button"
+      tabIndex={0}
+      aria-expanded={expanded}
+      onClick={() => setExpanded((current) => !current)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          setExpanded((current) => !current);
+        }
+      }}
+      className={quoteCardClass({
+        isSelected,
+        isSelectable,
+        isInteractive: true,
+        extra: `${sourceLeftAccent[item.source]}${expanded ? " border-l-4 border-l-tquot-teal/60" : ""}`,
+      })}
+    >
+      <div className="mb-3 overflow-hidden rounded-lg border border-tquot-border bg-tquot-bg">
+        {item.imageUrl ? (
+          <img
+            src={item.imageUrl}
+            alt=""
+            className="h-32 w-full object-cover"
+          />
+        ) : (
+          <div
+            className="flex h-32 w-full items-center justify-center text-4xl"
+            aria-hidden
+          >
+            🏨
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex flex-wrap items-center gap-2">
+            <ChevronIcon expanded={expanded} />
+            {isIndependent ? (
+              <label
+                className="flex cursor-pointer items-center gap-2 rounded-full border border-tquot-border bg-tquot-bg px-2.5 py-1"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <input
+                  type="checkbox"
+                  checked={isIncluded}
+                  onChange={() => onToggle?.(item.id)}
+                  className="h-4 w-4 rounded accent-tquot-teal"
+                />
+                <span className="text-xs font-semibold text-tquot-text">
+                  {isIncluded ? t.itemIncludeInQuote : t.itemExcluded}
+                </span>
+              </label>
+            ) : null}
+            <span className="rounded-full border border-tquot-border bg-tquot-bg px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-tquot-muted">
+              {typeLabels.hotel}
+            </span>
+            {isSelectable && !isIndependent ? (
+              <span
+                className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                  isSelected
+                    ? "border-tquot-teal/30 bg-tquot-teal/10 text-tquot-teal"
+                    : "border-tquot-warm/30 bg-amber-50 text-tquot-warm"
+                }`}
+              >
+                {isSelected ? t.itemIncluded : t.itemAlternative}
+              </span>
+            ) : null}
+            {isIndependent ? (
+              <span
+                className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                  isIncluded
+                    ? "border-tquot-teal/30 bg-tquot-teal/10 text-tquot-teal"
+                    : "border-tquot-warm/30 bg-amber-50 text-tquot-warm"
+                }`}
+              >
+                {isIncluded ? t.itemIncluded : t.itemExcluded}
+              </span>
+            ) : null}
+            <span
+              className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${sourceStyles[item.source]}`}
+            >
+              {sourceLabels[item.source]}
+            </span>
+          </div>
+          <h4 className="font-semibold text-tquot-text">{item.title}</h4>
+          <p className="mt-1 text-sm text-tquot-muted">{item.provider}</p>
+        </div>
+        <p
+          className={`text-xl font-black ${isSelected || !isSelectable ? "text-tquot-teal" : "text-tquot-muted"}`}
+        >
+          {formatCurrency(item.finalPrice, locale)}
+        </p>
+      </div>
+
+      {expanded ? (
+        <HotelQuoteItemExpanded
+          item={item}
+          locale={locale}
+          t={t}
+          nights={nights}
+          roomType={roomType}
+          board={board}
+          onBoardChange={setBoard}
+          marginPercent={marginPercent}
+          isSelectable={isSelectable}
+          isIndependent={isIndependent}
+          isSelected={isSelected}
+          onSelect={onSelect}
+          onMarginChange={onMarginChange}
+          onCompare={onCompare}
+        />
+      ) : null}
+    </article>
+  );
+}
+
 function FlightTableExpandedDetails({
   item,
   marginPercent,
@@ -570,6 +930,19 @@ function QuoteItemCard({
   onCompare?: (itemId: string) => void;
   selectionMode?: "exclusive" | "independent";
 }) {
+  if (item.type === "hotel") {
+    return (
+      <HotelQuoteItemCard
+        item={item}
+        onSelect={onSelect}
+        onToggle={onToggle}
+        onMarginChange={onMarginChange}
+        onCompare={onCompare}
+        selectionMode={selectionMode}
+      />
+    );
+  }
+
   const { locale, t } = useDashboardLanguage();
   const selectionGroup = getQuoteSelectionGroup(item.id);
   const isIndependent = selectionMode === "independent";
@@ -578,8 +951,6 @@ function QuoteItemCard({
   const isIncluded = !item.alternative;
   const isSelected = isSelectable && isIncluded;
   const marginPercent = getItemMarginPercent(item);
-  const showCompareButton =
-    item.type === "hotel" && Boolean(item.hotelDetails) && Boolean(onCompare);
 
   const typeLabels: Record<QuoteItem["type"], string> = {
     flight: t.itemTypeFlight,
@@ -614,24 +985,6 @@ function QuoteItemCard({
         extra: sourceLeftAccent[item.source],
       })}
     >
-      {item.type === "hotel" ? (
-        <div className="mb-3 overflow-hidden rounded-lg border border-tquot-border bg-tquot-bg">
-          {item.imageUrl ? (
-            <img
-              src={item.imageUrl}
-              alt=""
-              className="h-32 w-full object-cover"
-            />
-          ) : (
-            <div
-              className="flex h-32 w-full items-center justify-center text-4xl"
-              aria-hidden
-            >
-              🏨
-            </div>
-          )}
-        </div>
-      ) : null}
       <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="mb-1 flex flex-wrap items-center gap-2">
@@ -739,19 +1092,6 @@ function QuoteItemCard({
               <span className="text-tquot-muted">%</span>
             </div>
           </label>
-        ) : null}
-
-        {showCompareButton ? (
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              onCompare?.(item.id);
-            }}
-            className="rounded-xl border border-tquot-border bg-tquot-surface px-4 py-2 text-xs font-bold text-tquot-text transition-colors hover:border-tquot-accent hover:text-tquot-accent"
-          >
-            {t.compareHotelPrices}
-          </button>
         ) : null}
 
         {isSelectable && !isIndependent ? (
