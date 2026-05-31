@@ -473,6 +473,8 @@ function FlightTableRow({
               item={item}
               marginPercent={marginPercent}
               onMarginChange={onMarginChange}
+              onFlightFareSelect={onFlightFareSelect}
+              passengerCount={passengerCount}
             />
           </td>
         </tr>
