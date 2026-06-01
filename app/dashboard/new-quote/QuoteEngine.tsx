@@ -67,15 +67,36 @@ type CatalogProviderEntry = {
   logoUrl: string | null;
 };
 
+type ComparatorQuotedRate = {
+  price: number;
+  rateKey: string;
+  providerName: string;
+  providerId?: string;
+};
+
 type ComparatorPanelState = {
   itemId: string;
   loading: boolean;
   error: string | null;
   results: ComparatorOutput | null;
   catalogProviders: CatalogProviderEntry[];
+  quotedRate?: ComparatorQuotedRate;
 };
 
 const HOTEL_PROVIDER_CATEGORY = "hotels";
+
+function quotedRateFromHotelItem(item: QuoteItem): ComparatorQuotedRate | undefined {
+  const rateKey = item.hotelDetails?.rateKey;
+  if (!rateKey) {
+    return undefined;
+  }
+  return {
+    price: item.price,
+    rateKey,
+    providerName: item.provider,
+    providerId: item.hotelDetails?.providerId,
+  };
+}
 
 function buildProcessSteps(t: DashboardTranslation): ProcessStep[] {
   return [
@@ -589,6 +610,7 @@ export function QuoteEngine() {
     }
 
     const hotelCode = item.hotelDetails.hotelCode;
+    const quotedRate = quotedRateFromHotelItem(item);
 
     setComparatorPanel({
       itemId,
@@ -596,6 +618,7 @@ export function QuoteEngine() {
       error: null,
       results: null,
       catalogProviders: [],
+      quotedRate,
     });
 
     try {
@@ -706,6 +729,7 @@ export function QuoteEngine() {
         error,
         results,
         catalogProviders,
+        quotedRate,
       });
     } catch (compareError) {
       setComparatorPanel({
@@ -717,6 +741,7 @@ export function QuoteEngine() {
             : t.comparatorGenericError,
         results: null,
         catalogProviders: [],
+        quotedRate,
       });
     }
   }
@@ -1767,6 +1792,29 @@ function HotelComparatorPanel({
 
         {!panel.loading && panel.catalogProviders.length > 0 ? (
           <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
+            {panel.quotedRate ? (
+              <div className="flex flex-wrap items-center gap-3 rounded-xl border border-tquot-accent/30 bg-blue-50/80 px-4 py-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-tquot-surface text-lg">
+                  📋
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-semibold text-tquot-text">
+                      {panel.quotedRate.providerName}
+                    </p>
+                    <span className="rounded-full border border-tquot-accent/35 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-tquot-accent">
+                      {t.comparatorQuotedPrice}
+                    </span>
+                  </div>
+                  <p className="text-xs text-tquot-muted">
+                    {t.comparatorQuotedPriceHint}
+                  </p>
+                </div>
+                <p className="text-lg font-bold tabular-nums text-tquot-text">
+                  {formatCurrency(panel.quotedRate.price, locale)}
+                </p>
+              </div>
+            ) : null}
             {panel.catalogProviders.map((provider) => {
               const row = provider.connected
                 ? comparatorRowForProvider(panel.results, provider.providerId)
@@ -1776,6 +1824,15 @@ function HotelComparatorPanel({
                 row!.status === "ok" &&
                 providerSlug(row!.providerId) ===
                   providerSlug(cheapestProviderId ?? "");
+              const hasSameLiveRate = Boolean(
+                panel.quotedRate &&
+                  row?.status === "ok" &&
+                  row.bestRoom &&
+                  panel.quotedRate.providerId &&
+                  providerSlug(row.providerId) ===
+                    providerSlug(panel.quotedRate.providerId) &&
+                  row.bestRoom.providerRoomCode === panel.quotedRate.rateKey,
+              );
               const price =
                 row?.status === "ok" && row.bestRoom
                   ? formatCurrency(row.bestRoom.netPrice, locale)
@@ -1809,6 +1866,11 @@ function HotelComparatorPanel({
                       {isCheapest ? (
                         <span className="rounded-full border border-tquot-teal/35 bg-tquot-teal/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-tquot-teal">
                           {t.comparatorCheapest}
+                        </span>
+                      ) : null}
+                      {hasSameLiveRate ? (
+                        <span className="rounded-full border border-tquot-accent/35 bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-tquot-accent">
+                          {t.comparatorSameRate}
                         </span>
                       ) : null}
                     </div>

@@ -19,6 +19,8 @@ export type HotelOption = {
   propertyId?: string;
   connectionId?: string;
   imageUrl?: string;
+  /** Hotelbeds (and similar) bookable rate id from availability search. */
+  rateKey?: string;
 };
 
 export type SearchBookingHotelsInput = {

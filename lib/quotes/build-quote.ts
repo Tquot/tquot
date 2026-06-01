@@ -104,6 +104,7 @@ export type QuoteItemHotelDetails = {
   hotelCode?: string;
   providerId?: string;
   connectionId?: string;
+  rateKey?: string;
 };
 
 export interface QuoteItem {
@@ -530,6 +531,7 @@ function buildHotelDetails(
     ...(hotelCode ? { hotelCode } : {}),
     ...(providerId ? { providerId } : {}),
     ...(connectionId ? { connectionId } : {}),
+    ...(hotel.rateKey ? { rateKey: hotel.rateKey } : {}),
   };
 }
 

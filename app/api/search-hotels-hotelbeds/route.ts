@@ -98,6 +98,7 @@ function toHotelOption(hotel: {
     roomType: string;
     netPrice: number;
     pricePerNight: number;
+    providerRoomCode: string;
   }>;
 }): HotelOption | null {
   if (!Array.isArray(hotel.rooms) || hotel.rooms.length === 0) return null;
@@ -120,6 +121,9 @@ function toHotelOption(hotel: {
     distanceFromCenter: "Distance unavailable",
     providerName: "Hotelbeds",
     hotelCode: hotel.providerHotelId,
+    ...(cheapest.providerRoomCode
+      ? { rateKey: cheapest.providerRoomCode }
+      : {}),
   };
 }
 
