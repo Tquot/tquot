@@ -915,6 +915,7 @@ export function QuoteEngine() {
       ...parsedInput,
       enrichedTrip,
       airportChoices: choicesForBuild,
+      locale,
     });
     setTripInput({
       ...parsedInput,

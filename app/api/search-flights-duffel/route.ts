@@ -5,12 +5,14 @@ import {
   parseDuffelPayload,
   requestDuffelOfferSearch,
 } from "@/lib/duffel/flights";
+import { resolveDuffelLocale } from "@/lib/i18n/resolve-duffel-locale";
 
 type SearchFlightsDuffelRequest = {
   origin?: unknown;
   destination?: unknown;
   date?: unknown;
   adults?: unknown;
+  locale?: unknown;
 };
 
 function isNonEmptyString(value: unknown): value is string {
@@ -59,7 +61,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const { origin, destination, date, adults } = body;
+  const { origin, destination, date, adults, locale: bodyLocale } = body;
+  const locale = resolveDuffelLocale({
+    bodyLocale,
+    acceptLanguage: request.headers.get("accept-language"),
+  });
 
   if (
     !isNonEmptyString(origin) ||
@@ -100,6 +106,7 @@ export async function POST(request: Request) {
     console.log("[search-flights-duffel] Duffel response", {
       status: result.status,
       ok: result.ok,
+      locale,
       bodyPreview: result.bodyText.slice(0, 500),
     });
 
@@ -129,7 +136,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: message }, { status: result.status });
     }
 
-    const flights: FlightOption[] = normalizeDuffelFlights(payload);
+    const flights: FlightOption[] = normalizeDuffelFlights(payload, locale);
 
     if (flights.length === 0) {
       console.error("[search-flights-duffel] Duffel returned no flight options", {

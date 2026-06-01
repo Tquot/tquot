@@ -9,6 +9,18 @@ export const DUFFEL_OFFER_REQUESTS_URL =
   "https://api.duffel.com/air/offer_requests";
 export const DUFFEL_API_VERSION = "v2";
 
+export type DuffelLocale = "es" | "en";
+
+const CABIN_CLASS_LABELS: Record<
+  string,
+  Record<DuffelLocale, string>
+> = {
+  economy: { es: "Turista", en: "Economy" },
+  premium_economy: { es: "Turista Premium", en: "Premium Economy" },
+  business: { es: "Business", en: "Business" },
+  first: { es: "Primera clase", en: "First Class" },
+};
+
 export type DuffelSearchParams = {
   origin: string;
   destination: string;
@@ -94,13 +106,25 @@ function parseOfferPrice(amount: unknown): number {
   return Number.isFinite(parsed) ? Math.round(parsed) : 0;
 }
 
-function formatBaggageIncluded(passengers: unknown): string {
+function normalizeCabinSlug(value: unknown): string {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
+}
+
+function formatBaggageIncluded(
+  passengers: unknown,
+  locale: DuffelLocale = "es",
+): string {
   const passengerList = asArray(passengers);
   const firstPassenger = asRecord(passengerList[0]);
   const baggages = asArray(firstPassenger.baggages);
+  const noneLabel =
+    locale === "en" ? "No baggage included" : "Sin equipaje incluido";
 
   if (baggages.length === 0) {
-    return "Sin equipaje incluido";
+    return noneLabel;
   }
 
   const labels: string[] = [];
@@ -113,23 +137,45 @@ function formatBaggageIncluded(passengers: unknown): string {
     const type = String(baggage.type ?? "");
     if (type === "carry_on") {
       labels.push(
-        `${quantity} maleta${quantity === 1 ? "" : "s"} de mano`,
+        locale === "en"
+          ? `${quantity} carry-on bag${quantity === 1 ? "" : "s"}`
+          : `${quantity} maleta${quantity === 1 ? "" : "s"} de mano`,
       );
     } else if (type === "checked") {
-      labels.push(`${quantity} facturada${quantity === 1 ? "" : "s"}`);
+      labels.push(
+        locale === "en"
+          ? `${quantity} checked bag${quantity === 1 ? "" : "s"}`
+          : `${quantity} facturada${quantity === 1 ? "" : "s"}`,
+      );
     }
   }
 
-  return labels.length > 0 ? labels.join(" · ") : "Sin equipaje incluido";
+  return labels.length > 0 ? labels.join(" · ") : noneLabel;
 }
 
-function formatCabinClass(passengers: unknown): string {
+function formatCabinClass(
+  passengers: unknown,
+  locale: DuffelLocale = "es",
+): string {
   const passengerList = asArray(passengers);
   const firstPassenger = asRecord(passengerList[0]);
-  return getString(
-    firstPassenger.cabin_class_marketing_name,
-    firstPassenger.cabin_class,
-  );
+  const slug = normalizeCabinSlug(firstPassenger.cabin_class);
+  const mapped = slug ? CABIN_CLASS_LABELS[slug] : undefined;
+
+  if (mapped) {
+    return mapped[locale];
+  }
+
+  const marketingName = getString(firstPassenger.cabin_class_marketing_name);
+  if (marketingName !== "Unknown") {
+    return marketingName;
+  }
+
+  if (slug && slug !== "unknown") {
+    return slug;
+  }
+
+  return "Unknown";
 }
 
 function layoverFromStop(stop: Record<string, unknown>): FlightLayover {
@@ -191,29 +237,36 @@ function collectLayovers(segments: Record<string, unknown>[]): FlightLayover[] {
   return layovers;
 }
 
-function fareNameFromOffer(offer: Record<string, unknown>): string {
+function fareNameFromOffer(
+  offer: Record<string, unknown>,
+  locale: DuffelLocale,
+): string {
   const slice = asRecord(asArray(offer.slices)[0]);
   const segments = asArray(slice.segments).map(asRecord);
   const firstSegment = segments[0] ?? {};
-  const cabinClass = formatCabinClass(firstSegment.passengers);
+  const cabinClass = formatCabinClass(firstSegment.passengers, locale);
   if (cabinClass !== "Unknown") {
     return cabinClass;
   }
-  return getString(offer.fare_brand_name, offer.owner_name, "Tarifa");
+  const fallbackFare = locale === "en" ? "Fare" : "Tarifa";
+  return getString(offer.fare_brand_name, offer.owner_name, fallbackFare);
 }
 
-function offerToFareOption(offer: Record<string, unknown>): FlightFareOption {
+function offerToFareOption(
+  offer: Record<string, unknown>,
+  locale: DuffelLocale,
+): FlightFareOption {
   const slice = asRecord(asArray(offer.slices)[0]);
   const segments = asArray(slice.segments).map(asRecord);
   const firstSegment = segments[0] ?? {};
   const priceNumeric = parseOfferPrice(offer.total_amount);
 
   return {
-    fareName: fareNameFromOffer(offer),
+    fareName: fareNameFromOffer(offer, locale),
     price: `${getString(offer.total_currency)} ${getString(offer.total_amount)}`,
     priceNumeric,
-    baggageIncluded: formatBaggageIncluded(firstSegment.passengers),
-    cabinClass: formatCabinClass(firstSegment.passengers),
+    baggageIncluded: formatBaggageIncluded(firstSegment.passengers, locale),
+    cabinClass: formatCabinClass(firstSegment.passengers, locale),
     offerId:
       typeof offer.id === "string" && offer.id.trim()
         ? offer.id.trim()
@@ -230,7 +283,10 @@ function flightGroupKey(option: FlightOption): string {
   ].join("|");
 }
 
-function mapOfferToFlightOption(offer: Record<string, unknown>): FlightOption {
+function mapOfferToFlightOption(
+  offer: Record<string, unknown>,
+  locale: DuffelLocale,
+): FlightOption {
   const slice = asRecord(asArray(offer.slices)[0]);
   const segments = asArray(slice.segments).map(asRecord);
   const firstSegment = segments[0] ?? {};
@@ -269,7 +325,7 @@ function mapOfferToFlightOption(offer: Record<string, unknown>): FlightOption {
     firstSegment.operating_carrier_flight_number,
   );
   const priceNumeric = parseOfferPrice(offer.total_amount);
-  const fareName = fareNameFromOffer(offer);
+  const fareName = fareNameFromOffer(offer, locale);
 
   return {
     offerId: getString(offer.id) !== "Unknown" ? getString(offer.id) : undefined,
@@ -294,8 +350,8 @@ function mapOfferToFlightOption(offer: Record<string, unknown>): FlightOption {
     originCity: getString(origin.city_name, origin.name),
     destinationCity: getString(destination.city_name, destination.name),
     airlineLogoUrl: getString(operatingCarrier.logo_symbol_url),
-    cabinClass: formatCabinClass(firstSegment.passengers),
-    baggageIncluded: formatBaggageIncluded(firstSegment.passengers),
+    cabinClass: formatCabinClass(firstSegment.passengers, locale),
+    baggageIncluded: formatBaggageIncluded(firstSegment.passengers, locale),
     layovers: collectLayovers(segments),
     priceNumeric,
   };
@@ -358,10 +414,13 @@ export function countDuffelFlights(payload: unknown): number {
   return asArray(data.offers).length;
 }
 
-export function normalizeDuffelFlights(payload: unknown): FlightOption[] {
+export function normalizeDuffelFlights(
+  payload: unknown,
+  locale: DuffelLocale = "es",
+): FlightOption[] {
   const data = asRecord(asRecord(payload).data);
   const rawOffers = asArray(data.offers).map(asRecord);
-  const mapped = rawOffers.map(mapOfferToFlightOption);
+  const mapped = rawOffers.map((offer) => mapOfferToFlightOption(offer, locale));
 
   const groups = new Map<string, { offers: Record<string, unknown>[]; options: FlightOption[] }>();
 
@@ -398,7 +457,7 @@ export function normalizeDuffelFlights(payload: unknown): FlightOption[] {
     const primary = primaryEntry.option;
     const alternates = sorted
       .slice(1)
-      .map((entry) => offerToFareOption(entry.raw))
+      .map((entry) => offerToFareOption(entry.raw, locale))
       .filter((fare) => fare.offerId.length > 0);
 
     groupFareCounts.push({

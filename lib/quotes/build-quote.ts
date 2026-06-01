@@ -8,6 +8,7 @@ import type {
 } from "@/app/api/search-flights/route";
 import type { HotelOption } from "@/app/api/search-hotels/route";
 import { getCityIATA } from "@/lib/airports";
+import type { DuffelLocale } from "@/lib/duffel/flights";
 import { buildFlightSearchParams } from "@/lib/flights/build-search-params";
 import { matchesExperienceDurationForTrip } from "@/lib/inventory/experience-duration";
 import {
@@ -60,6 +61,8 @@ export interface ParsedTripInput {
   includeHotels: boolean;
   includeExperiences: boolean;
   includeFlights: boolean;
+  /** Localizes Duffel flight search strings (baggage, cabin class). */
+  locale?: DuffelLocale;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -218,6 +221,7 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
           seed,
           enrichedTrip: input.enrichedTrip,
           airportChoices: input.airportChoices,
+          locale: input.locale ?? "es",
         })
       : Promise.resolve(emptySection()),
     includeHotels
@@ -352,6 +356,7 @@ async function searchFlightsApi(params: {
   destination: string;
   date: string;
   adults: number;
+  locale?: DuffelLocale;
 }): Promise<FlightOption[]> {
   const data = await postSearchApi<{ flights?: FlightOption[]; fallback?: boolean }>(
     "/api/search-flights-duffel",
@@ -360,6 +365,7 @@ async function searchFlightsApi(params: {
       destination: params.destination,
       date: params.date,
       adults: params.adults,
+      locale: params.locale ?? "es",
     },
   );
   console.log("[buildQuote] /api/search-flights returned", {
@@ -792,8 +798,10 @@ async function buildFlightsFromApiOrMock(params: {
   seed: number;
   enrichedTrip?: EnrichedTripRequest;
   airportChoices?: AirportFlightChoices;
+  locale?: DuffelLocale;
 }): Promise<QuoteSectionBuildResult> {
-  const { origin, destination, dates, pax, directFlights, seed } = params;
+  const { origin, destination, dates, pax, directFlights, seed, locale = "es" } =
+    params;
   const adults = pax.adults;
 
   if (shouldSkipFlightSearch(origin, destination)) {
@@ -822,12 +830,14 @@ async function buildFlightsFromApiOrMock(params: {
       destination: destinationIata,
       date: dates.start,
       adults,
+      locale,
     }),
     searchFlightsApi({
       origin: destinationIata,
       destination: originIata,
       date: dates.end,
       adults,
+      locale,
     }),
   ]);
 
