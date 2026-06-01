@@ -616,6 +616,14 @@ export function QuoteEngine() {
     const hotelCode = item.hotelDetails.hotelCode;
     const quotedRate = quotedRateFromHotelItem(item);
 
+    console.log("[comparator] quotedRate", {
+      itemPrice: item.price,
+      itemFinalPrice: item.finalPrice,
+      itemMarkup: item.markup,
+      rateKey: item.hotelDetails?.rateKey,
+      quotedRate,
+    });
+
     setComparatorPanel({
       itemId,
       loading: true,
