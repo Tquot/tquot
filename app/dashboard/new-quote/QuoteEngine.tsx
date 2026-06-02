@@ -1597,7 +1597,14 @@ export function QuoteEngine() {
               </div>
             </div>
 
-            <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-start">
+            <div
+              className="mb-6 gap-6"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(3, 1fr)",
+                alignItems: "start",
+              }}
+            >
               <div
                 className={`flex min-h-0 flex-col lg:max-h-[70vh] ${
                   quote.flights.length === 0 ? "hidden lg:flex" : ""
