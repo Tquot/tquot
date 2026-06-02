@@ -2,18 +2,31 @@
 
 import Link from "next/link";
 import { useEffect, useState, type ComponentType } from "react";
-import { LandingProductMock } from "@/app/landing/product-mock";
+import { LandingActivities } from "@/app/landing/landing-activities";
+import { LandingAgentFlow } from "@/app/landing/landing-agent-flow";
+import { LandingComparator } from "@/app/landing/landing-comparator";
+import { LandingHotels } from "@/app/landing/landing-hotels";
+import { LandingPdf } from "@/app/landing/landing-pdf";
+import { LandingRoi } from "@/app/landing/landing-roi";
+import { SectionIntro } from "@/app/landing/section-intro";
 import { PublicLocaleToggle } from "@/app/components/public-locale-toggle";
 import { TQuotLogo } from "@/app/components/tquot-logo";
 import type { DashboardTranslation } from "@/app/dashboard/translations";
 import { useSiteLanguage } from "@/app/language-provider";
 
+const CONTACT_EMAIL = "hello@tquot.io";
+
 const NAV_LINKS = [
-  { href: "#product", key: "landingNavProduct" as const },
-  { href: "#how-it-works", key: "landingNavHowItWorks" as const },
-  { href: "#features", key: "landingNavFeatures" as const },
+  { href: "#flow", key: "landingNavFlow" as const },
+  { href: "#hoteles", key: "landingNavHotels" as const },
+  { href: "#comparador", key: "landingNavComparator" as const },
   { href: "#connectors", key: "landingNavConnectors" as const },
   { href: "#pricing", key: "landingNavPricing" as const },
+] as const;
+
+const FOOTER_NAV_LINKS = [
+  ...NAV_LINKS,
+  { href: "#how-it-works", key: "landingNavHowItWorks" as const },
   { href: "#faq", key: "landingNavFaq" as const },
 ] as const;
 
@@ -148,6 +161,7 @@ export function HomePageClient() {
         t.landingPlanProFeature4,
       ],
       featured: false,
+      contactEmail: true,
     },
   ];
 
@@ -184,12 +198,18 @@ export function HomePageClient() {
               <ArrowIcon className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
             <a
-              href="#how-it-works"
+              href="#flow"
               className="inline-flex items-center justify-center rounded-full border border-tquot-border bg-tquot-surface px-8 py-4 text-base font-medium text-tquot-text shadow-sm transition-all hover:border-tquot-accent/30 hover:bg-white"
             >
               {t.landingCtaHowItWorks}
             </a>
           </div>
+
+          <p className="mx-auto mt-10 max-w-xl text-sm text-tquot-muted">
+            ⏱ {t.landingHeroTimer}{" "}
+            <strong className="text-tquot-navy">{t.landingHeroTimerValue}</strong>{" "}
+            {t.landingHeroTimerSuffix}
+          </p>
 
           <div className="mx-auto mt-16 grid max-w-4xl grid-cols-1 gap-4 sm:grid-cols-3">
             <StatCard animatedTime t={t} />
@@ -206,16 +226,10 @@ export function HomePageClient() {
           </div>
         </section>
 
-        <section id="product" className="mx-auto max-w-6xl scroll-mt-24 px-6 pb-20 lg:px-8 lg:pb-28">
-          <SectionIntro
-            eyebrow={t.landingProductEyebrow}
-            title={t.landingProductTitle}
-            subtitle={t.landingProductSubtitle}
-          />
-          <div className="mt-10 animate-[float_6s_ease-in-out_infinite]">
-            <LandingProductMock t={t} />
-          </div>
-        </section>
+        <LandingAgentFlow t={t} />
+        <LandingHotels t={t} />
+        <LandingActivities t={t} />
+        <LandingComparator t={t} />
 
         <section
           id="how-it-works"
@@ -293,6 +307,9 @@ export function HomePageClient() {
             </p>
           </div>
         </section>
+
+        <LandingPdf t={t} />
+        <LandingRoi t={t} />
 
         <section id="pricing" className="mx-auto max-w-6xl scroll-mt-24 px-6 py-20 lg:px-8 lg:py-28">
           <SectionIntro
@@ -512,7 +529,7 @@ function LandingFooter({ t }: { t: DashboardTranslation }) {
               {t.landingFooterProduct}
             </p>
             <ul className="mt-4 space-y-2 text-sm">
-              {NAV_LINKS.map((link) => (
+              {FOOTER_NAV_LINKS.map((link) => (
                 <li key={link.href}>
                   <a href={link.href} className="text-white/70 hover:text-tquot-teal">
                     {t[link.key]}
@@ -526,6 +543,14 @@ function LandingFooter({ t }: { t: DashboardTranslation }) {
               {t.landingFooterCompany}
             </p>
             <ul className="mt-4 space-y-2 text-sm">
+              <li>
+                <a
+                  href={`mailto:${CONTACT_EMAIL}`}
+                  className="text-white/70 hover:text-tquot-teal"
+                >
+                  {t.landingFooterEmail}
+                </a>
+              </li>
               <li>
                 <Link href="/login" className="text-white/70 hover:text-tquot-teal">
                   {t.landingNavSignIn}
@@ -554,39 +579,23 @@ function LandingFooter({ t }: { t: DashboardTranslation }) {
           <p className="text-sm text-white/50">
             © {new Date().getFullYear()} TQuot. {t.landingFooterRights}
           </p>
-          <Link
-            href="https://tquot.io"
-            className="text-sm font-medium text-tquot-teal hover:text-[#00e5bb]"
-          >
-            tquot.io
-          </Link>
+          <div className="flex flex-col items-center gap-1 sm:items-end">
+            <a
+              href={`mailto:${CONTACT_EMAIL}`}
+              className="text-sm font-medium text-tquot-teal hover:text-[#00e5bb]"
+            >
+              {CONTACT_EMAIL}
+            </a>
+            <Link
+              href="https://tquot.io"
+              className="text-sm text-white/50 hover:text-white/70"
+            >
+              tquot.io
+            </Link>
+          </div>
         </div>
       </div>
     </footer>
-  );
-}
-
-function SectionIntro({
-  eyebrow,
-  title,
-  subtitle,
-  centered,
-}: {
-  eyebrow: string;
-  title: string;
-  subtitle?: string;
-  centered?: boolean;
-}) {
-  return (
-    <div className={centered ? "mx-auto max-w-2xl text-center" : "max-w-2xl"}>
-      <p className="text-sm font-semibold uppercase tracking-widest text-tquot-teal">
-        {eyebrow}
-      </p>
-      <h2 className="mt-3 font-[family-name:var(--font-outfit)] text-3xl font-bold tracking-tight text-tquot-navy sm:text-4xl">
-        {title}
-      </h2>
-      {subtitle ? <p className="mt-4 text-tquot-muted">{subtitle}</p> : null}
-    </div>
   );
 }
 
@@ -712,6 +721,7 @@ function PricingCard({
     desc: string;
     features: string[];
     featured: boolean;
+    contactEmail?: boolean;
   };
   t: DashboardTranslation;
 }) {
@@ -746,16 +756,25 @@ function PricingCard({
           </li>
         ))}
       </ul>
-      <Link
-        href="/login"
-        className={`mt-8 block rounded-full py-3 text-center text-sm font-bold transition-colors ${
-          plan.featured
-            ? "bg-tquot-teal text-white hover:bg-[#00a884]"
-            : "border border-tquot-border bg-white text-tquot-text hover:border-tquot-teal hover:text-tquot-teal"
-        }`}
-      >
-        {t.landingPricingCta}
-      </Link>
+      {plan.contactEmail ? (
+        <a
+          href={`mailto:${CONTACT_EMAIL}`}
+          className="mt-8 block rounded-full border border-tquot-border bg-white py-3 text-center text-sm font-bold text-tquot-text transition-colors hover:border-tquot-teal hover:text-tquot-teal"
+        >
+          {t.landingPlanProCtaContact}
+        </a>
+      ) : (
+        <Link
+          href="/login"
+          className={`mt-8 block rounded-full py-3 text-center text-sm font-bold transition-colors ${
+            plan.featured
+              ? "bg-tquot-teal text-white hover:bg-[#00a884]"
+              : "border border-tquot-border bg-white text-tquot-text hover:border-tquot-teal hover:text-tquot-teal"
+          }`}
+        >
+          {t.landingPricingCta}
+        </Link>
+      )}
     </article>
   );
 }
