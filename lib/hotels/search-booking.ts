@@ -8,6 +8,7 @@ const RAPIDAPI_HOST = "booking-com18.p.rapidapi.com";
 export type HotelOption = {
   name: string;
   pricePerNight: string;
+  netPrice?: number;
   stars: number | string;
   rating: number | string;
   address: string;

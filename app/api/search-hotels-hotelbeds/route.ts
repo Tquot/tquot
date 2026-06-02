@@ -113,6 +113,7 @@ function toHotelOption(hotel: {
   return {
     name: hotel.name,
     pricePerNight: `${Math.round(cheapest.pricePerNight)} EUR`,
+    ...(Number.isFinite(cheapest.netPrice) ? { netPrice: cheapest.netPrice } : {}),
     stars: hotel.category ?? "Unknown",
     rating: "Unknown",
     address: hotel.address ?? "Unknown",

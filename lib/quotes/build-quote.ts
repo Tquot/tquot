@@ -105,6 +105,7 @@ export type QuoteItemHotelDetails = {
   providerId?: string;
   connectionId?: string;
   rateKey?: string;
+  netPrice?: number;
 };
 
 export interface QuoteItem {
@@ -532,6 +533,7 @@ function buildHotelDetails(
     ...(providerId ? { providerId } : {}),
     ...(connectionId ? { connectionId } : {}),
     ...(hotel.rateKey ? { rateKey: hotel.rateKey } : {}),
+    ...(Number.isFinite(hotel.netPrice) ? { netPrice: hotel.netPrice } : {}),
   };
 }
 

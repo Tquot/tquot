@@ -65,6 +65,7 @@ type CatalogProviderEntry = {
   connected: boolean;
   connectionId?: string;
   logoUrl: string | null;
+  netPrice?: number;
 };
 
 type ComparatorPanelState = {
@@ -644,31 +645,64 @@ export function QuoteEngine() {
         (provider) => {
           const slug = providerSlug(provider.id);
           const connection = connectionsByProvider.get(slug);
+          const isHotelbedsProvider = slug === providerSlug("hotelbeds");
           return {
             providerId: provider.id,
             providerName: provider.name,
             connected: Boolean(connection),
             connectionId: connection?.id,
             logoUrl: provider.logo_url,
+            ...(isHotelbedsProvider &&
+            Number.isFinite(item.hotelDetails?.netPrice)
+              ? { netPrice: item.hotelDetails!.netPrice! }
+              : {}),
           };
         },
       );
 
       let results: ComparatorOutput | null = null;
       let error: string | null = null;
+      const localRows: ComparatorResultRow[] = [];
 
       const hotelMappings = catalogProviders
         .filter(
           (provider) =>
-            provider.providerId !== "inventory" &&
             provider.connected &&
-            provider.connectionId,
+            provider.connectionId &&
+            providerSlug(provider.providerId) !== providerSlug("hotelbeds"),
         )
         .map((provider) => ({
           connectionId: provider.connectionId!,
           hotelCodes: hotelCode ? [hotelCode] : [],
         }))
         .filter((mapping) => mapping.hotelCodes.length > 0);
+
+      const hotelbedsProvider = catalogProviders.find(
+        (provider) =>
+          provider.connected &&
+          providerSlug(provider.providerId) === providerSlug("hotelbeds"),
+      );
+      if (
+        hotelbedsProvider &&
+        Number.isFinite(hotelbedsProvider.netPrice) &&
+        hotelbedsProvider.netPrice! > 0
+      ) {
+        localRows.push({
+          providerId: hotelbedsProvider.providerId,
+          providerName: hotelbedsProvider.providerName,
+          status: "ok",
+          elapsedMs: 0,
+          bestRoom: {
+            roomType: item.title,
+            boardType: "UNSPECIFIED",
+            netPrice: hotelbedsProvider.netPrice!,
+            publicPrice: null,
+            currency: "EUR",
+            refundable: true,
+            providerRoomCode: item.hotelDetails?.rateKey ?? "",
+          },
+        });
+      }
 
       if (!hotelCode) {
         error = t.comparatorNoConnection;
@@ -704,6 +738,7 @@ export function QuoteEngine() {
               : t.comparatorGenericError;
         }
       }
+      results = mergeComparatorRows(results, localRows);
 
       setComparatorPanel({
         itemId,
@@ -1712,6 +1747,47 @@ function comparatorRowForProvider(
   return results?.results.find(
     (row) => providerSlug(row.providerId) === slug,
   );
+}
+
+function mergeComparatorRows(
+  baseResults: ComparatorOutput | null,
+  extraRows: ComparatorResultRow[],
+): ComparatorOutput | null {
+  if (!baseResults && extraRows.length === 0) {
+    return null;
+  }
+
+  const results = [...(baseResults?.results ?? []), ...extraRows];
+  const statusOrder: Record<ComparatorResultRow["status"], number> = {
+    ok: 0,
+    no_results: 1,
+    timeout: 2,
+    error: 3,
+  };
+  const sorted = [...results].sort((a, b) => {
+    const orderDiff = statusOrder[a.status] - statusOrder[b.status];
+    if (orderDiff !== 0) return orderDiff;
+    if (a.status === "ok" && b.status === "ok") {
+      return (a.bestRoom?.netPrice ?? 0) - (b.bestRoom?.netPrice ?? 0);
+    }
+    return 0;
+  });
+
+  const cheapest =
+    sorted.find((row) => row.status === "ok" && row.bestRoom) ?? null;
+
+  return {
+    results: sorted,
+    cheapest,
+    totalElapsedMs: baseResults?.totalElapsedMs ?? 0,
+    summary: {
+      consulted: sorted.length,
+      ok: sorted.filter((row) => row.status === "ok").length,
+      errors: sorted.filter((row) => row.status === "error").length,
+      timeouts: sorted.filter((row) => row.status === "timeout").length,
+      noResults: sorted.filter((row) => row.status === "no_results").length,
+    },
+  };
 }
 
 function HotelComparatorPanel({
