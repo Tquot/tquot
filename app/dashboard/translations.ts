@@ -300,8 +300,18 @@ const es = {
   landingProductTitle: "Tu espacio de trabajo de cotización",
   landingProductSubtitle:
     "Un solo lugar para interpretar la petición, comparar proveedores y enviar la propuesta.",
-  landingMockRequest:
-    "Familia de 4, Roma y Florencia, 10 noches en junio, hoteles 4★, visita al Vaticano sin colas y traslados incluidos.",
+  landingMockAgentTitle: "TQuot Agent",
+  landingMockChatAgentLabel: "Agente",
+  landingMockChatTquotLabel: "TQuot",
+  landingMockChatAgentMessage:
+    "Viaje a Lanzarote del 6 al 18 agosto, 2 adultos, hotel 4 estrellas cerca de Playa Blanca, vuelos desde Madrid",
+  landingMockChatTquotMessage:
+    "He detectado: MAD→ACE+vuelta, 12 noches, hotel 4★ zona Playa Blanca, 2 adultos. ¿Confirmas?",
+  landingMockHotelResultName: "Barceló Teguise Beach",
+  landingMockHotelResultLocation: "Playa Blanca, Lanzarote",
+  landingMockHotelResultMeta: "4★ · 12 noches · AD",
+  landingMockHotelResultPrice: "€2.840 neto",
+  landingMockHotelResultPhotoAlt: "Hotel en Playa Blanca, Lanzarote",
   landingMockStepParse: "Interpretar",
   landingMockStepMap: "Enriquecer",
   landingMockStepBuild: "Cotizar",
@@ -355,6 +365,8 @@ const es = {
   landingConnectorsDisclaimer:
     "Disponibilidad según plan, mercado y credenciales de tu agencia.",
   landingConnectorsMore: "y más",
+  landingConnectorStatusConnected: "Conectado",
+  landingConnectorStatusAvailable: "Disponible",
   landingConnectorHotelbeds: "Hotelbeds",
   landingConnectorBooking: "Booking.com",
   landingConnectorDuffel: "Duffel",
@@ -396,18 +408,18 @@ const es = {
   landingPlanProFeature3: "API y exportaciones",
   landingPlanProFeature4: "Onboarding dedicado",
   landingFaqTitle: "Preguntas frecuentes",
-  landingFaq1Q: "¿Qué es TQuot?",
+  landingFaq1Q: "¿TQuot hace reservas?",
   landingFaq1A:
-    "Un motor de cotización con IA para agencias de viajes: convierte peticiones en propuestas con precios reales y PDF profesional.",
-  landingFaq2Q: "¿Con qué proveedores funciona?",
+    "No. TQuot cotiza y compara precios. La reserva la realizas tú directamente en el extranet del proveedor. Mantienes el control total y cumples con la normativa de agencias de viajes.",
+  landingFaq2Q: "¿Necesito contratos con los proveedores?",
   landingFaq2A:
-    "Hotelbeds, Booking.com, Duffel, RateHawk, Viator, Civitatis, Battleface, Smytravel y más según tu plan y región.",
-  landingFaq3Q: "¿Mis datos están seguros?",
+    "Para conectores como Hotelbeds o RateHawk sí necesitas tu propio contrato. TQuot usa tus credenciales y tus tarifas negociadas, no las nuestras.",
+  landingFaq3Q: "¿Cómo funciona el inventario propio?",
   landingFaq3A:
-    "Tus credenciales de proveedor y datos de agencia se gestionan de forma segura. Cumplimos buenas prácticas de privacidad y control de acceso.",
-  landingFaq4Q: "¿Cómo obtengo acceso?",
+    "Sube un Excel con tus hoteles, experiencias y servicios. TQuot lo importa automáticamente y lo prioriza sobre cualquier API externa.",
+  landingFaq4Q: "¿Es seguro guardar las credenciales de mis proveedores?",
   landingFaq4A:
-    "Solicita acceso anticipado. Activamos agencias por fases para garantizar onboarding y soporte de calidad.",
+    "Sí. Las credenciales se guardan encriptadas en nuestra base de datos. Nunca se exponen al navegador del cliente.",
   landingFinalCtaTitle: "Empieza a cotizar en minutos, no en horas",
   landingFinalCtaSubtitle:
     "Únete a las agencias que ya prueban TQuot en acceso anticipado.",
@@ -731,8 +743,18 @@ const en: Record<keyof typeof es, string> = {
   landingProductTitle: "Your quote workspace",
   landingProductSubtitle:
     "One place to interpret the request, compare suppliers, and send the proposal.",
-  landingMockRequest:
-    "Family of 4, Rome and Florence, 10 nights in June, 4★ hotels, skip-the-line Vatican and transfers included.",
+  landingMockAgentTitle: "TQuot Agent",
+  landingMockChatAgentLabel: "Agent",
+  landingMockChatTquotLabel: "TQuot",
+  landingMockChatAgentMessage:
+    "Trip to Lanzarote 6–18 August, 2 adults, 4-star hotel near Playa Blanca, flights from Madrid",
+  landingMockChatTquotMessage:
+    "Detected: MAD→ACE round trip, 12 nights, 4★ hotel Playa Blanca area, 2 adults. Confirm?",
+  landingMockHotelResultName: "Barceló Teguise Beach",
+  landingMockHotelResultLocation: "Playa Blanca, Lanzarote",
+  landingMockHotelResultMeta: "4★ · 12 nights · B&B",
+  landingMockHotelResultPrice: "€2,840 net",
+  landingMockHotelResultPhotoAlt: "Hotel in Playa Blanca, Lanzarote",
   landingMockStepParse: "Parse",
   landingMockStepMap: "Enrich",
   landingMockStepBuild: "Quote",
@@ -786,6 +808,8 @@ const en: Record<keyof typeof es, string> = {
   landingConnectorsDisclaimer:
     "Availability depends on plan, market, and your agency credentials.",
   landingConnectorsMore: "and more",
+  landingConnectorStatusConnected: "Connected",
+  landingConnectorStatusAvailable: "Available",
   landingConnectorHotelbeds: "Hotelbeds",
   landingConnectorBooking: "Booking.com",
   landingConnectorDuffel: "Duffel",
@@ -827,18 +851,18 @@ const en: Record<keyof typeof es, string> = {
   landingPlanProFeature3: "API & exports",
   landingPlanProFeature4: "Dedicated onboarding",
   landingFaqTitle: "Frequently asked questions",
-  landingFaq1Q: "What is TQuot?",
+  landingFaq1Q: "Does TQuot make bookings?",
   landingFaq1A:
-    "An AI quote engine for travel agencies: it turns requests into proposals with real pricing and professional PDFs.",
-  landingFaq2Q: "Which providers does it work with?",
+    "No. TQuot quotes and compares prices. You complete the booking directly in the supplier extranet. You keep full control and stay compliant with travel agency regulations.",
+  landingFaq2Q: "Do I need contracts with suppliers?",
   landingFaq2A:
-    "Hotelbeds, Booking.com, Duffel, RateHawk, Viator, Civitatis, Battleface, Smytravel, and more depending on your plan and region.",
-  landingFaq3Q: "Is my data secure?",
+    "For connectors such as Hotelbeds or RateHawk you need your own contract. TQuot uses your credentials and your negotiated rates—not ours.",
+  landingFaq3Q: "How does own inventory work?",
   landingFaq3A:
-    "Your supplier credentials and agency data are handled securely. We follow privacy and access-control best practices.",
-  landingFaq4Q: "How do I get access?",
+    "Upload a spreadsheet with your hotels, experiences, and services. TQuot imports it automatically and prioritises it over any external API.",
+  landingFaq4Q: "Is it safe to store my supplier credentials?",
   landingFaq4A:
-    "Request early access. We onboard agencies in phases to ensure quality support.",
+    "Yes. Credentials are stored encrypted in our database. They are never exposed in the client browser.",
   landingFinalCtaTitle: "Start quoting in minutes, not hours",
   landingFinalCtaSubtitle:
     "Join agencies already testing TQuot in early access.",

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useState, type ComponentType } from "react";
 import { LandingProductMock } from "@/app/landing/product-mock";
 import { PublicLocaleToggle } from "@/app/components/public-locale-toggle";
-import { ProviderLogo } from "@/app/components/provider-logo";
 import { TQuotLogo } from "@/app/components/tquot-logo";
 import type { DashboardTranslation } from "@/app/dashboard/translations";
 import { useSiteLanguage } from "@/app/language-provider";
@@ -18,16 +17,69 @@ const NAV_LINKS = [
   { href: "#faq", key: "landingNavFaq" as const },
 ] as const;
 
-const CONNECTORS = [
-  { id: "hotelbeds", nameKey: "landingConnectorHotelbeds" as const },
-  { id: "booking", nameKey: "landingConnectorBooking" as const },
-  { id: "duffel", nameKey: "landingConnectorDuffel" as const },
-  { id: "ratehawk", nameKey: "landingConnectorRateHawk" as const },
-  { id: "viator", nameKey: "landingConnectorViator" as const },
-  { id: "civitatis", nameKey: "landingConnectorCivitatis" as const },
-  { id: "battleface", nameKey: "landingConnectorBattleface" as const },
-  { id: "smytravel-hotels", nameKey: "landingConnectorSmytravel" as const },
-] as const;
+type ConnectorBadgeVariant = "teal" | "blue" | "purple" | "grey";
+
+const CONNECTORS: Array<{
+  id: string;
+  nameKey:
+    | "landingConnectorHotelbeds"
+    | "landingConnectorBooking"
+    | "landingConnectorDuffel"
+    | "landingConnectorRateHawk"
+    | "landingConnectorViator"
+    | "landingConnectorCivitatis"
+    | "landingConnectorBattleface"
+    | "landingConnectorSmytravel";
+  badge: ConnectorBadgeVariant;
+  connected: boolean;
+  initials?: string;
+}> = [
+  { id: "hotelbeds", nameKey: "landingConnectorHotelbeds", badge: "teal", connected: true },
+  { id: "booking", nameKey: "landingConnectorBooking", badge: "blue", connected: true },
+  { id: "duffel", nameKey: "landingConnectorDuffel", badge: "purple", connected: true },
+  {
+    id: "ratehawk",
+    nameKey: "landingConnectorRateHawk",
+    badge: "grey",
+    connected: false,
+    initials: "RH",
+  },
+  {
+    id: "viator",
+    nameKey: "landingConnectorViator",
+    badge: "grey",
+    connected: false,
+    initials: "VI",
+  },
+  {
+    id: "civitatis",
+    nameKey: "landingConnectorCivitatis",
+    badge: "grey",
+    connected: false,
+    initials: "CI",
+  },
+  {
+    id: "battleface",
+    nameKey: "landingConnectorBattleface",
+    badge: "grey",
+    connected: false,
+    initials: "BF",
+  },
+  {
+    id: "smytravel-hotels",
+    nameKey: "landingConnectorSmytravel",
+    badge: "grey",
+    connected: false,
+    initials: "SM",
+  },
+];
+
+const CONNECTOR_BADGE_STYLES: Record<ConnectorBadgeVariant, string> = {
+  teal: "border-tquot-teal/35 bg-tquot-teal/10 text-tquot-teal",
+  blue: "border-blue-200 bg-blue-50 text-[#1e40af]",
+  purple: "border-purple-200 bg-purple-50 text-purple-800",
+  grey: "border-slate-200 bg-slate-100 text-slate-600",
+};
 
 export function HomePageClient() {
   const { t } = useSiteLanguage();
@@ -225,20 +277,7 @@ export function HomePageClient() {
             />
             <div className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-4">
               {CONNECTORS.map((connector) => (
-                <div
-                  key={connector.id}
-                  className="flex flex-col items-center gap-3 rounded-2xl border border-tquot-border bg-tquot-surface px-4 py-6 shadow-sm transition-shadow hover:shadow-md"
-                >
-                  <ProviderLogo
-                    providerId={connector.id}
-                    name={t[connector.nameKey]}
-                    imageClassName="h-10 w-auto max-w-[120px] object-contain"
-                    fallbackClassName="flex h-10 w-10 items-center justify-center rounded-lg bg-tquot-bg text-xs font-bold text-tquot-muted"
-                  />
-                  <span className="text-center text-sm font-semibold text-tquot-text">
-                    {t[connector.nameKey]}
-                  </span>
-                </div>
+                <ConnectorCard key={connector.id} connector={connector} t={t} />
               ))}
               <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-tquot-teal/40 bg-tquot-teal/5 px-4 py-6">
                 <span className="font-[family-name:var(--font-outfit)] text-2xl font-bold text-tquot-teal">
@@ -317,6 +356,54 @@ export function HomePageClient() {
 
       <LandingFooter t={t} />
     </div>
+  );
+}
+
+function ConnectorCard({
+  connector,
+  t,
+}: {
+  connector: (typeof CONNECTORS)[number];
+  t: DashboardTranslation;
+}) {
+  const showInitials = connector.badge === "grey" && connector.initials;
+
+  return (
+    <article className="flex flex-col gap-3 rounded-2xl border border-tquot-border bg-tquot-surface p-4 shadow-sm transition-shadow hover:shadow-md">
+      <div className="flex items-start justify-between gap-2">
+        {showInitials ? (
+          <span
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-sm font-bold ${CONNECTOR_BADGE_STYLES.grey}`}
+          >
+            {connector.initials}
+          </span>
+        ) : (
+          <span
+            className={`inline-flex max-w-full rounded-lg border px-2.5 py-1.5 text-xs font-bold leading-tight ${CONNECTOR_BADGE_STYLES[connector.badge]}`}
+          >
+            {t[connector.nameKey]}
+          </span>
+        )}
+        <span
+          className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${
+            connector.connected ? "bg-tquot-success" : "bg-slate-300"
+          }`}
+          title={
+            connector.connected
+              ? t.landingConnectorStatusConnected
+              : t.landingConnectorStatusAvailable
+          }
+        />
+      </div>
+      {showInitials ? (
+        <p className="text-sm font-semibold text-tquot-text">{t[connector.nameKey]}</p>
+      ) : null}
+      <p className="text-[11px] font-medium text-tquot-muted">
+        {connector.connected
+          ? t.landingConnectorStatusConnected
+          : t.landingConnectorStatusAvailable}
+      </p>
+    </article>
   );
 }
 
