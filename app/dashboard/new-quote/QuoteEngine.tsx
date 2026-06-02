@@ -1597,35 +1597,47 @@ export function QuoteEngine() {
               </div>
             </div>
 
-            <div className="mb-6 grid gap-6 lg:grid-cols-3">
-              {quote.flights.length > 0 ? (
-                <div>
+            <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-start">
+              <div
+                className={`flex min-h-0 flex-col lg:max-h-[70vh] ${
+                  quote.flights.length === 0 ? "hidden lg:flex" : ""
+                }`}
+              >
+                {quote.flights.length > 0 ? (
                   <DataSourceBadge source={quote._meta.flightsSource} />
-                  <FlightQuoteItemsSection
-                    eyebrow={t.sectionFlightsEyebrow}
-                    title={t.sectionFlightsTitle}
-                    items={quote.flights}
-                    passengerCount={quote.summary.passengers.adults}
-                    onSelectItem={handleSelectQuoteItem}
-                    onMarginChange={handleQuoteItemMarginChange}
-                    onFlightFareSelect={handleFlightFareSelect}
-                  />
-                </div>
-              ) : null}
-              {quote.hotels.length > 0 ? (
-                <div>
+                ) : null}
+                <FlightQuoteItemsSection
+                  eyebrow={t.sectionFlightsEyebrow}
+                  title={t.sectionFlightsTitle}
+                  items={quote.flights}
+                  passengerCount={quote.summary.passengers.adults}
+                  onSelectItem={handleSelectQuoteItem}
+                  onMarginChange={handleQuoteItemMarginChange}
+                  onFlightFareSelect={handleFlightFareSelect}
+                />
+              </div>
+              <div
+                className={`flex min-h-0 flex-col lg:max-h-[70vh] ${
+                  quote.hotels.length === 0 ? "hidden lg:flex" : ""
+                }`}
+              >
+                {quote.hotels.length > 0 ? (
                   <DataSourceBadge source={quote._meta.hotelsSource} />
-                  <QuoteItemsSection
-                    eyebrow={t.sectionHotelsEyebrow}
-                    title={t.sectionHotelsTitle}
-                    items={quote.hotels}
-                    onSelectItem={handleSelectQuoteItem}
-                    onMarginChange={handleQuoteItemMarginChange}
-                    onCompareItem={handleCompareHotel}
-                  />
-                </div>
-              ) : null}
-              {quote.experiences.length > 0 ? (
+                ) : null}
+                <QuoteItemsSection
+                  eyebrow={t.sectionHotelsEyebrow}
+                  title={t.sectionHotelsTitle}
+                  items={quote.hotels}
+                  onSelectItem={handleSelectQuoteItem}
+                  onMarginChange={handleQuoteItemMarginChange}
+                  onCompareItem={handleCompareHotel}
+                />
+              </div>
+              <div
+                className={`flex min-h-0 flex-col lg:max-h-[70vh] ${
+                  quote.experiences.length === 0 ? "hidden lg:flex" : ""
+                }`}
+              >
                 <QuoteItemsSection
                   eyebrow={t.sectionExperiencesEyebrow}
                   title={t.sectionExperiencesTitle}
@@ -1634,7 +1646,7 @@ export function QuoteEngine() {
                   onToggleItem={handleToggleExperienceItem}
                   onMarginChange={handleQuoteItemMarginChange}
                 />
-              ) : null}
+              </div>
             </div>
 
             <div className="mt-6 grid gap-6 lg:grid-cols-2">

@@ -1263,9 +1263,9 @@ export function FlightQuoteItemsSection({
   const subtitle = buildSectionSubtitle(items, "exclusive", locale, t);
 
   return (
-    <section>
+    <section className="flex min-h-0 flex-1 flex-col">
       <SectionHeading eyebrow={eyebrow} title={title} subtitle={subtitle} />
-      <div className="space-y-6">
+      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto pr-1">
         <FlightDirectionGroup
           heading="Vuelo de ida"
           items={outbound}
@@ -1309,9 +1309,9 @@ export function QuoteItemsSection({
   const subtitle = buildSectionSubtitle(items, selectionMode, locale, t);
 
   return (
-    <section>
+    <section className="flex min-h-0 flex-1 flex-col">
       <SectionHeading eyebrow={eyebrow} title={title} subtitle={subtitle} />
-      <div className="space-y-3">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
         {renderQuoteItemList(items, {
           onSelectItem,
           onToggleItem,
