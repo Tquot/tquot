@@ -664,6 +664,13 @@ export function QuoteEngine() {
       let error: string | null = null;
       const localRows: ComparatorResultRow[] = [];
 
+      console.log("[comparator] hotel details", {
+        netPrice: item.hotelDetails?.netPrice,
+        hotelCode: item.hotelDetails?.hotelCode,
+        rateKey: item.hotelDetails?.rateKey,
+        provider: item.hotelDetails?.providerId,
+      });
+
       const hotelMappings = catalogProviders
         .filter(
           (provider) =>
@@ -676,6 +683,7 @@ export function QuoteEngine() {
           hotelCodes: hotelCode ? [hotelCode] : [],
         }))
         .filter((mapping) => mapping.hotelCodes.length > 0);
+      console.log("[comparator] mappings sent to API", hotelMappings);
 
       const hotelbedsProvider = catalogProviders.find(
         (provider) =>
