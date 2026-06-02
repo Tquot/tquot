@@ -65,16 +65,6 @@ type CatalogProviderEntry = {
   connected: boolean;
   connectionId?: string;
   logoUrl: string | null;
-  price?: number;
-  finalPrice?: number;
-};
-
-type ComparatorQuotedRate = {
-  price: number;
-  finalPrice: number;
-  rateKey: string;
-  providerName: string;
-  providerId?: string;
 };
 
 type ComparatorPanelState = {
@@ -83,24 +73,9 @@ type ComparatorPanelState = {
   error: string | null;
   results: ComparatorOutput | null;
   catalogProviders: CatalogProviderEntry[];
-  quotedRate?: ComparatorQuotedRate;
 };
 
 const HOTEL_PROVIDER_CATEGORY = "hotels";
-
-function quotedRateFromHotelItem(item: QuoteItem): ComparatorQuotedRate | undefined {
-  const rateKey = item.hotelDetails?.rateKey;
-  if (!rateKey) {
-    return undefined;
-  }
-  return {
-    price: item.price,
-    finalPrice: item.finalPrice,
-    rateKey,
-    providerName: item.provider,
-    providerId: item.hotelDetails?.providerId,
-  };
-}
 
 function buildProcessSteps(t: DashboardTranslation): ProcessStep[] {
   return [
@@ -614,15 +589,6 @@ export function QuoteEngine() {
     }
 
     const hotelCode = item.hotelDetails.hotelCode;
-    const quotedRate = quotedRateFromHotelItem(item);
-
-    console.log("[comparator] quotedRate", {
-      itemPrice: item.price,
-      itemFinalPrice: item.finalPrice,
-      itemMarkup: item.markup,
-      rateKey: item.hotelDetails?.rateKey,
-      quotedRate,
-    });
 
     setComparatorPanel({
       itemId,
@@ -630,7 +596,6 @@ export function QuoteEngine() {
       error: null,
       results: null,
       catalogProviders: [],
-      quotedRate,
     });
 
     try {
@@ -689,17 +654,6 @@ export function QuoteEngine() {
         },
       );
 
-      if (item.source === "inventory") {
-        catalogProviders.unshift({
-          providerId: "inventory",
-          providerName: t.comparatorYourInventory,
-          connected: true,
-          logoUrl: null,
-          price: item.price,
-          finalPrice: item.finalPrice,
-        });
-      }
-
       let results: ComparatorOutput | null = null;
       let error: string | null = null;
 
@@ -757,7 +711,6 @@ export function QuoteEngine() {
         error,
         results,
         catalogProviders,
-        quotedRate,
       });
     } catch (compareError) {
       setComparatorPanel({
@@ -769,7 +722,6 @@ export function QuoteEngine() {
             : t.comparatorGenericError,
         results: null,
         catalogProviders: [],
-        quotedRate,
       });
     }
   }
@@ -1820,65 +1772,22 @@ function HotelComparatorPanel({
 
         {!panel.loading && panel.catalogProviders.length > 0 ? (
           <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
-            {panel.quotedRate ? (
-              <div className="flex flex-wrap items-center gap-3 rounded-xl border border-tquot-accent/30 bg-blue-50/80 px-4 py-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded bg-tquot-surface text-lg">
-                  📋
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-semibold text-tquot-text">
-                      {panel.quotedRate.providerName}
-                    </p>
-                    <span className="rounded-full border border-tquot-accent/35 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-tquot-accent">
-                      {t.comparatorQuotedPrice}
-                    </span>
-                  </div>
-                  <p className="text-xs text-tquot-muted">
-                    {t.comparatorQuotedPriceHint} · {t.comparatorNetPrice}{" "}
-                    {formatCurrency(panel.quotedRate.price, locale)}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold tabular-nums text-tquot-text">
-                    {formatCurrency(panel.quotedRate.finalPrice, locale)}
-                  </p>
-                </div>
-              </div>
-            ) : null}
             {panel.catalogProviders.map((provider) => {
-              const isInventoryProvider = provider.providerId === "inventory";
-              const row =
-                provider.connected && !isInventoryProvider
-                  ? comparatorRowForProvider(panel.results, provider.providerId)
-                  : undefined;
+              const row = provider.connected
+                ? comparatorRowForProvider(panel.results, provider.providerId)
+                : undefined;
               const isCheapest =
                 Boolean(row) &&
                 row!.status === "ok" &&
                 providerSlug(row!.providerId) ===
                   providerSlug(cheapestProviderId ?? "");
-              const hasSameLiveRate = Boolean(
-                panel.quotedRate &&
-                  row?.status === "ok" &&
-                  row.bestRoom &&
-                  panel.quotedRate.providerId &&
-                  providerSlug(row.providerId) ===
-                    providerSlug(panel.quotedRate.providerId) &&
-                  row.bestRoom.providerRoomCode === panel.quotedRate.rateKey,
-              );
-              const hasCatalogPrice =
-                isInventoryProvider &&
-                provider.connected &&
-                provider.finalPrice != null;
               const liveNetPrice =
                 row?.status === "ok" && row.bestRoom ? row.bestRoom.netPrice : null;
               const statusLabel = !provider.connected
                 ? t.comparatorNotConnected
-                : isInventoryProvider
-                  ? t.comparatorAvailable
-                  : row
-                    ? comparatorStatusLabel(row, t)
-                    : t.comparatorNoResults;
+                : row
+                  ? comparatorStatusLabel(row, t)
+                  : t.comparatorNoResults;
 
               return (
                 <div
@@ -1889,21 +1798,12 @@ function HotelComparatorPanel({
                       : "border-tquot-border bg-tquot-bg"
                   }`}
                 >
-                  {isInventoryProvider ? (
-                    <div
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded border border-tquot-teal/30 bg-tquot-teal/10 text-lg"
-                      aria-hidden
-                    >
-                      🏠
-                    </div>
-                  ) : (
-                    <ProviderLogo
-                      key={provider.providerId}
-                      providerId={provider.providerId}
-                      name={provider.providerName}
-                      imageClassName="h-10 w-10 shrink-0 rounded object-contain bg-tquot-surface"
-                    />
-                  )}
+                  <ProviderLogo
+                    key={provider.providerId}
+                    providerId={provider.providerId}
+                    name={provider.providerName}
+                    imageClassName="h-10 w-10 shrink-0 rounded object-contain bg-tquot-surface"
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-semibold text-tquot-text">
@@ -1914,31 +1814,14 @@ function HotelComparatorPanel({
                           {t.comparatorCheapest}
                         </span>
                       ) : null}
-                      {hasSameLiveRate ? (
-                        <span className="rounded-full border border-tquot-accent/35 bg-blue-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-tquot-accent">
-                          {t.comparatorSameRate}
-                        </span>
-                      ) : null}
                     </div>
                     <p className="text-xs text-tquot-muted">{statusLabel}</p>
                   </div>
-                  {hasCatalogPrice ? (
-                    <div className="text-right">
-                      <p className="text-lg font-bold tabular-nums text-tquot-text">
-                        {formatCurrency(provider.finalPrice!, locale)}
-                      </p>
-                      <p className="text-xs text-tquot-muted">
-                        {t.comparatorNetPrice}{" "}
-                        {formatCurrency(provider.price ?? 0, locale)}
-                      </p>
-                    </div>
-                  ) : (
-                    <p className="text-lg font-bold tabular-nums text-tquot-text">
-                      {provider.connected && liveNetPrice != null
-                        ? formatCurrency(liveNetPrice, locale)
-                        : "—"}
-                    </p>
-                  )}
+                  <p className="text-lg font-bold tabular-nums text-tquot-text">
+                    {provider.connected && liveNetPrice != null
+                      ? formatCurrency(liveNetPrice, locale)
+                      : "—"}
+                  </p>
                   {!provider.connected ? (
                     <Link
                       href="/dashboard/integrations"
@@ -1946,7 +1829,7 @@ function HotelComparatorPanel({
                     >
                       {t.comparatorConnect}
                     </Link>
-                  ) : !isInventoryProvider && row?.status === "ok" && row.bestRoom ? (
+                  ) : row?.status === "ok" && row.bestRoom ? (
                     <button
                       type="button"
                       onClick={() => onSelectPrice(row)}
