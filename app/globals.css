@@ -12,6 +12,8 @@
   --tquot-warm: #d97706;
   --tquot-success: #059669;
   --tquot-error: #dc2626;
+  --tquot-navy: #0a2540;
+  --tquot-navy-deep: #0a1525;
 
   /* Legacy aliases (landing page still references these) */
   --tquot-orange: var(--tquot-warm);
@@ -29,6 +31,8 @@
   --color-tquot-warm: var(--tquot-warm);
   --color-tquot-success: var(--tquot-success);
   --color-tquot-error: var(--tquot-error);
+  --color-tquot-navy: var(--tquot-navy);
+  --color-tquot-navy-deep: var(--tquot-navy-deep);
   --color-tquot-orange: var(--tquot-orange);
   --color-tquot-gold: var(--tquot-gold);
   --font-sans: var(--font-jakarta);
