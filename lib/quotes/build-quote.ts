@@ -884,7 +884,7 @@ async function buildFlightsFromApiOrMock(params: {
 }
 
 const HOTEL_QUOTE_LIMIT = 10;
-const HOTEL_INVENTORY_LIMIT = 5;
+const HOTEL_INVENTORY_LIMIT = 3;
 const HOTEL_HOTELBEDS_LIMIT = 8;
 const EXPERIENCE_QUOTE_LIMIT = 5;
 
