@@ -9,7 +9,7 @@ import { useDashboardLanguage } from "../dashboard-language-provider";
 import { formatMessage } from "../format-message";
 import type { Locale } from "../translations";
 import type { DashboardTranslation } from "../translations";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const sourceStyles: Record<QuoteItemSource, string> = {
   mock: "border-tquot-warm/30 bg-amber-50 text-tquot-warm",
@@ -1235,6 +1235,112 @@ function FlightDirectionGroup({
   );
 }
 
+function FlightSelectionStepIndicator({
+  returnStepUnlocked,
+}: {
+  returnStepUnlocked: boolean;
+}) {
+  const { t } = useDashboardLanguage();
+
+  return (
+    <ol
+      className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6"
+      aria-label={t.sectionFlightsTitle}
+    >
+      <li
+        className={`flex items-center gap-2.5 text-sm font-semibold transition-colors duration-300 ${
+          returnStepUnlocked ? "text-tquot-muted" : "text-tquot-teal"
+        }`}
+      >
+        <span
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-bold transition-colors duration-300 ${
+            returnStepUnlocked
+              ? "border-tquot-teal/40 bg-tquot-teal/10 text-tquot-teal"
+              : "border-tquot-teal bg-tquot-teal text-white"
+          }`}
+          aria-hidden
+        >
+          {returnStepUnlocked ? "✓" : "1"}
+        </span>
+        {t.flightStep1Label}
+      </li>
+      <li
+        className={`flex items-center gap-2.5 text-sm font-semibold transition-colors duration-300 ${
+          returnStepUnlocked ? "text-tquot-teal" : "text-tquot-muted"
+        }`}
+        aria-current={returnStepUnlocked ? "step" : undefined}
+      >
+        <span
+          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-bold transition-colors duration-300 ${
+            returnStepUnlocked
+              ? "border-tquot-teal bg-tquot-teal text-white"
+              : "border-tquot-border bg-tquot-bg text-tquot-muted"
+          }`}
+          aria-hidden
+        >
+          2
+        </span>
+        {t.flightStep2Label}
+      </li>
+    </ol>
+  );
+}
+
+function ReturnFlightsPanel({
+  returnFlights,
+  returnStepUnlocked,
+  heading,
+  cardProps,
+}: {
+  returnFlights: QuoteItem[];
+  returnStepUnlocked: boolean;
+  heading: string;
+  cardProps: QuoteItemListProps;
+}) {
+  const { t } = useDashboardLanguage();
+
+  if (returnFlights.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-3">
+      <div
+        className={`overflow-hidden transition-all duration-300 ease-out ${
+          returnStepUnlocked
+            ? "max-h-0 opacity-0"
+            : "max-h-48 opacity-100"
+        }`}
+        aria-hidden={returnStepUnlocked}
+      >
+        <div className="rounded-xl border border-dashed border-tquot-border bg-tquot-bg/60 px-4 py-10 text-center">
+          <p className="text-sm font-medium text-tquot-muted">
+            {t.flightSelectOutboundFirst}
+          </p>
+        </div>
+      </div>
+
+      <div
+        className={`transition-all duration-300 ease-out ${
+          returnStepUnlocked
+            ? "max-h-[5000px] opacity-100"
+            : "max-h-0 overflow-hidden opacity-0"
+        }`}
+        aria-hidden={!returnStepUnlocked}
+        aria-live="polite"
+      >
+        {returnStepUnlocked ? (
+          <FlightDirectionGroup
+            heading={heading}
+            items={returnFlights}
+            {...cardProps}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export function FlightQuoteItemsSection({
   eyebrow,
   title,
@@ -1254,27 +1360,45 @@ export function FlightQuoteItemsSection({
 }) {
   const { locale, t } = useDashboardLanguage();
   const { outbound, returnFlights, other } = splitFlightsByDirection(items);
+  const [returnStepUnlocked, setReturnStepUnlocked] = useState(false);
+  const outboundIdsKey = outbound.map((item) => item.id).join("|");
+
+  useEffect(() => {
+    setReturnStepUnlocked(false);
+  }, [outboundIdsKey]);
+
+  const handleSelectItem = (itemId: string) => {
+    if (itemId.startsWith("flight-out-")) {
+      setReturnStepUnlocked(true);
+    }
+    onSelectItem?.(itemId);
+  };
+
   const cardProps = {
-    onSelectItem,
+    onSelectItem: handleSelectItem,
     onMarginChange,
     onFlightFareSelect,
     passengerCount,
   };
   const subtitle = buildSectionSubtitle(items, "exclusive", locale, t);
+  const returnHeading = locale === "es" ? "Vuelo de vuelta" : "Return flight";
+  const outboundHeading = locale === "es" ? "Vuelo de ida" : "Outbound flight";
 
   return (
     <section>
       <SectionHeading eyebrow={eyebrow} title={title} subtitle={subtitle} />
+      <FlightSelectionStepIndicator returnStepUnlocked={returnStepUnlocked} />
       <div className="space-y-6">
         <FlightDirectionGroup
-          heading="Vuelo de ida"
+          heading={outboundHeading}
           items={outbound}
           {...cardProps}
         />
-        <FlightDirectionGroup
-          heading="Vuelo de vuelta"
-          items={returnFlights}
-          {...cardProps}
+        <ReturnFlightsPanel
+          returnFlights={returnFlights}
+          returnStepUnlocked={returnStepUnlocked}
+          heading={returnHeading}
+          cardProps={cardProps}
         />
         {other.length > 0 ? (
           <FlightDirectionTable items={other} {...cardProps} />
