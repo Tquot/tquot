@@ -56,7 +56,7 @@ const ENDPOINTS = {
   production: "https://api.hotelbeds.com",
 } as const;
 
-interface HotelbedsCredentials {
+export interface HotelbedsCredentials {
   api_key: string;
   secret: string;
   environment?: "test" | "production";
@@ -132,6 +132,37 @@ function buildHeaders(creds: HotelbedsCredentials): Record<string, string> {
 
 function baseUrl(creds: HotelbedsCredentials): string {
   return ENDPOINTS[creds.environment ?? "test"];
+}
+
+export function parseHotelbedsCredentials(raw: Credentials): HotelbedsCredentials {
+  if (!raw.api_key || !raw.secret) {
+    throw new ConnectorError(
+      "Faltan api_key o secret en las credenciales de Hotelbeds",
+      "AUTH",
+      "hotelbeds",
+    );
+  }
+  return {
+    api_key: raw.api_key,
+    secret: raw.secret,
+    environment: raw.environment === "production" ? "production" : "test",
+  };
+}
+
+/** Headers for Content API GET requests (no Content-Type). */
+export function buildHotelbedsContentHeaders(
+  creds: HotelbedsCredentials,
+): Record<string, string> {
+  return {
+    "Api-key": creds.api_key,
+    "X-Signature": buildSignature(creds.api_key, creds.secret),
+    Accept: "application/json",
+    "Accept-Encoding": "gzip",
+  };
+}
+
+export function hotelbedsBaseUrl(creds: HotelbedsCredentials): string {
+  return baseUrl(creds);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -245,19 +276,7 @@ export class HotelbedsAdapter implements ProviderAdapter {
   // ───── Validación de credenciales ─────
 
   private validateCredentials(raw: Credentials): HotelbedsCredentials {
-    if (!raw.api_key || !raw.secret) {
-      throw new ConnectorError(
-        "Faltan api_key o secret en las credenciales de Hotelbeds",
-        "AUTH",
-        this.providerId
-      );
-    }
-    return {
-      api_key: raw.api_key,
-      secret: raw.secret,
-      environment:
-        raw.environment === "production" ? "production" : "test",
-    };
+    return parseHotelbedsCredentials(raw);
   }
 
   private getStatusPath(): string {

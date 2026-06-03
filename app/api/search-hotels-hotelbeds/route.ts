@@ -2,16 +2,105 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import type { HotelOption } from "@/app/api/search-hotels/route";
 import { getAuthenticatedUserAndAgency } from "@/lib/auth/agency-context";
-import { HotelbedsAdapter } from "@/lib/connectors/adapters/hotelbeds";
+import {
+  buildHotelbedsContentHeaders,
+  HotelbedsAdapter,
+  hotelbedsBaseUrl,
+  parseHotelbedsCredentials,
+} from "@/lib/connectors/adapters/hotelbeds";
+import type { Credentials } from "@/lib/connectors/types";
 import {
   getConnectionWithCredentials,
   listAgencyConnections,
 } from "@/lib/connectors/storage";
+import { fetchWithTimeout } from "@/lib/connectors/utils";
 import { resolveCity } from "@/lib/airports/search";
 import { passesApiHotelLevelFilter } from "@/lib/quotes/hotel-level-filter";
 import type { HotelLevel } from "@/lib/quotes/build-quote";
 
 const HOTELBEDS_SEARCH_RADIUS_KM = 15;
+const HOTELBEDS_CONTENT_TIMEOUT_MS = 8_000;
+const HOTELBEDS_PHOTO_BASE = "https://photos.hotelbeds.com/giata/bigger/";
+
+type HotelbedsContentImage = {
+  path?: string;
+  type?: { code?: string } | string;
+};
+
+function hotelbedsPhotoUrl(path: string): string {
+  return `${HOTELBEDS_PHOTO_BASE}${path}`;
+}
+
+function hotelbedsImageTypeCode(
+  type: HotelbedsContentImage["type"],
+): string | undefined {
+  if (!type) return undefined;
+  if (typeof type === "string") return type;
+  return type.code;
+}
+
+function pickHotelbedsImagePath(images: unknown): string | null {
+  if (!Array.isArray(images) || images.length === 0) return null;
+
+  const list = images as HotelbedsContentImage[];
+  const gen = list.find(
+    (img) =>
+      hotelbedsImageTypeCode(img.type)?.toUpperCase() === "GEN" &&
+      typeof img.path === "string" &&
+      img.path.trim(),
+  );
+  const chosen =
+    gen ??
+    list.find((img) => typeof img.path === "string" && img.path.trim());
+  const path = chosen?.path?.trim();
+  return path || null;
+}
+
+async function fetchHotelbedsImageUrls(
+  credentials: Credentials,
+  hotelCodes: string[],
+): Promise<Map<string, string>> {
+  const imageByCode = new Map<string, string>();
+  if (hotelCodes.length === 0) return imageByCode;
+
+  try {
+    const creds = parseHotelbedsCredentials(credentials);
+    const codes = hotelCodes.join(",");
+    const url = `${hotelbedsBaseUrl(creds)}/hotel-content-api/1.0/hotels?codes=${encodeURIComponent(codes)}&fields=images&language=ENG`;
+
+    const response = await fetchWithTimeout(url, {
+      method: "GET",
+      headers: buildHotelbedsContentHeaders(creds),
+      timeoutMs: HOTELBEDS_CONTENT_TIMEOUT_MS,
+    });
+
+    if (!response.ok) {
+      console.warn("[search-hotels-hotelbeds] content images failed", {
+        status: response.status,
+        hotelCount: hotelCodes.length,
+      });
+      return imageByCode;
+    }
+
+    const data = (await response.json()) as {
+      hotels?: Array<{ code?: string | number; images?: unknown }>;
+    };
+
+    for (const hotel of data.hotels ?? []) {
+      if (hotel.code === undefined || hotel.code === null) continue;
+      const path = pickHotelbedsImagePath(hotel.images);
+      if (!path) continue;
+      imageByCode.set(String(hotel.code), hotelbedsPhotoUrl(path));
+    }
+  } catch (error) {
+    console.warn("[search-hotels-hotelbeds] content images error", {
+      error: error instanceof Error ? error.message : "unknown",
+      hotelCount: hotelCodes.length,
+    });
+  }
+
+  return imageByCode;
+}
 
 /** Normalized city keys for hardcoded fallback lookup. */
 function normalizeCityKey(value: string): string {
@@ -217,11 +306,24 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    const hotelCodes = result.data
+      .map((hotel) => hotel.providerHotelId)
+      .filter((code) => Boolean(code));
+    const imageByCode = await fetchHotelbedsImageUrls(
+      connectionData.credentials,
+      hotelCodes,
+    );
+
     const hotels = result.data
       .map((hotel): HotelOption | null => {
         const option = toHotelOption(hotel);
         if (!option) return null;
-        return { ...option, connectionId: hotelbedsConnection.id } as HotelOption;
+        const imageUrl = imageByCode.get(hotel.providerHotelId);
+        return {
+          ...option,
+          connectionId: hotelbedsConnection.id,
+          ...(imageUrl ? { imageUrl } : {}),
+        } as HotelOption;
       })
       .filter((h): h is HotelOption => h !== null)
       .filter((h) =>
