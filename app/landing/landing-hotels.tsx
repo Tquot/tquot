@@ -44,7 +44,7 @@ const HOTELS: HotelCard[] = [
     price: "€215",
   },
   {
-    image: "https://images.unsplash.com/photo-1540541338537-1220059c0e4e?w=400&h=160&fit=crop",
+    image: "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=400&h=160&fit=crop",
     nameKey: "landingHotel4Name",
     stars: "★★★★★",
     locKey: "landingHotel4Loc",
