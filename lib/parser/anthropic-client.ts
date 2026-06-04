@@ -128,3 +128,34 @@ async function createMessageWithTimeout(
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+interface CallPlainTextOptions {
+  system: string;
+  userMessage: string;
+  maxTokens?: number;
+}
+
+export async function callPlainText(opts: CallPlainTextOptions): Promise<string> {
+  const { system, userMessage, maxTokens = 200 } = opts;
+
+  const response = await createMessageWithTimeout({
+    model: CLAUDE_MODEL,
+    max_tokens: maxTokens,
+    system,
+    messages: [{ role: "user", content: userMessage }],
+  });
+
+  const text = ((
+    (response as unknown as Record<string, unknown>).content ?? []
+  ) as ClaudeContentBlock[])
+    .filter((content) => content.type === "text" && typeof content.text === "string")
+    .map((content) => content.text)
+    .join("")
+    .trim();
+
+  if (!text) {
+    throw new Error("Respuesta vacía del modelo");
+  }
+
+  return text;
+}

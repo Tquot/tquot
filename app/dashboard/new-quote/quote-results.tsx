@@ -9,7 +9,12 @@ import { useDashboardLanguage } from "../dashboard-language-provider";
 import { formatMessage } from "../format-message";
 import type { Locale } from "../translations";
 import type { DashboardTranslation } from "../translations";
-import { useEffect, useState } from "react";
+import {
+  parseHotelContextFromTitle,
+  parseHotelNightsFromTitle,
+  parseHotelRoomTypeFromTitle,
+} from "@/lib/hotels/parse-hotel-title";
+import { useEffect, useRef, useState } from "react";
 
 const sourceStyles: Record<QuoteItemSource, string> = {
   mock: "border-tquot-warm/30 bg-amber-50 text-tquot-warm",
@@ -159,22 +164,6 @@ type HotelBoardCode = "SA" | "AD" | "MP" | "PC";
 
 const HOTEL_BOARD_CODES: HotelBoardCode[] = ["SA", "AD", "MP", "PC"];
 
-function parseHotelNightsFromTitle(title: string): number {
-  const match = title.match(
-    /—\s*(\d+)\s+(?:noche|noches|night|nights)\b/i,
-  );
-  if (!match) return 1;
-  const nights = Number.parseInt(match[1], 10);
-  return Number.isFinite(nights) && nights > 0 ? nights : 1;
-}
-
-function parseHotelRoomTypeFromTitle(title: string): string | null {
-  const separator = title.lastIndexOf(" · ");
-  if (separator === -1) return null;
-  const roomType = title.slice(separator + 3).trim();
-  return roomType.length > 0 ? roomType : null;
-}
-
 function hotelBoardLabel(
   code: HotelBoardCode,
   t: DashboardTranslation,
@@ -203,6 +192,9 @@ function HotelQuoteItemExpanded({
   onSelect,
   onMarginChange,
   onCompare,
+  aiDescription,
+  aiDescriptionLoading,
+  aiDescriptionFailed,
 }: {
   item: QuoteItem;
   locale: Locale;
@@ -218,6 +210,9 @@ function HotelQuoteItemExpanded({
   onSelect?: (itemId: string) => void;
   onMarginChange?: (itemId: string, marginPercent: number) => void;
   onCompare?: (itemId: string) => void;
+  aiDescription: string | null;
+  aiDescriptionLoading: boolean;
+  aiDescriptionFailed: boolean;
 }) {
   const pricePerNight = Math.round(item.price / nights);
   const showCompareButton =
@@ -232,6 +227,16 @@ function HotelQuoteItemExpanded({
         <p className="mb-3 text-sm leading-relaxed text-tquot-muted">
           {item.description}
         </p>
+      ) : aiDescription ? (
+        <p className="mb-3 text-sm leading-relaxed text-tquot-muted">
+          {aiDescription}
+        </p>
+      ) : aiDescriptionLoading ? (
+        <p className="mb-3 text-sm italic text-tquot-muted">
+          {t.hotelDescriptionLoading}
+        </p>
+      ) : aiDescriptionFailed ? (
+        <p className="mb-3 text-sm text-tquot-muted">{t.hotelDescriptionError}</p>
       ) : null}
 
       <fieldset className="mb-4">
@@ -380,7 +385,18 @@ function HotelQuoteItemCard({
   const { locale, t } = useDashboardLanguage();
   const [expanded, setExpanded] = useState(false);
   const [board, setBoard] = useState<HotelBoardCode>("SA");
+  const [aiDescription, setAiDescription] = useState<string | null>(null);
+  const [aiDescriptionLoading, setAiDescriptionLoading] = useState(false);
+  const [aiDescriptionFailed, setAiDescriptionFailed] = useState(false);
+  const fetchStartedRef = useRef(false);
   const selectionGroup = getQuoteSelectionGroup(item.id);
+
+  useEffect(() => {
+    setAiDescription(null);
+    setAiDescriptionLoading(false);
+    setAiDescriptionFailed(false);
+    fetchStartedRef.current = false;
+  }, [item.id]);
   const isIndependent = selectionMode === "independent";
   const isSelectable =
     isIndependent ? Boolean(onToggle) : selectionGroup !== null && Boolean(onSelect);
@@ -389,6 +405,60 @@ function HotelQuoteItemCard({
   const marginPercent = getItemMarginPercent(item);
   const nights = parseHotelNightsFromTitle(item.title);
   const roomType = parseHotelRoomTypeFromTitle(item.title);
+
+  useEffect(() => {
+    if (!expanded || item.description || aiDescription || fetchStartedRef.current) {
+      return;
+    }
+
+    fetchStartedRef.current = true;
+    const context = parseHotelContextFromTitle(item.title);
+    const resolvedRoomType =
+      context.roomType ?? roomType ?? t.hotelRoomTypeUnknown;
+
+    setAiDescriptionLoading(true);
+    setAiDescriptionFailed(false);
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/quotes/hotel-description", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: context.name,
+            stars: context.stars ?? undefined,
+            location: context.location ?? undefined,
+            roomType: resolvedRoomType,
+            locale,
+          }),
+        });
+
+        const data = (await response.json()) as {
+          description?: string;
+          error?: string;
+        };
+
+        if (!response.ok || !data.description?.trim()) {
+          setAiDescriptionFailed(true);
+          return;
+        }
+
+        setAiDescription(data.description.trim());
+      } catch {
+        setAiDescriptionFailed(true);
+      } finally {
+        setAiDescriptionLoading(false);
+      }
+    })();
+  }, [
+    aiDescription,
+    expanded,
+    item.description,
+    item.title,
+    locale,
+    roomType,
+    t.hotelRoomTypeUnknown,
+  ]);
 
   const typeLabels: Record<QuoteItem["type"], string> = {
     flight: t.itemTypeFlight,
@@ -509,6 +579,9 @@ function HotelQuoteItemCard({
           onSelect={onSelect}
           onMarginChange={onMarginChange}
           onCompare={onCompare}
+          aiDescription={aiDescription}
+          aiDescriptionLoading={aiDescriptionLoading}
+          aiDescriptionFailed={aiDescriptionFailed}
         />
       ) : null}
     </article>
