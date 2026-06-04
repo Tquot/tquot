@@ -138,13 +138,19 @@ function getStepStatus(
 }
 
 function allQuoteItems(quote: Quote): QuoteItem[] {
-  return [...quote.flights, ...quote.hotels, ...quote.experiences];
+  return [
+    ...quote.flights,
+    ...quote.transfers,
+    ...quote.hotels,
+    ...quote.experiences,
+  ];
 }
 
 function cloneQuote(quote: Quote): Quote {
   return {
     ...quote,
     flights: quote.flights.map((item) => ({ ...item })),
+    transfers: quote.transfers.map((item) => ({ ...item })),
     hotels: quote.hotels.map((item) => ({ ...item })),
     experiences: quote.experiences.map((item) => ({ ...item })),
     summary: { ...quote.summary, passengers: { ...quote.summary.passengers } },
@@ -341,6 +347,9 @@ function mergeRefinePatch(quote: Quote, patch: RefineQuotePatch): Quote {
   }
   if (patch.experiences) {
     next.experiences = patch.experiences.map((item) => ({ ...item }));
+  }
+  if (patch.transfers) {
+    next.transfers = patch.transfers.map((item) => ({ ...item }));
   }
   if (patch.flights) {
     next.flights = patch.flights.map((item) => ({ ...item }));
@@ -1609,6 +1618,18 @@ export function QuoteEngine() {
                     onSelectItem={handleSelectQuoteItem}
                     onMarginChange={handleQuoteItemMarginChange}
                     onFlightFareSelect={handleFlightFareSelect}
+                  />
+                </div>
+              ) : null}
+              {quote.transfers.length > 0 ? (
+                <div>
+                  <DataSourceBadge source={quote._meta.transfersSource} />
+                  <QuoteItemsSection
+                    eyebrow={t.sectionTransfersEyebrow}
+                    title={t.sectionTransfersTitle}
+                    items={quote.transfers}
+                    onSelectItem={handleSelectQuoteItem}
+                    onMarginChange={handleQuoteItemMarginChange}
                   />
                 </div>
               ) : null}

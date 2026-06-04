@@ -53,6 +53,7 @@ function addDaysIso(date: Date, days: number): string {
 function collectPricedItems(quote: Quote): QuoteItem[] {
   return [
     ...itemsForPricing(quote.flights),
+    ...itemsForPricing(quote.transfers),
     ...itemsForPricing(quote.hotels),
     ...itemsForPricing(quote.experiences),
   ];

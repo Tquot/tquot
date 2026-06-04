@@ -21,9 +21,11 @@ export function summarizeQuoteForRefine(quote: Quote) {
     pricing: quote.pricing,
     meta: quote._meta,
     selectedFlights: summarizeItems(itemsForPricing(quote.flights)),
+    selectedTransfers: summarizeItems(itemsForPricing(quote.transfers)),
     selectedHotels: summarizeItems(itemsForPricing(quote.hotels)),
     selectedExperiences: summarizeItems(itemsForPricing(quote.experiences)),
     flightOptionsCount: quote.flights.length,
+    transferOptionsCount: quote.transfers.length,
     hotelOptionsCount: quote.hotels.length,
     experienceOptionsCount: quote.experiences.length,
   };

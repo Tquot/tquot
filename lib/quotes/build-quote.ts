@@ -7,7 +7,12 @@ import type {
   FlightOption,
 } from "@/app/api/search-flights/route";
 import type { ExperienceOption } from "@/app/api/search-experiences-hotelbeds/route";
+import type { TransferOption } from "@/app/api/search-transfers-hotelbeds/route";
 import type { HotelOption } from "@/app/api/search-hotels/route";
+import {
+  resolveTransferLocationLabels,
+  shouldIncludeTransfers,
+} from "@/lib/quotes/transfer-eligibility";
 import { getCityIATA } from "@/lib/airports";
 import type { DuffelLocale } from "@/lib/duffel/flights";
 import { buildFlightSearchParams } from "@/lib/flights/build-search-params";
@@ -70,7 +75,7 @@ export interface ParsedTripInput {
 // Output
 // ─────────────────────────────────────────────────────────────
 
-export type QuoteItemType = "flight" | "hotel" | "experience";
+export type QuoteItemType = "flight" | "hotel" | "experience" | "transfer";
 export type QuoteItemSource = "mock" | "inventory" | "api";
 
 export type QuoteItemFlightDetails = {
@@ -116,6 +121,14 @@ export type QuoteItemExperienceDetails = {
   imageUrl?: string;
 };
 
+export type QuoteItemTransferDetails = {
+  transferCode?: string;
+  providerId?: string;
+  connectionId?: string;
+  pickupLocation?: string;
+  dropoffLocation?: string;
+};
+
 export interface QuoteItem {
   id: string;
   type: QuoteItemType;
@@ -133,6 +146,8 @@ export interface QuoteItem {
   hotelDetails?: QuoteItemHotelDetails;
   /** Provider identifiers for activity search and booking. */
   experienceDetails?: QuoteItemExperienceDetails;
+  /** Provider identifiers and route for transfer booking. */
+  transferDetails?: QuoteItemTransferDetails;
   /** When true, shown as a selectable option but excluded from quote totals. */
   alternative?: boolean;
   /** Per-line margin %; drives markup and finalPrice when edited in the UI. */
@@ -141,7 +156,11 @@ export interface QuoteItem {
   imageUrl?: string;
 }
 
-export type QuoteSelectionGroup = "flight-outbound" | "flight-return" | "hotel";
+export type QuoteSelectionGroup =
+  | "flight-outbound"
+  | "flight-return"
+  | "hotel"
+  | "transfer";
 
 export interface QuoteSummary {
   route: string;
@@ -172,15 +191,18 @@ export interface QuoteMeta {
   flightsSource: QuoteDataSource;
   hotelsSource: QuoteDataSource;
   experiencesSource: QuoteDataSource;
+  transfersSource: QuoteDataSource;
   flightsMockReason?: string;
   hotelsMockReason?: string;
   experiencesMockReason?: string;
+  transfersMockReason?: string;
 }
 
 export interface Quote {
   id: string;
   summary: QuoteSummary;
   flights: QuoteItem[];
+  transfers: QuoteItem[];
   hotels: QuoteItem[];
   experiences: QuoteItem[];
   pricing: QuotePricing;
@@ -206,6 +228,21 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
   const includeHotels = input.includeHotels ?? true;
   const includeExperiences = input.includeExperiences ?? true;
   const includeFlights = input.includeFlights ?? true;
+  const includeTransfers =
+    includeFlights &&
+    shouldIncludeTransfers({
+      origin,
+      destination,
+      enrichedTrip: input.enrichedTrip,
+      airportChoices: input.airportChoices,
+    });
+  const transferLocations = includeTransfers
+    ? resolveTransferLocationLabels({
+        destination,
+        enrichedTrip: input.enrichedTrip,
+        airportChoices: input.airportChoices,
+      })
+    : null;
 
   const emptySection = (): QuoteSectionBuildResult => ({
     items: [],
@@ -213,7 +250,7 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
   });
 
   const inventorySearch =
-    includeHotels || includeExperiences
+    includeHotels || includeExperiences || includeTransfers
       ? fetchInventoryForQuote({
           destination,
           accessibility: input.preferences.accessibility,
@@ -222,7 +259,8 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
         })
       : Promise.resolve(null);
 
-  const [flightsResult, hotelsResult, experiencesResult] = await Promise.all([
+  const [flightsResult, transfersResult, hotelsResult, experiencesResult] =
+    await Promise.all([
     includeFlights
       ? buildFlightsFromApiOrMock({
           origin,
@@ -235,6 +273,19 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
           airportChoices: input.airportChoices,
           locale: input.locale ?? "es",
         })
+      : Promise.resolve(emptySection()),
+    includeTransfers && transferLocations
+      ? inventorySearch.then((inventory) =>
+          buildTransfersFromInventoryOrApiOrMock({
+            destination,
+            dates: input.dates,
+            pax,
+            seed,
+            inventory,
+            pickupLocation: transferLocations.pickupLocation,
+            dropoffLocation: transferLocations.dropoffLocation,
+          }),
+        )
       : Promise.resolve(emptySection()),
     includeHotels
       ? inventorySearch.then((inventory) =>
@@ -264,15 +315,17 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
           }),
         )
       : Promise.resolve(emptySection()),
-  ]);
+    ]);
 
   const flights = flightsResult.items;
+  const transfers = transfersResult.items;
   const hotels = hotelsResult.items;
   const experiences = experiencesResult.items;
 
-  const selectableItems = [...flights, ...hotels, ...experiences];
+  const selectableItems = [...flights, ...transfers, ...hotels, ...experiences];
   const pricedItems = [
     ...itemsForPricing(flights),
+    ...itemsForPricing(transfers),
     ...itemsForPricing(hotels),
     ...itemsForPricing(experiences),
   ];
@@ -297,6 +350,7 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
   const finalTotal = baseTotal + margin;
 
   const flightsSource = quoteSectionSource(flights);
+  const transfersSource = quoteSectionSource(transfers);
   const hotelsSource = quoteSectionSource(hotels);
   const experiencesSource = quoteSectionSource(experiences);
 
@@ -312,6 +366,7 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
       },
     },
     flights,
+    transfers,
     hotels,
     experiences,
     pricing: {
@@ -322,10 +377,14 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
     },
     _meta: {
       flightsSource,
+      transfersSource,
       hotelsSource,
       experiencesSource,
       ...(flightsSource === "mock" && flightsResult.mockReason
         ? { flightsMockReason: flightsResult.mockReason }
+        : {}),
+      ...(transfersSource === "mock" && transfersResult.mockReason
+        ? { transfersMockReason: transfersResult.mockReason }
         : {}),
       ...(hotelsSource === "mock" && hotelsResult.mockReason
         ? { hotelsMockReason: hotelsResult.mockReason }
@@ -422,6 +481,54 @@ async function searchHotelsApi(
   if (!data || data.fallback) return [];
   const hotels = data.hotels;
   return Array.isArray(hotels) && hotels.length > 0 ? hotels : [];
+}
+
+async function searchTransfersHotelbedsApi(
+  params: {
+    destination: string;
+    checkIn: string;
+    checkOut: string;
+    adults: number;
+    children?: number;
+    pickupLocation?: string;
+    dropoffLocation?: string;
+    agencyId?: string;
+  },
+  apiOrigin = "",
+): Promise<TransferOption[]> {
+  try {
+    const path = "/api/search-transfers-hotelbeds";
+    const url = apiOrigin ? `${apiOrigin.replace(/\/$/, "")}${path}` : path;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        destination: params.destination,
+        checkIn: params.checkIn,
+        checkOut: params.checkOut,
+        adults: params.adults,
+        children: params.children,
+        pickupLocation: params.pickupLocation,
+        dropoffLocation: params.dropoffLocation,
+        agencyId: params.agencyId,
+      }),
+    });
+    const data = (await response.json()) as {
+      transfers?: TransferOption[];
+      fallback?: boolean;
+    };
+    const transfers = Array.isArray(data?.transfers) ? data.transfers : [];
+    console.log("[buildQuote] /api/search-transfers-hotelbeds", {
+      status: response.status,
+      fallback: data?.fallback === true,
+      transferCount: transfers.length,
+    });
+    if (!response.ok || !data || data.fallback) return [];
+    return transfers.length > 0 ? transfers : [];
+  } catch (error) {
+    console.warn("[buildQuote] /api/search-transfers-hotelbeds failed", error);
+    return [];
+  }
 }
 
 async function searchExperiencesHotelbedsApi(
@@ -644,6 +751,10 @@ export function getQuoteSelectionGroup(itemId: string): QuoteSelectionGroup | nu
     return "hotel";
   }
 
+  if (itemId.startsWith("transfer-")) {
+    return "transfer";
+  }
+
   return null;
 }
 
@@ -684,6 +795,7 @@ export function selectPrimaryInGroup(quote: Quote, selectedId: string): void {
 
   applyToList(quote.flights);
   applyToList(quote.hotels);
+  applyToList(quote.transfers);
 }
 
 export function toggleExperienceInQuote(quote: Quote, itemId: string): void {
@@ -695,6 +807,7 @@ export function toggleExperienceInQuote(quote: Quote, itemId: string): void {
 export function pricedQuoteItemsFromQuote(quote: Quote): QuoteItem[] {
   return [
     ...itemsForPricing(quote.flights),
+    ...itemsForPricing(quote.transfers),
     ...itemsForPricing(quote.hotels),
     ...itemsForPricing(quote.experiences),
   ];
@@ -715,6 +828,7 @@ function quoteSectionSource(items: QuoteItem[]): QuoteDataSource {
 type InventoryQuoteSearchResponse = {
   hotels: InventoryQuoteRow[];
   experiences: InventoryQuoteRow[];
+  transfers?: InventoryQuoteRow[];
 };
 
 async function fetchInventoryForQuote(params: {
@@ -733,7 +847,12 @@ async function fetchInventoryForQuote(params: {
       console.warn("[buildQuote] inventory quote-search failed", response.status);
       return null;
     }
-    return (await response.json()) as InventoryQuoteSearchResponse;
+    const data = (await response.json()) as InventoryQuoteSearchResponse;
+    return {
+      hotels: data.hotels ?? [],
+      experiences: data.experiences ?? [],
+      transfers: data.transfers ?? [],
+    };
   } catch (error) {
     console.warn("[buildQuote] inventory quote-search error", error);
     return null;
@@ -780,6 +899,106 @@ function buildExperienceDetails(
     ...(connectionId ? { connectionId } : {}),
     ...(experience.imageUrl ? { imageUrl: experience.imageUrl } : {}),
   };
+}
+
+function buildTransferDetails(
+  transfer: TransferOption,
+  providerId?: string,
+  fallbackPickup?: string,
+  fallbackDropoff?: string,
+): QuoteItemTransferDetails | undefined {
+  const pickupLocation = transfer.pickupLocation ?? fallbackPickup;
+  const dropoffLocation = transfer.dropoffLocation ?? fallbackDropoff;
+  const transferCode = transfer.transferCode;
+  const connectionId = transfer.connectionId;
+  if (
+    !transferCode &&
+    !providerId &&
+    !connectionId &&
+    !pickupLocation &&
+    !dropoffLocation
+  ) {
+    return undefined;
+  }
+  return {
+    ...(transferCode ? { transferCode } : {}),
+    ...(providerId ? { providerId } : {}),
+    ...(connectionId ? { connectionId } : {}),
+    ...(pickupLocation ? { pickupLocation } : {}),
+    ...(dropoffLocation ? { dropoffLocation } : {}),
+  };
+}
+
+function mapApiTransferToQuoteItem(
+  transfer: TransferOption,
+  id: string,
+  alternative = false,
+  providerLabel = "Hotelbeds",
+  providerId?: string,
+  fallbackPickup?: string,
+  fallbackDropoff?: string,
+): QuoteItem | null {
+  const price = transfer.price;
+  if (!Number.isFinite(price) || price <= 0) {
+    return null;
+  }
+
+  const transferDetails = buildTransferDetails(
+    transfer,
+    providerId,
+    fallbackPickup,
+    fallbackDropoff,
+  );
+
+  return draftItem({
+    id,
+    type: "transfer",
+    title: transfer.name,
+    provider: transfer.providerName ?? providerLabel,
+    price,
+    source: "api",
+    alternative,
+    ...(transferDetails ? { transferDetails } : {}),
+  });
+}
+
+function mapInventoryTransferToQuoteItem(
+  row: InventoryQuoteRow,
+  pax: { adults: number; children: number },
+  id: string,
+  alternative = false,
+  pickupLocation?: string,
+  dropoffLocation?: string,
+): QuoteItem {
+  const totalPax = pax.adults + pax.children;
+  const unitPrice = resolveInventoryNetPrice(row.data);
+  const price =
+    unitPrice > 0
+      ? Math.round(unitPrice * Math.max(1, totalPax))
+      : Math.round(40 * totalPax);
+  const notes = row.data.notes?.trim();
+  const invPickup = row.data.pickup?.trim() || pickupLocation;
+  const invDropoff = row.data.dropoff?.trim() || dropoffLocation;
+
+  return draftItem({
+    id,
+    type: "transfer",
+    title: row.name,
+    provider: resolveInventoryProvider(row.data),
+    price,
+    source: "inventory",
+    description: notes || undefined,
+    alternative,
+    ...(invPickup || invDropoff
+      ? {
+          transferDetails: {
+            ...(invPickup ? { pickupLocation: invPickup } : {}),
+            ...(invDropoff ? { dropoffLocation: invDropoff } : {}),
+            providerId: "inventory",
+          },
+        }
+      : {}),
+  });
 }
 
 function mapApiExperienceToQuoteItem(
@@ -988,6 +1207,8 @@ const HOTEL_HOTELBEDS_LIMIT = 8;
 const EXPERIENCE_QUOTE_LIMIT = 5;
 const EXPERIENCE_INVENTORY_LIMIT = 3;
 const EXPERIENCE_HOTELBEDS_LIMIT = 5;
+const TRANSFER_QUOTE_LIMIT = 3;
+const TRANSFER_HOTELBEDS_LIMIT = 3;
 
 function appendHotelbedsToQuoteItems(
   items: QuoteItem[],
@@ -1217,6 +1438,212 @@ async function fillApiExperiencesSequentially(
     console.log("[buildQuote] Hotelbeds experiences", hotelbedsExperiences);
     appendHotelbedsExperiencesToQuoteItems(items, hotelbedsExperiences);
   }
+}
+
+function appendHotelbedsTransfersToQuoteItems(
+  items: QuoteItem[],
+  transfers: TransferOption[],
+  pickupLocation: string,
+  dropoffLocation: string,
+): void {
+  for (const transfer of transfers) {
+    if (items.length >= TRANSFER_HOTELBEDS_LIMIT) break;
+    const item = mapApiTransferToQuoteItem(
+      transfer,
+      `transfer-api-${items.length + 1}`,
+      items.length > 0,
+      transfer.providerName ?? "Hotelbeds",
+      "hotelbeds-transfers",
+      pickupLocation,
+      dropoffLocation,
+    );
+    if (item) items.push(item);
+  }
+}
+
+async function fillApiTransfersSequentially(
+  items: QuoteItem[],
+  transferSearchParams: {
+    destination: string;
+    checkIn: string;
+    checkOut: string;
+    adults: number;
+    children?: number;
+    pickupLocation?: string;
+    dropoffLocation?: string;
+    agencyId?: string;
+  },
+  pickupLocation: string,
+  dropoffLocation: string,
+  apiOrigin: string,
+): Promise<void> {
+  if (items.length >= TRANSFER_QUOTE_LIMIT) return;
+
+  if (items.length < TRANSFER_HOTELBEDS_LIMIT) {
+    const hotelbedsTransfers = await searchTransfersHotelbedsApi(
+      transferSearchParams,
+      apiOrigin,
+    );
+    console.log("[buildQuote] Hotelbeds transfers", hotelbedsTransfers);
+    appendHotelbedsTransfersToQuoteItems(
+      items,
+      hotelbedsTransfers,
+      pickupLocation,
+      dropoffLocation,
+    );
+  }
+}
+
+function buildMockTransfers(params: {
+  destination: string;
+  pax: { adults: number; children: number };
+  seed: number;
+  pickupLocation: string;
+  dropoffLocation: string;
+}): QuoteItem[] {
+  const { destination, pax, seed, pickupLocation, dropoffLocation } = params;
+  const totalPax = Math.max(1, pax.adults + pax.children);
+  const base = 28 + (seed % 18);
+
+  const candidates: QuoteItem[] = [
+    draftItem({
+      id: "transfer-private",
+      type: "transfer",
+      title: `Traslado privado · ${pickupLocation} → ${dropoffLocation}`,
+      provider: pickFrom(seed + 19, ["Hotelbeds", "Operador local"]),
+      price: Math.round(base * totalPax * 1.35),
+      source: "mock",
+      transferDetails: {
+        pickupLocation,
+        dropoffLocation,
+        providerId: "hotelbeds-transfers",
+      },
+    }),
+    draftItem({
+      id: "transfer-shuttle",
+      type: "transfer",
+      title: `Shuttle compartido · ${destination}`,
+      provider: pickFrom(seed + 23, ["Hotelbeds", "Proveedor local"]),
+      price: Math.round(base * totalPax * 0.85),
+      source: "mock",
+      transferDetails: {
+        pickupLocation,
+        dropoffLocation,
+        providerId: "hotelbeds-transfers",
+      },
+    }),
+    draftItem({
+      id: "transfer-premium",
+      type: "transfer",
+      title: `Traslado premium · ${pickupLocation} → ${dropoffLocation}`,
+      provider: "Hotelbeds",
+      price: Math.round(base * totalPax * 1.75),
+      source: "mock",
+      transferDetails: {
+        pickupLocation,
+        dropoffLocation,
+        providerId: "hotelbeds-transfers",
+      },
+    }),
+  ];
+
+  return candidates.map((item, index) => ({
+    ...item,
+    alternative: index > 0,
+  }));
+}
+
+async function buildTransfersFromInventoryOrApiOrMock(params: {
+  destination: string;
+  dates: { start: string; end: string };
+  pax: { adults: number; children: number };
+  seed: number;
+  inventory: InventoryQuoteSearchResponse | null;
+  pickupLocation: string;
+  dropoffLocation: string;
+  apiOrigin?: string;
+}): Promise<QuoteSectionBuildResult> {
+  const {
+    destination,
+    dates,
+    pax,
+    seed,
+    inventory,
+    pickupLocation,
+    dropoffLocation,
+    apiOrigin = "",
+  } = params;
+
+  const inventoryRows = inventory?.transfers ?? [];
+  const items: QuoteItem[] = [];
+  const transferSearchParams = {
+    destination,
+    checkIn: dates.start,
+    checkOut: dates.end,
+    adults: pax.adults,
+    children: pax.children,
+    pickupLocation,
+    dropoffLocation,
+  };
+
+  if (inventoryRows.length > 0) {
+    console.log("[buildQuote] INV-PROPIO transfers", {
+      count: inventoryRows.length,
+      destination,
+    });
+
+    for (const row of inventoryRows.slice(0, TRANSFER_QUOTE_LIMIT)) {
+      items.push(
+        mapInventoryTransferToQuoteItem(
+          row,
+          pax,
+          `transfer-inv-${row.id.slice(0, 8)}`,
+          items.length > 0,
+          pickupLocation,
+          dropoffLocation,
+        ),
+      );
+    }
+  }
+
+  if (items.length < TRANSFER_QUOTE_LIMIT) {
+    await fillApiTransfersSequentially(
+      items,
+      transferSearchParams,
+      pickupLocation,
+      dropoffLocation,
+      apiOrigin,
+    );
+  }
+
+  if (items.length < TRANSFER_QUOTE_LIMIT) {
+    const mockItems = buildMockTransfers({
+      destination,
+      pax,
+      seed,
+      pickupLocation,
+      dropoffLocation,
+    });
+    const remaining = TRANSFER_QUOTE_LIMIT - items.length;
+
+    for (const mock of mockItems.slice(0, remaining)) {
+      items.push({
+        ...mock,
+        id: `transfer-mock-${items.length + 1}`,
+        alternative: items.length > 0,
+      });
+    }
+  }
+
+  const allMock = items.every((item) => item.source === "mock");
+
+  return {
+    items,
+    source: allMock ? "mock" : "real",
+    ...(allMock
+      ? { mockReason: "No inventory or API transfer results for destination" }
+      : {}),
+  };
 }
 
 async function buildExperiencesFromInventoryOrApiOrMock(params: {
@@ -1513,6 +1940,7 @@ export function marginCategoryForItemType(
   if (type === "flight") return "vuelos";
   if (type === "hotel") return "hoteles";
   if (type === "experience") return "experiencias";
+  if (type === "transfer") return "transfers";
   return null;
 }
 

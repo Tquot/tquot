@@ -464,6 +464,7 @@ function HotelQuoteItemCard({
     flight: t.itemTypeFlight,
     hotel: t.itemTypeHotel,
     experience: t.itemTypeExperience,
+    transfer: t.itemTypeTransfer,
   };
 
   return (
@@ -1029,7 +1030,14 @@ function QuoteItemCard({
     flight: t.itemTypeFlight,
     hotel: t.itemTypeHotel,
     experience: t.itemTypeExperience,
+    transfer: t.itemTypeTransfer,
   };
+  const transferRoute =
+    item.type === "transfer" &&
+    item.transferDetails?.pickupLocation &&
+    item.transferDetails?.dropoffLocation
+      ? `${item.transferDetails.pickupLocation} → ${item.transferDetails.dropoffLocation}`
+      : null;
 
   return (
     <article
@@ -1109,7 +1117,9 @@ function QuoteItemCard({
             </span>
           </div>
           <h4 className="font-semibold text-tquot-text">{item.title}</h4>
-          <p className="mt-1 text-sm text-tquot-muted">{item.provider}</p>
+          <p className="mt-1 text-sm text-tquot-muted">
+            {transferRoute ?? item.provider}
+          </p>
           {item.description ? (
             <p className="mt-2 text-sm leading-relaxed text-tquot-muted">
               {item.description}

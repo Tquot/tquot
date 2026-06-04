@@ -23,6 +23,7 @@ export type RefineAction =
 export type RefineQuotePatch = {
   hotels?: QuoteItem[];
   experiences?: QuoteItem[];
+  transfers?: QuoteItem[];
   flights?: QuoteItem[];
   _meta?: Partial<QuoteMeta>;
 };
