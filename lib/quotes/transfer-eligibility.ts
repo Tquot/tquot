@@ -1,7 +1,9 @@
 import { getCityIATA } from "@/lib/airports";
 import { getIndexes } from "@/lib/airports/index";
-import { resolveCity } from "@/lib/airports/search";
-import { resolveDestinationCoordinates } from "@/lib/geo/resolve-destination-coordinates";
+import {
+  resolveDestinationCoordinates,
+  resolveHardcodedDestinationCoordinates,
+} from "@/lib/geo/resolve-destination-coordinates";
 import type { EnrichedTripRequest } from "@/lib/parser/airport-resolution";
 import { buildFlightSearchParams } from "@/lib/flights/build-search-params";
 import type { AirportFlightChoices } from "@/lib/quotes/build-quote";
@@ -25,6 +27,16 @@ function haversineKm(
     Math.sin(dLat / 2) ** 2 +
     Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
   return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+function coordinatesMatch(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+): boolean {
+  const epsilon = 0.001;
+  return (
+    Math.abs(a.lat - b.lat) < epsilon && Math.abs(a.lng - b.lng) < epsilon
+  );
 }
 
 function resolveDestinationIata(params: {
@@ -62,10 +74,10 @@ function resolveDestinationIata(params: {
   return iata || null;
 }
 
-function resolveDestinationCityCoordinates(params: {
+function destinationNameCandidates(params: {
   destination: string;
   enrichedTrip?: EnrichedTripRequest;
-}): { lat: number; lng: number; source: string } | null {
+}): string[] {
   const names = [
     params.destination,
     params.enrichedTrip?._resolved.destination?.cityDisplayName,
@@ -74,11 +86,30 @@ function resolveDestinationCityCoordinates(params: {
     .filter((value): value is string => Boolean(value));
 
   const seen = new Set<string>();
+  const unique: string[] = [];
   for (const name of names) {
     const key = name.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
+    unique.push(name);
+  }
+  return unique;
+}
 
+function resolveDestinationCityCoordinates(params: {
+  destination: string;
+  enrichedTrip?: EnrichedTripRequest;
+}): { lat: number; lng: number; source: string } | null {
+  const names = destinationNameCandidates(params);
+
+  for (const name of names) {
+    const hardcoded = resolveHardcodedDestinationCoordinates(name);
+    if (hardcoded) {
+      return { ...hardcoded, source: "hardcoded:city-center" };
+    }
+  }
+
+  for (const name of names) {
     const fromHelper = resolveDestinationCoordinates(name);
     if (fromHelper) {
       return {
@@ -86,33 +117,6 @@ function resolveDestinationCityCoordinates(params: {
         source: "resolveDestinationCoordinates",
       };
     }
-
-    const city = resolveCity(name);
-    if (!city) continue;
-
-    const airports = city.airports.filter(
-      (ap) => Number.isFinite(ap.latitude) && Number.isFinite(ap.longitude),
-    );
-    if (airports.length === 0) continue;
-
-    if (airports.length === 1) {
-      const ap = airports[0];
-      return {
-        lat: ap.latitude,
-        lng: ap.longitude,
-        source: `airports:iata:${ap.iata}`,
-      };
-    }
-
-    const lat =
-      airports.reduce((sum, ap) => sum + ap.latitude, 0) / airports.length;
-    const lng =
-      airports.reduce((sum, ap) => sum + ap.longitude, 0) / airports.length;
-    return {
-      lat,
-      lng,
-      source: `airports:centroid:${city.cityKey}`,
-    };
   }
 
   return null;
@@ -143,16 +147,10 @@ export function shouldIncludeTransfers(params: {
   }
 
   const airport = getIndexes().byIata.get(arrivalIata);
-  const cityCoords = resolveDestinationCityCoordinates({
-    destination,
-    enrichedTrip: params.enrichedTrip,
-  });
-  if (!airport || !cityCoords) {
-    console.warn("[buildQuote] transfers skipped: missing coordinates", {
+  if (!airport) {
+    console.warn("[buildQuote] transfers skipped: missing airport coordinates", {
       arrivalIata,
       destination,
-      hasAirport: Boolean(airport),
-      hasCity: Boolean(cityCoords),
     });
     return false;
   }
@@ -161,6 +159,43 @@ export function shouldIncludeTransfers(params: {
     lat: airport.latitude,
     lng: airport.longitude,
   };
+  const cityCoords = resolveDestinationCityCoordinates({
+    destination,
+    enrichedTrip: params.enrichedTrip,
+  });
+
+  if (!cityCoords) {
+    console.log("[buildQuote] transfer distance (km)", {
+      destination,
+      arrivalIata,
+      arrivalAirport: airport.name,
+      airportCoords,
+      cityCoords: null,
+      cityCoordsSource: null,
+      distanceKm: null,
+      thresholdKm: TRANSFER_MIN_DISTANCE_KM,
+      includeTransfers: true,
+      reason: "unknown_city_center",
+    });
+    return true;
+  }
+
+  if (coordinatesMatch(airportCoords, cityCoords)) {
+    console.log("[buildQuote] transfer distance (km)", {
+      destination,
+      arrivalIata,
+      arrivalAirport: airport.name,
+      airportCoords,
+      cityCoords: { lat: cityCoords.lat, lng: cityCoords.lng },
+      cityCoordsSource: cityCoords.source,
+      distanceKm: 0,
+      thresholdKm: TRANSFER_MIN_DISTANCE_KM,
+      includeTransfers: true,
+      reason: "city_center_matches_airport",
+    });
+    return true;
+  }
+
   const distanceKm = haversineKm(airportCoords, cityCoords);
   const includeTransfers = distanceKm > TRANSFER_MIN_DISTANCE_KM;
 

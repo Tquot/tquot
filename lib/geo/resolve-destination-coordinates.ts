@@ -63,6 +63,16 @@ const HARDCODED_CITY_COORDINATES: Record<string, { lat: number; lng: number }> =
   vienna: { lat: 48.2082, lng: 16.3738 },
 };
 
+export function resolveHardcodedDestinationCoordinates(
+  destination: string,
+): { lat: number; lng: number } | null {
+  const trimmed = destination.trim();
+  if (!trimmed) return null;
+
+  const key = normalizeCityKey(trimmed);
+  return HARDCODED_CITY_COORDINATES[key] ?? null;
+}
+
 export function resolveDestinationCoordinates(
   destination: string,
 ): { lat: number; lng: number } | null {
@@ -75,9 +85,5 @@ export function resolveDestinationCoordinates(
     if (fromAirports) return fromAirports;
   }
 
-  const key = normalizeCityKey(trimmed);
-  const hardcoded = HARDCODED_CITY_COORDINATES[key];
-  if (hardcoded) return hardcoded;
-
-  return null;
+  return resolveHardcodedDestinationCoordinates(trimmed);
 }
