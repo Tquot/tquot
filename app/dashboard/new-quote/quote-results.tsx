@@ -1360,12 +1360,16 @@ export function FlightQuoteItemsSection({
 }) {
   const { locale, t } = useDashboardLanguage();
   const { outbound, returnFlights, other } = splitFlightsByDirection(items);
-  const [returnStepUnlocked, setReturnStepUnlocked] = useState(false);
-  const outboundIdsKey = outbound.map((item) => item.id).join("|");
+  const [returnStepUnlocked, setReturnStepUnlocked] = useState(() =>
+    outbound.some((item) => !item.alternative),
+  );
+  const outboundKey = outbound
+    .map((item) => `${item.id}:${item.alternative}`)
+    .join("|");
 
   useEffect(() => {
-    setReturnStepUnlocked(false);
-  }, [outboundIdsKey]);
+    setReturnStepUnlocked(outbound.some((item) => !item.alternative));
+  }, [outboundKey]);
 
   const handleSelectItem = (itemId: string) => {
     if (itemId.startsWith("flight-out-")) {
