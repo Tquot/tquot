@@ -162,6 +162,13 @@ export type QuoteSelectionGroup =
   | "hotel"
   | "transfer";
 
+export type QuoteSelectionMode = "exclusive" | "independent";
+
+export type QuoteSelectionGroupInfo = {
+  group: QuoteSelectionGroup;
+  selectionMode: QuoteSelectionMode;
+};
+
 export interface QuoteSummary {
   route: string;
   durationDays: number;
@@ -738,21 +745,23 @@ export function itemsForPricing(items: QuoteItem[]) {
   return items.filter((item) => !item.alternative);
 }
 
-export function getQuoteSelectionGroup(itemId: string): QuoteSelectionGroup | null {
+export function getQuoteSelectionGroup(
+  itemId: string,
+): QuoteSelectionGroupInfo | null {
   if (itemId.startsWith("flight-out")) {
-    return "flight-outbound";
+    return { group: "flight-outbound", selectionMode: "exclusive" };
   }
 
   if (itemId.startsWith("flight-return")) {
-    return "flight-return";
+    return { group: "flight-return", selectionMode: "exclusive" };
   }
 
   if (itemId.startsWith("hotel-")) {
-    return "hotel";
+    return { group: "hotel", selectionMode: "exclusive" };
   }
 
   if (itemId.startsWith("transfer-")) {
-    return "transfer";
+    return { group: "transfer", selectionMode: "independent" };
   }
 
   return null;
@@ -778,14 +787,16 @@ export function applyItemMargin(item: QuoteItem, marginPercent: number): void {
 }
 
 export function selectPrimaryInGroup(quote: Quote, selectedId: string): void {
-  const group = getQuoteSelectionGroup(selectedId);
-  if (!group) {
+  const selection = getQuoteSelectionGroup(selectedId);
+  if (!selection || selection.selectionMode === "independent") {
     return;
   }
 
+  const { group } = selection;
+
   const applyToList = (items: QuoteItem[]) => {
     for (const item of items) {
-      if (getQuoteSelectionGroup(item.id) !== group) {
+      if (getQuoteSelectionGroup(item.id)?.group !== group) {
         continue;
       }
 
@@ -795,11 +806,16 @@ export function selectPrimaryInGroup(quote: Quote, selectedId: string): void {
 
   applyToList(quote.flights);
   applyToList(quote.hotels);
-  applyToList(quote.transfers);
 }
 
 export function toggleExperienceInQuote(quote: Quote, itemId: string): void {
   const item = quote.experiences.find((entry) => entry.id === itemId);
+  if (!item) return;
+  item.alternative = !item.alternative;
+}
+
+export function toggleTransferInQuote(quote: Quote, itemId: string): void {
+  const item = quote.transfers.find((entry) => entry.id === itemId);
   if (!item) return;
   item.alternative = !item.alternative;
 }
@@ -1451,7 +1467,7 @@ function appendHotelbedsTransfersToQuoteItems(
     const item = mapApiTransferToQuoteItem(
       transfer,
       `transfer-api-${items.length + 1}`,
-      items.length > 0,
+      false,
       transfer.providerName ?? "Hotelbeds",
       "hotelbeds-transfers",
       pickupLocation,
@@ -1547,10 +1563,7 @@ function buildMockTransfers(params: {
     }),
   ];
 
-  return candidates.map((item, index) => ({
-    ...item,
-    alternative: index > 0,
-  }));
+  return candidates;
 }
 
 async function buildTransfersFromInventoryOrApiOrMock(params: {
@@ -1598,7 +1611,7 @@ async function buildTransfersFromInventoryOrApiOrMock(params: {
           row,
           pax,
           `transfer-inv-${row.id.slice(0, 8)}`,
-          items.length > 0,
+          false,
           pickupLocation,
           dropoffLocation,
         ),
@@ -1630,7 +1643,7 @@ async function buildTransfersFromInventoryOrApiOrMock(params: {
       items.push({
         ...mock,
         id: `transfer-mock-${items.length + 1}`,
-        alternative: items.length > 0,
+        alternative: false,
       });
     }
   }

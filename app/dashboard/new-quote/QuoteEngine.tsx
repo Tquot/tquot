@@ -17,6 +17,7 @@ import {
   selectPrimaryInGroup,
   syncQuotePricing,
   toggleExperienceInQuote,
+  toggleTransferInQuote,
   type ParsedTripInput,
   type Quote,
   type QuoteDataSource,
@@ -513,6 +514,19 @@ export function QuoteEngine() {
 
       const next = cloneQuote(current);
       toggleExperienceInQuote(next, itemId);
+      syncQuotePricing(next);
+      return next;
+    });
+  }
+
+  function handleToggleTransferItem(itemId: string) {
+    setQuote((current) => {
+      if (!current) {
+        return current;
+      }
+
+      const next = cloneQuote(current);
+      toggleTransferInQuote(next, itemId);
       syncQuotePricing(next);
       return next;
     });
@@ -1628,7 +1642,8 @@ export function QuoteEngine() {
                     eyebrow={t.sectionTransfersEyebrow}
                     title={t.sectionTransfersTitle}
                     items={quote.transfers}
-                    onSelectItem={handleSelectQuoteItem}
+                    selectionMode="independent"
+                    onToggleItem={handleToggleTransferItem}
                     onMarginChange={handleQuoteItemMarginChange}
                   />
                 </div>
