@@ -1,5 +1,6 @@
 import { getCityIATA } from "@/lib/airports";
 import { getIndexes } from "@/lib/airports/index";
+import { resolveCity } from "@/lib/airports/search";
 import { resolveDestinationCoordinates } from "@/lib/geo/resolve-destination-coordinates";
 import type { EnrichedTripRequest } from "@/lib/parser/airport-resolution";
 import { buildFlightSearchParams } from "@/lib/flights/build-search-params";
