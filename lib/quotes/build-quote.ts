@@ -6,6 +6,7 @@ import type {
   FlightFareOption,
   FlightOption,
 } from "@/app/api/search-flights/route";
+import type { ExperienceOption } from "@/app/api/search-experiences-hotelbeds/route";
 import type { HotelOption } from "@/app/api/search-hotels/route";
 import { getCityIATA } from "@/lib/airports";
 import type { DuffelLocale } from "@/lib/duffel/flights";
@@ -108,6 +109,13 @@ export type QuoteItemHotelDetails = {
   netPrice?: number;
 };
 
+export type QuoteItemExperienceDetails = {
+  activityCode?: string;
+  providerId?: string;
+  connectionId?: string;
+  imageUrl?: string;
+};
+
 export interface QuoteItem {
   id: string;
   type: QuoteItemType;
@@ -123,6 +131,8 @@ export interface QuoteItem {
   flightDetails?: QuoteItemFlightDetails;
   /** Provider identifiers for hotel price comparator. */
   hotelDetails?: QuoteItemHotelDetails;
+  /** Provider identifiers for activity search and booking. */
+  experienceDetails?: QuoteItemExperienceDetails;
   /** When true, shown as a selectable option but excluded from quote totals. */
   alternative?: boolean;
   /** Per-line margin %; drives markup and finalPrice when edited in the UI. */
@@ -242,8 +252,9 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
       : Promise.resolve(emptySection()),
     includeExperiences
       ? inventorySearch.then((inventory) =>
-          buildExperiencesFromInventoryOrMock({
+          buildExperiencesFromInventoryOrApiOrMock({
             destination,
+            dates: input.dates,
             durationDays,
             pax,
             seed,
@@ -411,6 +422,50 @@ async function searchHotelsApi(
   if (!data || data.fallback) return [];
   const hotels = data.hotels;
   return Array.isArray(hotels) && hotels.length > 0 ? hotels : [];
+}
+
+async function searchExperiencesHotelbedsApi(
+  params: {
+    destination: string;
+    checkIn: string;
+    checkOut: string;
+    adults: number;
+    children?: number;
+    agencyId?: string;
+  },
+  apiOrigin = "",
+): Promise<ExperienceOption[]> {
+  try {
+    const path = "/api/search-experiences-hotelbeds";
+    const url = apiOrigin ? `${apiOrigin.replace(/\/$/, "")}${path}` : path;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        destination: params.destination,
+        checkIn: params.checkIn,
+        checkOut: params.checkOut,
+        adults: params.adults,
+        children: params.children,
+        agencyId: params.agencyId,
+      }),
+    });
+    const data = (await response.json()) as {
+      experiences?: ExperienceOption[];
+      fallback?: boolean;
+    };
+    const experiences = Array.isArray(data?.experiences) ? data.experiences : [];
+    console.log("[buildQuote] /api/search-experiences-hotelbeds", {
+      status: response.status,
+      fallback: data?.fallback === true,
+      experienceCount: experiences.length,
+    });
+    if (!response.ok || !data || data.fallback) return [];
+    return experiences.length > 0 ? experiences : [];
+  } catch (error) {
+    console.warn("[buildQuote] /api/search-experiences-hotelbeds failed", error);
+    return [];
+  }
 }
 
 async function searchHotelsHotelbedsApi(
@@ -710,6 +765,50 @@ function mapInventoryHotelToQuoteItem(
   });
 }
 
+function buildExperienceDetails(
+  experience: ExperienceOption,
+  providerId?: string,
+): QuoteItemExperienceDetails | undefined {
+  const activityCode = experience.activityCode;
+  const connectionId = experience.connectionId;
+  if (!activityCode && !providerId && !connectionId && !experience.imageUrl) {
+    return undefined;
+  }
+  return {
+    ...(activityCode ? { activityCode } : {}),
+    ...(providerId ? { providerId } : {}),
+    ...(connectionId ? { connectionId } : {}),
+    ...(experience.imageUrl ? { imageUrl: experience.imageUrl } : {}),
+  };
+}
+
+function mapApiExperienceToQuoteItem(
+  experience: ExperienceOption,
+  id: string,
+  alternative = false,
+  providerLabel = "Hotelbeds",
+  providerId?: string,
+): QuoteItem | null {
+  const price = experience.price;
+  if (!Number.isFinite(price) || price <= 0) {
+    return null;
+  }
+
+  const experienceDetails = buildExperienceDetails(experience, providerId);
+
+  return draftItem({
+    id,
+    type: "experience",
+    title: experience.name,
+    provider: experience.providerName ?? providerLabel,
+    price,
+    source: "api",
+    alternative,
+    ...(experienceDetails ? { experienceDetails } : {}),
+    ...(experience.imageUrl ? { imageUrl: experience.imageUrl } : {}),
+  });
+}
+
 function mapInventoryExperienceToQuoteItem(
   row: InventoryQuoteRow,
   pax: { adults: number; children: number },
@@ -887,6 +986,8 @@ const HOTEL_QUOTE_LIMIT = 10;
 const HOTEL_INVENTORY_LIMIT = 3;
 const HOTEL_HOTELBEDS_LIMIT = 8;
 const EXPERIENCE_QUOTE_LIMIT = 5;
+const EXPERIENCE_INVENTORY_LIMIT = 3;
+const EXPERIENCE_HOTELBEDS_LIMIT = 5;
 
 function appendHotelbedsToQuoteItems(
   items: QuoteItem[],
@@ -1077,35 +1178,107 @@ async function buildHotelsFromInventoryOrApiOrMock(params: {
   };
 }
 
-async function buildExperiencesFromInventoryOrMock(params: {
+function appendHotelbedsExperiencesToQuoteItems(
+  items: QuoteItem[],
+  experiences: ExperienceOption[],
+): void {
+  for (const experience of experiences) {
+    if (items.length >= EXPERIENCE_HOTELBEDS_LIMIT) break;
+    const item = mapApiExperienceToQuoteItem(
+      experience,
+      `exp-api-${items.length + 1}`,
+      items.length > 0,
+      experience.providerName ?? "Hotelbeds",
+      "hotelbeds-activities",
+    );
+    if (item) items.push(item);
+  }
+}
+
+async function fillApiExperiencesSequentially(
+  items: QuoteItem[],
+  experienceSearchParams: {
+    destination: string;
+    checkIn: string;
+    checkOut: string;
+    adults: number;
+    children?: number;
+    agencyId?: string;
+  },
+  apiOrigin: string,
+): Promise<void> {
+  if (items.length >= EXPERIENCE_QUOTE_LIMIT) return;
+
+  if (items.length < EXPERIENCE_HOTELBEDS_LIMIT) {
+    const hotelbedsExperiences = await searchExperiencesHotelbedsApi(
+      experienceSearchParams,
+      apiOrigin,
+    );
+    console.log("[buildQuote] Hotelbeds experiences", hotelbedsExperiences);
+    appendHotelbedsExperiencesToQuoteItems(items, hotelbedsExperiences);
+  }
+}
+
+async function buildExperiencesFromInventoryOrApiOrMock(params: {
   destination: string;
+  dates: { start: string; end: string };
   durationDays: number;
   pax: { adults: number; children: number };
   seed: number;
   accessibility: boolean;
   hotelLevel: HotelLevel;
   inventory: InventoryQuoteSearchResponse | null;
+  apiOrigin?: string;
 }): Promise<QuoteSectionBuildResult> {
-  const { destination, durationDays, pax, seed, inventory } = params;
+  const {
+    destination,
+    dates,
+    durationDays,
+    pax,
+    seed,
+    inventory,
+    apiOrigin = "",
+  } = params;
 
-  const inventoryRows = (inventory?.experiences ?? []).slice(
-    0,
-    EXPERIENCE_QUOTE_LIMIT,
-  );
-  const items: QuoteItem[] = inventoryRows.map((row, index) =>
-    mapInventoryExperienceToQuoteItem(
-      row,
-      pax,
-      `exp-inv-${row.id.slice(0, 8)}`,
-      index > 0,
-    ),
-  );
+  const inventoryRows = inventory?.experiences ?? [];
+  const items: QuoteItem[] = [];
+  const experienceSearchParams = {
+    destination,
+    checkIn: dates.start,
+    checkOut: dates.end,
+    adults: pax.adults,
+    children: pax.children,
+  };
 
   if (inventoryRows.length > 0) {
     console.log("[buildQuote] INV-PROPIO experiences", {
       count: inventoryRows.length,
       destination,
+      rows: inventoryRows.map((row) => ({
+        id: row.id,
+        category: row.category,
+        name: row.name,
+      })),
     });
+
+    for (const row of inventoryRows.slice(0, EXPERIENCE_INVENTORY_LIMIT)) {
+      items.push(
+        mapInventoryExperienceToQuoteItem(
+          row,
+          pax,
+          `exp-inv-${row.id.slice(0, 8)}`,
+          items.length > 0,
+        ),
+      );
+    }
+  }
+
+  if (items.length < EXPERIENCE_QUOTE_LIMIT) {
+    await fillApiExperiencesSequentially(
+      items,
+      experienceSearchParams,
+      apiOrigin,
+    );
   }
 
   if (items.length < EXPERIENCE_QUOTE_LIMIT) {
@@ -1127,7 +1300,7 @@ async function buildExperiencesFromInventoryOrMock(params: {
     items,
     source: allMock ? "mock" : "real",
     ...(allMock
-      ? { mockReason: "No agency inventory experiences for destination" }
+      ? { mockReason: "No inventory or API experience results for destination" }
       : {}),
   };
 }
