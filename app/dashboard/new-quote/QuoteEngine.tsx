@@ -1,14 +1,11 @@
 ﻿"use client";
 
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { saveQuote } from "@/app/actions/save-quote";
 import {
   applyItemMargin,
   buildQuote,
-  type AirportFlightChoices,
   getItemMarginPercent,
   getMarginPercent,
   itemsForPricing,
@@ -20,16 +17,11 @@ import {
   toggleTransferInQuote,
   type ParsedTripInput,
   type Quote,
-  type QuoteDataSource,
   type QuoteItem,
-  type QuoteItemSource,
 } from "@/lib/quotes/build-quote";
 import type { RefineAction, RefineApplyResult, RefineQuotePatch } from "@/lib/quotes/refine/types";
 import { isServerRefinementAction } from "@/lib/quotes/refine/utils";
-import type {
-  ComparatorOutput,
-  ComparatorResultRow,
-} from "@/lib/comparator";
+import type { ComparatorResultRow } from "@/lib/comparator";
 import { tripRequestToParsedTripInput } from "@/lib/quotes/map-parser";
 import type { TripRequest } from "@/lib/parser/schema";
 import {
@@ -38,15 +30,35 @@ import {
 } from "@/lib/parser/airport-resolution";
 import { AirportPicker } from "@/components/AirportPicker";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
-import { readAgencyProfile } from "../agency/agency-profile";
 import { useDashboardLanguage } from "../dashboard-language-provider";
 import type { DashboardTranslation } from "../translations";
 import type { Locale } from "../translations";
 import { LocaleToggleButtons } from "../locale-toggle-buttons";
 import { formatMessage } from "../format-message";
-import { ProviderLogo } from "@/app/components/provider-logo";
-import { providerSlug } from "@/lib/connectors/provider-logo";
+import {
+  airportChoicesForBuild,
+  isAirportSelectionComplete,
+  needsAirportSelection,
+  type AirportChoicesState,
+} from "@/lib/quote-engine/airport-selection";
 import { FlightQuoteItemsSection, QuoteItemsSection } from "./quote-results";
+import {
+  HotelComparatorPanel,
+  type ComparatorPanelState,
+  fetchHotelComparatorPanel,
+} from "./quote-comparator";
+import {
+  generateAgentPDF,
+  generateClientPDF,
+  openServerPdf,
+} from "./quote-pdf";
+import {
+  allQuoteItems,
+  cloneQuote,
+  DataSourceBadge,
+  formatCurrency,
+  TotalCard,
+} from "./quote-shared";
 
 type StepStatus = "pending" | "active" | "done";
 
@@ -59,25 +71,6 @@ type ChatMessage = {
   role: "agent" | "ai";
   content: string;
 };
-
-type CatalogProviderEntry = {
-  providerId: string;
-  providerName: string;
-  connected: boolean;
-  connectionId?: string;
-  logoUrl: string | null;
-  netPrice?: number;
-};
-
-type ComparatorPanelState = {
-  itemId: string;
-  loading: boolean;
-  error: string | null;
-  results: ComparatorOutput | null;
-  catalogProviders: CatalogProviderEntry[];
-};
-
-const HOTEL_PROVIDER_CATEGORY = "hotels";
 
 function buildProcessSteps(t: DashboardTranslation): ProcessStep[] {
   return [
@@ -111,20 +104,6 @@ function travelersChipLabel(
   return formatMessage(t.chipTravelers, { adults: adultCount });
 }
 
-const sourcePdfColors: Record<QuoteItemSource, [number, number, number]> = {
-  mock: [148, 163, 184],
-  inventory: [0, 201, 167],
-  api: [168, 85, 247],
-};
-
-function formatCurrency(value: number, locale: Locale) {
-  return new Intl.NumberFormat(locale === "es" ? "es-ES" : "en-US", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
 function getStepStatus(
   index: number,
   activeStep: number,
@@ -138,84 +117,11 @@ function getStepStatus(
   return "pending";
 }
 
-function allQuoteItems(quote: Quote): QuoteItem[] {
-  return [
-    ...quote.flights,
-    ...quote.transfers,
-    ...quote.hotels,
-    ...quote.experiences,
-  ];
-}
-
-function cloneQuote(quote: Quote): Quote {
-  return {
-    ...quote,
-    flights: quote.flights.map((item) => ({ ...item })),
-    transfers: quote.transfers.map((item) => ({ ...item })),
-    hotels: quote.hotels.map((item) => ({ ...item })),
-    experiences: quote.experiences.map((item) => ({ ...item })),
-    summary: { ...quote.summary, passengers: { ...quote.summary.passengers } },
-    pricing: { ...quote.pricing },
-    _meta: { ...quote._meta },
-  };
-}
-
 function pipelineDelay(ms = 600) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 const PARSER_TIMEOUT_MS = 10_000;
-
-type AirportChoice = string | "all";
-
-type AirportChoicesState = {
-  origin: AirportChoice | null;
-  destination: AirportChoice | null;
-};
-
-function needsAirportSelection(enriched: EnrichedTripRequest): boolean {
-  return (
-    enriched._resolved.origin?.needsAgentChoice === true ||
-    enriched._resolved.destination?.needsAgentChoice === true
-  );
-}
-
-function isAirportSelectionComplete(
-  enriched: EnrichedTripRequest,
-  choices: AirportChoicesState,
-): boolean {
-  if (
-    enriched._resolved.origin?.needsAgentChoice === true &&
-    choices.origin === null
-  ) {
-    return false;
-  }
-  if (
-    enriched._resolved.destination?.needsAgentChoice === true &&
-    choices.destination === null
-  ) {
-    return false;
-  }
-  return true;
-}
-
-function airportChoicesForBuild(
-  enriched: EnrichedTripRequest,
-  choices: AirportChoicesState,
-): AirportFlightChoices {
-  return {
-    origin:
-      choices.origin ??
-      enriched._resolved.origin?.selectedIata ??
-      enriched._resolved.origin?.airports[0]?.iata ??
-      "all",
-    destination:
-      choices.destination ??
-      enriched._resolved.destination?.selectedIata ??
-      enriched._resolved.destination?.airports[0]?.iata ??
-      "all",
-  };
-}
 
 type ParserApiResult =
   | { ok: true; status: "ready"; data: TripRequest }
@@ -359,58 +265,6 @@ function mergeRefinePatch(quote: Quote, patch: RefineQuotePatch): Quote {
     next._meta = { ...next._meta, ...patch._meta };
   }
   return next;
-}
-
-function drawAgencyHeader(
-  doc: jsPDF,
-  variant: "dark" | "light",
-  quoteReference: string,
-) {
-  const profile = readAgencyProfile();
-  const isDark = variant === "dark";
-  const logoX = 14;
-  const logoY = 14;
-  const logoSize = 24;
-  const agencyName = profile.agencyName || "Travel Agency";
-
-  function drawTextBrand() {
-    doc.setFillColor(isDark ? 0 : 3, isDark ? 201 : 8, isDark ? 167 : 15);
-    doc.roundedRect(logoX, logoY, logoSize, logoSize, 3, 3, "F");
-    doc.setTextColor(isDark ? 3 : 0, isDark ? 8 : 201, isDark ? 15 : 167);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.text("TQuot", logoX + 5, logoY + 10);
-    doc.setFontSize(5);
-    doc.text(agencyName.slice(0, 16), logoX + 3, logoY + 18, {
-      maxWidth: logoSize - 6,
-    });
-  }
-
-  if (profile.logoBase64) {
-    try {
-      doc.addImage(profile.logoBase64, "PNG", logoX, logoY, logoSize, logoSize);
-    } catch {
-      try {
-        doc.addImage(profile.logoBase64, "JPEG", logoX, logoY, logoSize, logoSize);
-      } catch {
-        drawTextBrand();
-      }
-    }
-  } else {
-    drawTextBrand();
-  }
-
-  doc.setTextColor(isDark ? 255 : 3, isDark ? 255 : 8, isDark ? 255 : 15);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
-  doc.text(agencyName, 44, 20);
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
-  doc.setTextColor(isDark ? 139 : 100, isDark ? 156 : 116, isDark ? 179 : 139);
-  const contactLines = [profile.email, profile.phone].filter(Boolean);
-  doc.text(contactLines.slice(0, 3), 44, 27);
-  doc.text(`Ref: ${quoteReference}`, 150, 20);
 }
 
 export function QuoteEngine() {
@@ -596,23 +450,7 @@ export function QuoteEngine() {
   }
 
   async function handleCompareHotel(itemId: string) {
-    if (!quote || !tripInput) {
-      return;
-    }
-
-    const item = quote.hotels.find((entry) => entry.id === itemId);
-    if (!item?.hotelDetails) {
-      setComparatorPanel({
-        itemId,
-        loading: false,
-        error: t.comparatorNoHotelDetails,
-        results: null,
-        catalogProviders: [],
-      });
-      return;
-    }
-
-    const hotelCode = item.hotelDetails.hotelCode;
+    if (!quote || !tripInput) return;
 
     setComparatorPanel({
       itemId,
@@ -622,174 +460,13 @@ export function QuoteEngine() {
       catalogProviders: [],
     });
 
-    try {
-      const [catalogResponse, connectionsResponse] = await Promise.all([
-        fetch("/api/connectors/catalog"),
-        fetch("/api/connectors/connections"),
-      ]);
-
-      const catalogPayload = (await catalogResponse.json()) as {
-        providers?: Array<{
-          id: string;
-          name: string;
-          category: string;
-          logo_url: string | null;
-        }>;
-        error?: string;
-      };
-      const connectionsPayload = (await connectionsResponse.json()) as {
-        connections?: Array<{ id: string; provider_id: string }>;
-        error?: string;
-      };
-
-      if (!catalogResponse.ok) {
-        throw new Error(catalogPayload.error ?? t.comparatorGenericError);
-      }
-      if (!connectionsResponse.ok) {
-        throw new Error(connectionsPayload.error ?? t.comparatorGenericError);
-      }
-
-      const connectionsByProvider = new Map<
-        string,
-        { id: string; provider_id: string }
-      >();
-      for (const connection of connectionsPayload.connections ?? []) {
-        const slug = providerSlug(connection.provider_id);
-        if (slug && !connectionsByProvider.has(slug)) {
-          connectionsByProvider.set(slug, connection);
-        }
-      }
-
-      const hotelCatalog = (catalogPayload.providers ?? []).filter(
-        (provider) => provider.category === HOTEL_PROVIDER_CATEGORY,
-      );
-
-      const catalogProviders: CatalogProviderEntry[] = hotelCatalog.map(
-        (provider) => {
-          const slug = providerSlug(provider.id);
-          const connection = connectionsByProvider.get(slug);
-          const isHotelbedsProvider = slug === providerSlug("hotelbeds");
-          return {
-            providerId: provider.id,
-            providerName: provider.name,
-            connected: Boolean(connection),
-            connectionId: connection?.id,
-            logoUrl: provider.logo_url,
-            ...(isHotelbedsProvider &&
-            Number.isFinite(item.hotelDetails?.netPrice)
-              ? { netPrice: item.hotelDetails!.netPrice! }
-              : {}),
-          };
-        },
-      );
-
-      let results: ComparatorOutput | null = null;
-      let error: string | null = null;
-      const localRows: ComparatorResultRow[] = [];
-
-      console.log("[comparator] hotel details", {
-        netPrice: item.hotelDetails?.netPrice,
-        hotelCode: item.hotelDetails?.hotelCode,
-        rateKey: item.hotelDetails?.rateKey,
-        provider: item.hotelDetails?.providerId,
-      });
-
-      const hotelMappings = catalogProviders
-        .filter(
-          (provider) =>
-            provider.connected &&
-            provider.connectionId &&
-            providerSlug(provider.providerId) !== providerSlug("hotelbeds"),
-        )
-        .map((provider) => ({
-          connectionId: provider.connectionId!,
-          hotelCodes: hotelCode ? [hotelCode] : [],
-        }))
-        .filter((mapping) => mapping.hotelCodes.length > 0);
-      console.log("[comparator] mappings sent to API", hotelMappings);
-
-      const hotelbedsProvider = catalogProviders.find(
-        (provider) =>
-          provider.connected &&
-          providerSlug(provider.providerId) === providerSlug("hotelbeds"),
-      );
-      if (
-        hotelbedsProvider &&
-        Number.isFinite(hotelbedsProvider.netPrice) &&
-        hotelbedsProvider.netPrice! > 0
-      ) {
-        localRows.push({
-          providerId: hotelbedsProvider.providerId,
-          providerName: hotelbedsProvider.providerName,
-          status: "ok",
-          elapsedMs: 0,
-          bestRoom: {
-            roomType: item.title,
-            boardType: "UNSPECIFIED",
-            netPrice: hotelbedsProvider.netPrice!,
-            publicPrice: null,
-            currency: "EUR",
-            refundable: true,
-            providerRoomCode: item.hotelDetails?.rateKey ?? "",
-          },
-        });
-      }
-
-      if (!hotelCode) {
-        error = t.comparatorNoConnection;
-      } else if (hotelMappings.length > 0) {
-        try {
-          const response = await fetch("/api/comparator", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              hotelMappings,
-              checkIn: tripInput.dates.start,
-              checkOut: tripInput.dates.end,
-              rooms: [
-                {
-                  adults: quote.summary.passengers.adults,
-                  childrenAges: [],
-                },
-              ],
-            }),
-          });
-
-          const data = (await response.json()) as ComparatorOutput & {
-            error?: string;
-          };
-          if (!response.ok) {
-            throw new Error(data.error ?? t.comparatorGenericError);
-          }
-          results = data;
-        } catch (apiError) {
-          error =
-            apiError instanceof Error
-              ? apiError.message
-              : t.comparatorGenericError;
-        }
-      }
-      results = mergeComparatorRows(results, localRows);
-
-      setComparatorPanel({
-        itemId,
-        loading: false,
-        error,
-        results,
-        catalogProviders,
-      });
-    } catch (compareError) {
-      setComparatorPanel({
-        itemId,
-        loading: false,
-        error:
-          compareError instanceof Error
-            ? compareError.message
-            : t.comparatorGenericError,
-        results: null,
-        catalogProviders: [],
-      });
-    }
+    const panel = await fetchHotelComparatorPanel({
+      quote,
+      tripInput,
+      itemId,
+      t,
+    });
+    setComparatorPanel(panel);
   }
 
   function handleSelectComparatorPrice(row: ComparatorResultRow) {
@@ -1129,14 +806,6 @@ export function QuoteEngine() {
     setIsRunning(false);
   }
 
-  function openServerPdf(quoteId: string, variant: "agent" | "client") {
-    window.open(
-      `/api/quotes/${quoteId}/pdf?variant=${variant}`,
-      "_blank",
-      "noopener,noreferrer",
-    );
-  }
-
   async function persistCurrentQuote(): Promise<string | null> {
     if (!quote || !tripInput) {
       console.error("[QuoteEngine] persistCurrentQuote: missing quote or tripInput");
@@ -1177,7 +846,9 @@ export function QuoteEngine() {
       openServerPdf(quoteId, "agent");
       return;
     }
-    generateAgentPDF();
+    if (quote) {
+      generateAgentPDF({ quote, locale, t, agentNotes });
+    }
   }
 
   async function handleClientPdf() {
@@ -1186,206 +857,9 @@ export function QuoteEngine() {
       openServerPdf(quoteId, "client");
       return;
     }
-    generateClientPDF();
-  }
-
-  function generateAgentPDF() {
-    if (!quote) return;
-
-    const doc = new jsPDF();
-    const quoteReference = quote.id;
-    const items = allQuoteItems(quote);
-
-    doc.setFillColor(3, 8, 15);
-    doc.rect(0, 0, 210, 297, "F");
-
-    drawAgencyHeader(doc, "dark", quoteReference);
-
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(16);
-    doc.text(t.pdfAgentTitle, 14, 54);
-    doc.setFontSize(10);
-    doc.setTextColor(139, 156, 179);
-    doc.text(formatMessage(t.pdfReference, { ref: quoteReference }), 14, 62);
-    doc.text(
-      formatMessage(t.pdfGenerated, {
-        date: new Date().toLocaleString(locale === "es" ? "es-ES" : "en-US"),
-      }),
-      14,
-      68,
-    );
-
-    autoTable(doc, {
-      startY: 80,
-      head: [
-        [
-          t.pdfTableLine,
-          t.pdfTableSource,
-          t.pdfTableBase,
-          t.pdfTableMargin,
-          t.pdfTableClient,
-        ],
-      ],
-      body: items.map((item) => [
-        `${item.title}\n${item.provider}`,
-        `[${item.source}]`,
-        formatCurrency(item.price, locale),
-        formatCurrency(item.markup, locale),
-        formatCurrency(item.finalPrice, locale),
-      ]),
-      theme: "grid",
-      styles: {
-        fillColor: [9, 18, 32],
-        textColor: [232, 238, 247],
-        lineColor: [37, 50, 66],
-        fontSize: 9,
-        cellPadding: 3,
-      },
-      headStyles: {
-        fillColor: [0, 201, 167],
-        textColor: [3, 8, 15],
-        fontStyle: "bold",
-      },
-      alternateRowStyles: {
-        fillColor: [12, 24, 39],
-      },
-      didParseCell: (data) => {
-        if (data.section === "body" && data.column.index === 1) {
-          const source = items[data.row.index]?.source;
-          if (source) {
-            data.cell.styles.textColor = sourcePdfColors[source];
-            data.cell.styles.fontStyle = "bold";
-          }
-        }
-      },
-    });
-
-    const finalY = (doc as jsPDF & { lastAutoTable?: { finalY: number } })
-      .lastAutoTable?.finalY ?? 140;
-
-    doc.setFillColor(9, 18, 32);
-    doc.roundedRect(14, finalY + 10, 182, 30, 3, 3, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.text(t.pdfInternalTotals, 20, finalY + 20);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(232, 238, 247);
-    doc.text(
-      formatMessage(t.pdfBase, {
-        value: formatCurrency(quote.pricing.baseTotal, locale),
-      }),
-      20,
-      finalY + 29,
-    );
-    doc.text(
-      formatMessage(t.pdfMargin, {
-        value: formatCurrency(quote.pricing.margin, locale),
-      }),
-      76,
-      finalY + 29,
-    );
-    doc.setTextColor(0, 201, 167);
-    doc.setFont("helvetica", "bold");
-    doc.text(
-      formatMessage(t.pdfClientTotal, {
-        value: formatCurrency(quote.pricing.finalTotal, locale),
-      }),
-      140,
-      finalY + 29,
-    );
-
-    doc.setTextColor(245, 197, 24);
-    doc.setFontSize(11);
-    doc.text(t.pdfAgentNotes, 14, finalY + 55);
-    doc.setTextColor(139, 156, 179);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text(agentNotes || t.pdfNoNotes, 14, finalY + 63, {
-      maxWidth: 180,
-    });
-
-    doc.save(formatMessage(t.pdfFilenameAgent, { ref: quoteReference }));
-  }
-
-  function generateClientPDF() {
-    if (!quote) return;
-
-    const doc = new jsPDF();
-    const quoteReference = quote.id;
-    const items = pricedQuoteItemsFromQuote(quote);
-
-    doc.setFillColor(255, 255, 255);
-    doc.rect(0, 0, 210, 297, "F");
-
-    drawAgencyHeader(doc, "light", quoteReference);
-
-    doc.setTextColor(3, 8, 15);
-    doc.setFontSize(22);
-    doc.text(t.pdfClientProposal, 14, 54);
-    doc.setFontSize(10);
-    doc.setTextColor(100, 116, 139);
-    doc.text(formatMessage(t.pdfReference, { ref: quoteReference }), 14, 62);
-    doc.text(
-      formatMessage(t.pdfClientDate, {
-        date: new Date().toLocaleDateString(locale === "es" ? "es-ES" : "en-US"),
-      }),
-      14,
-      68,
-    );
-
-    autoTable(doc, {
-      startY: 82,
-      head: [[t.pdfClientService, t.pdfClientProvider, t.pdfClientPrice]],
-      body: items.map((item) => [
-        item.title,
-        item.provider,
-        formatCurrency(item.finalPrice, locale),
-      ]),
-      theme: "striped",
-      styles: {
-        textColor: [15, 23, 42],
-        fontSize: 9,
-        cellPadding: 3,
-        lineColor: [226, 232, 240],
-      },
-      headStyles: {
-        fillColor: [3, 8, 15],
-        textColor: [255, 255, 255],
-        fontStyle: "bold",
-      },
-      alternateRowStyles: {
-        fillColor: [248, 250, 252],
-      },
-      columnStyles: {
-        2: {
-          halign: "right",
-          textColor: [0, 145, 122],
-          fontStyle: "bold",
-        },
-      },
-    });
-
-    const finalY = (doc as jsPDF & { lastAutoTable?: { finalY: number } })
-      .lastAutoTable?.finalY ?? 130;
-
-    doc.setFillColor(240, 253, 250);
-    doc.roundedRect(120, finalY + 12, 76, 24, 3, 3, "F");
-    doc.setTextColor(3, 8, 15);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.text(t.pdfClientTotalLabel, 126, finalY + 22);
-    doc.setTextColor(0, 145, 122);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.text(formatCurrency(quote.pricing.finalTotal, locale), 126, finalY + 32);
-
-    doc.setTextColor(100, 116, 139);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.text(t.pdfDisclaimer, 14, 282, { maxWidth: 182 });
-
-    doc.save(formatMessage(t.pdfFilenameClient, { ref: quoteReference }));
+    if (quote) {
+      generateClientPDF({ quote, locale, t });
+    }
   }
 
   return (
@@ -1767,246 +1241,6 @@ export function QuoteEngine() {
   );
 }
 
-function comparatorStatusLabel(
-  row: ComparatorResultRow,
-  t: DashboardTranslation,
-): string {
-  if (row.status === "ok") {
-    return t.comparatorAvailable;
-  }
-  if (row.status === "no_results") {
-    return t.comparatorNoResults;
-  }
-  if (row.status === "timeout") {
-    return t.comparatorTimeout;
-  }
-  return row.errorMessage ?? t.comparatorGenericError;
-}
-
-function comparatorRowForProvider(
-  results: ComparatorOutput | null,
-  providerId: string,
-): ComparatorResultRow | undefined {
-  const slug = providerSlug(providerId);
-  return results?.results.find(
-    (row) => providerSlug(row.providerId) === slug,
-  );
-}
-
-function mergeComparatorRows(
-  baseResults: ComparatorOutput | null,
-  extraRows: ComparatorResultRow[],
-): ComparatorOutput | null {
-  if (!baseResults && extraRows.length === 0) {
-    return null;
-  }
-
-  const results = [...(baseResults?.results ?? []), ...extraRows];
-  const statusOrder: Record<ComparatorResultRow["status"], number> = {
-    ok: 0,
-    no_results: 1,
-    timeout: 2,
-    error: 3,
-  };
-  const sorted = [...results].sort((a, b) => {
-    const orderDiff = statusOrder[a.status] - statusOrder[b.status];
-    if (orderDiff !== 0) return orderDiff;
-    if (a.status === "ok" && b.status === "ok") {
-      return (a.bestRoom?.netPrice ?? 0) - (b.bestRoom?.netPrice ?? 0);
-    }
-    return 0;
-  });
-
-  const cheapest =
-    sorted.find((row) => row.status === "ok" && row.bestRoom) ?? null;
-
-  return {
-    results: sorted,
-    cheapest,
-    totalElapsedMs: baseResults?.totalElapsedMs ?? 0,
-    summary: {
-      consulted: sorted.length,
-      ok: sorted.filter((row) => row.status === "ok").length,
-      errors: sorted.filter((row) => row.status === "error").length,
-      timeouts: sorted.filter((row) => row.status === "timeout").length,
-      noResults: sorted.filter((row) => row.status === "no_results").length,
-    },
-  };
-}
-
-function HotelComparatorPanel({
-  item,
-  panel,
-  locale,
-  onClose,
-  onSelectPrice,
-}: {
-  item: QuoteItem | null;
-  panel: ComparatorPanelState;
-  locale: Locale;
-  onClose: () => void;
-  onSelectPrice: (row: ComparatorResultRow) => void;
-}) {
-  const { t } = useDashboardLanguage();
-  const cheapestProviderId = panel.results?.cheapest?.providerId;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center">
-      <button
-        type="button"
-        aria-label={t.comparatorClose}
-        onClick={onClose}
-        className="absolute inset-0 bg-tquot-text/40"
-      />
-      <div className="relative z-10 w-full max-w-lg rounded-xl border border-tquot-border bg-tquot-surface p-5 shadow-lg">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1 pr-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.26em] text-tquot-teal">
-              {t.comparatorTitle}
-            </p>
-            <h3 className="mt-1 text-lg font-bold text-tquot-text">
-              {item?.title ?? t.itemTypeHotel}
-            </h3>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t.comparatorClose}
-            className="shrink-0 rounded-lg p-1.5 text-tquot-muted transition-colors hover:bg-tquot-bg hover:text-tquot-text"
-          >
-            <CloseIcon className="h-5 w-5" />
-          </button>
-        </div>
-
-        {panel.loading ? (
-          <p className="py-8 text-center text-sm text-tquot-muted">
-            {t.comparatorLoading}
-          </p>
-        ) : null}
-
-        {panel.error ? (
-          <p className="mb-3 rounded-xl border border-tquot-warm/30 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            {panel.error}
-          </p>
-        ) : null}
-
-        {!panel.loading && panel.catalogProviders.length > 0 ? (
-          <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
-            {panel.catalogProviders.map((provider) => {
-              const row = provider.connected
-                ? comparatorRowForProvider(panel.results, provider.providerId)
-                : undefined;
-              const isCheapest =
-                Boolean(row) &&
-                row!.status === "ok" &&
-                providerSlug(row!.providerId) ===
-                  providerSlug(cheapestProviderId ?? "");
-              const liveNetPrice =
-                row?.status === "ok" && row.bestRoom ? row.bestRoom.netPrice : null;
-              const statusLabel = !provider.connected
-                ? t.comparatorNotConnected
-                : row
-                  ? comparatorStatusLabel(row, t)
-                  : t.comparatorNoResults;
-
-              return (
-                <div
-                  key={provider.providerId}
-                  className={`flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 ${
-                    isCheapest
-                      ? "border-tquot-teal/40 bg-tquot-teal/10"
-                      : "border-tquot-border bg-tquot-bg"
-                  }`}
-                >
-                  <ProviderLogo
-                    key={provider.providerId}
-                    providerId={provider.providerId}
-                    name={provider.providerName}
-                    imageClassName="h-10 w-10 shrink-0 rounded object-contain bg-tquot-surface"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-tquot-text">
-                        {provider.providerName}
-                      </p>
-                      {isCheapest ? (
-                        <span className="rounded-full border border-tquot-teal/35 bg-tquot-teal/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-tquot-teal">
-                          {t.comparatorCheapest}
-                        </span>
-                      ) : null}
-                    </div>
-                    <p className="text-xs text-tquot-muted">{statusLabel}</p>
-                  </div>
-                  <p className="text-lg font-bold tabular-nums text-tquot-text">
-                    {provider.connected && liveNetPrice != null
-                      ? formatCurrency(liveNetPrice, locale)
-                      : "—"}
-                  </p>
-                  {!provider.connected ? (
-                    <Link
-                      href="/dashboard/integrations"
-                      className="rounded-lg border border-tquot-border bg-tquot-surface px-3 py-1.5 text-xs font-bold text-tquot-accent hover:bg-tquot-bg"
-                    >
-                      {t.comparatorConnect}
-                    </Link>
-                  ) : row?.status === "ok" && row.bestRoom ? (
-                    <button
-                      type="button"
-                      onClick={() => onSelectPrice(row)}
-                      className="rounded-lg border border-tquot-teal/30 bg-tquot-teal/10 px-3 py-1.5 text-xs font-bold text-tquot-teal hover:bg-tquot-teal/15"
-                    >
-                      {t.useThisPrice}
-                    </button>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-        ) : null}
-
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-4 w-full rounded-xl border border-tquot-border bg-tquot-surface px-4 py-3 text-sm font-semibold text-tquot-text transition-colors hover:bg-tquot-bg"
-        >
-          {t.comparatorClose}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function CloseIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      aria-hidden
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M18 6L6 18" />
-    </svg>
-  );
-}
-
-function DataSourceBadge({ source }: { source: QuoteDataSource }) {
-  if (source === "real") {
-    return (
-      <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-tquot-success/30 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-tquot-success">
-        ✓ Datos reales
-      </span>
-    );
-  }
-
-  return (
-    <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-tquot-warm/30 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-tquot-warm">
-      ⚠ Datos de ejemplo
-    </span>
-  );
-}
-
 function ProcessStepCard({
   index,
   status,
@@ -2102,37 +1336,4 @@ function StepIndicator({ status }: { status: StepStatus }) {
   }
 
   return <span className="h-7 w-7 rounded-full border border-tquot-border bg-tquot-surface" />;
-}
-
-function TotalCard({
-  label,
-  value,
-  highlight,
-  locale,
-}: {
-  label: string;
-  value: number;
-  highlight?: boolean;
-  locale: Locale;
-}) {
-  return (
-    <div
-      className={`rounded-xl px-4 py-4 sm:px-5 sm:py-5 ${
-        highlight
-          ? "border border-tquot-teal/30 bg-tquot-teal/5"
-          : "border-0"
-      }`}
-    >
-      <p className="text-xs font-semibold uppercase tracking-wide text-tquot-muted">
-        {label}
-      </p>
-      <p
-        className={`mt-2 tabular-nums text-3xl font-black sm:text-4xl ${
-          highlight ? "text-tquot-teal" : "text-tquot-text"
-        }`}
-      >
-        {formatCurrency(value, locale)}
-      </p>
-    </div>
-  );
 }

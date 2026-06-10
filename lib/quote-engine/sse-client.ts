@@ -1,5 +1,6 @@
 "use client";
 
+import { needsAirportSelectionForParsed } from "@/lib/quote-engine/airport-selection";
 import type { ConversationAction } from "@/lib/quote-engine/types";
 import type { BuildEvent, ParseEvent } from "@/lib/quote-engine/types";
 import { useQuoteConversationStore } from "@/lib/quote-engine/store";
@@ -180,10 +181,26 @@ export function dispatchParseEvent(event: ParseEvent): SseTerminalResult {
       });
       return "needs_input";
 
-    case "parse.complete":
-      dispatch({ type: "PARSE_COMPLETE", parsed: event.parsed });
+    case "parse.complete": {
       addSystemEvent("parsing-completed", { parsed: event.parsed });
+      const currentState = useQuoteConversationStore.getState().state;
+      const parsingInput =
+        currentState.status === "parsing"
+          ? currentState.input
+          : event.parsed.destination;
+
+      if (needsAirportSelectionForParsed(event.parsed)) {
+        dispatch({
+          type: "PARSE_AWAITING_AIRPORTS",
+          parsed: event.parsed,
+          input: parsingInput,
+        });
+        return "complete";
+      }
+
+      dispatch({ type: "PARSE_COMPLETE", parsed: event.parsed });
       return "complete";
+    }
 
     case "parse.error":
       dispatch({

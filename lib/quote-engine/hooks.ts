@@ -10,11 +10,13 @@ import {
   selectError,
   selectIsLocked,
   selectMessages,
+  selectAwaitingAirports,
   selectNeedsInput,
   selectParsedTripInput,
   selectParsingPartial,
   selectStatus,
 } from "@/lib/quote-engine/store";
+import type { AirportFlightChoices } from "@/lib/quotes/build-quote";
 import {
   streamBuildEvents,
   streamParseEvents,
@@ -333,6 +335,7 @@ export function useConversation() {
   const isLocked = useQuoteConversationStore(selectIsLocked);
   const error = useQuoteConversationStore(selectError);
   const needsInput = useQuoteConversationStore(selectNeedsInput);
+  const awaitingAirports = useQuoteConversationStore(selectAwaitingAirports);
   const parsingPartial = useQuoteConversationStore(selectParsingPartial);
   const buildProgress = useQuoteConversationStore(selectBuildProgress);
   const quote = useQuoteConversationStore(selectCurrentQuote);
@@ -340,7 +343,15 @@ export function useConversation() {
 
   const dispatch = useQuoteConversationStore((store) => store.dispatch);
   const addUserMessage = useQuoteConversationStore((store) => store.addUserMessage);
+  const updateQuote = useQuoteConversationStore((store) => store.updateQuote);
   const reset = useQuoteConversationStore((store) => store.reset);
+
+  const confirmAirports = useCallback(
+    (airportChoices: AirportFlightChoices) => {
+      dispatch({ type: "AIRPORTS_CONFIRMED", airportChoices });
+    },
+    [dispatch],
+  );
 
   const { isParsing, isBuilding, cancelParse, cancelBuild } = useQuoteBuilder();
   const { submitRefinement, isRefining } = useChatRefinement();
@@ -373,10 +384,13 @@ export function useConversation() {
     isRefining,
     error,
     needsInput,
+    awaitingAirports,
     parsingPartial,
     buildProgress,
     quote,
     parsedTripInput,
+    updateQuote,
+    confirmAirports,
     submitInitialRequest,
     submitRefinement,
     cancel,

@@ -3,7 +3,10 @@
 import { create } from "zustand";
 import { devtools, subscribeWithSelector } from "zustand/middleware";
 import { nanoid } from "nanoid";
-import { conversationReducer, initialState } from "@/lib/quote-engine/reducer";
+import {
+  conversationReducer,
+  initialState,
+} from "@/lib/quote-engine/reducer";
 import type {
   AssistantMessage,
   ConversationAction,
@@ -12,6 +15,8 @@ import type {
   SystemEventType,
   SystemMessage,
 } from "@/lib/quote-engine/types";
+import type { Quote } from "@/lib/quotes/build-quote";
+import { syncQuotePricing } from "@/lib/quotes/build-quote";
 
 export interface QuoteConversationStore {
   state: ConversationState;
@@ -32,6 +37,7 @@ export interface QuoteConversationStore {
     type: SystemEventType,
     payload?: Record<string, unknown>,
   ) => string;
+  updateQuote: (quote: Quote) => void;
   reset: () => void;
 }
 
@@ -120,6 +126,21 @@ export const useQuoteConversationStore = create<QuoteConversationStore>()(
         return id;
       },
 
+      updateQuote: (quote) => {
+        syncQuotePricing(quote);
+        set(
+          (current) => {
+            const next = conversationReducer(current.state, {
+              type: "UPDATE_QUOTE",
+              quote,
+            });
+            return { state: next };
+          },
+          false,
+          "quote/update",
+        );
+      },
+
       reset: () =>
         set({ state: initialState, messages: [] }, false, "store/reset"),
     })),
@@ -159,6 +180,9 @@ export const selectNeedsInput = (store: QuoteConversationStore) =>
         input: store.state.input,
       }
     : null;
+
+export const selectAwaitingAirports = (store: QuoteConversationStore) =>
+  store.state.status === "awaiting_airports" ? store.state : null;
 
 export const selectParsedTripInput = (store: QuoteConversationStore) => {
   switch (store.state.status) {

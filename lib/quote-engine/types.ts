@@ -1,4 +1,8 @@
-import type { ParsedTripInput, Quote } from "@/lib/quotes/build-quote";
+import type {
+  AirportFlightChoices,
+  ParsedTripInput,
+  Quote,
+} from "@/lib/quotes/build-quote";
 import type { RefineAction } from "@/lib/quotes/refine/types";
 
 export type { ParsedTripInput, Quote } from "@/lib/quotes/build-quote";
@@ -136,6 +140,8 @@ export type ParseEvent =
 export type ConversationPhase =
   | "idle"
   | "parsing"
+  | "needs_input"
+  | "awaiting_airports"
   | "building"
   | "complete"
   | "refining"
@@ -160,6 +166,11 @@ export type ConversationState =
       input: string;
       questions: string[];
       partial: Partial<ParsedTripInput>;
+    }
+  | {
+      status: "awaiting_airports";
+      input: string;
+      parsed: ParsedTripInput;
     }
   | {
       status: "building";
@@ -189,12 +200,15 @@ export type ConversationAction =
   | { type: "USER_SUBMIT"; input: string }
   | { type: "PARSE_PROGRESS"; partial: Partial<ParsedTripInput> }
   | { type: "PARSE_COMPLETE"; parsed: ParsedTripInput }
+  | { type: "PARSE_AWAITING_AIRPORTS"; parsed: ParsedTripInput; input: string }
   | {
       type: "PARSE_NEEDS_INPUT";
       questions: string[];
       partial: Partial<ParsedTripInput>;
     }
   | { type: "PARSE_ERROR"; error: ConversationError }
+  | { type: "AIRPORTS_CONFIRMED"; airportChoices: AirportFlightChoices }
+  | { type: "UPDATE_QUOTE"; quote: Quote }
   | { type: "BUILD_START"; parsed: ParsedTripInput }
   | { type: "BUILD_EVENT"; event: BuildEvent }
   | { type: "BUILD_COMPLETE"; quote: Quote }

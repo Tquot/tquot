@@ -44,6 +44,28 @@ export function conversationReducer(
       };
     }
 
+    case "PARSE_AWAITING_AIRPORTS": {
+      if (state.status !== "parsing") return state;
+      return {
+        status: "awaiting_airports",
+        input: action.input,
+        parsed: action.parsed,
+      };
+    }
+
+    case "AIRPORTS_CONFIRMED": {
+      if (state.status !== "awaiting_airports") return state;
+      return {
+        status: "building",
+        parsed: {
+          ...state.parsed,
+          airportChoices: action.airportChoices,
+        },
+        progress: initialBuildProgress,
+        partialQuote: {},
+      };
+    }
+
     case "PARSE_NEEDS_INPUT": {
       if (state.status !== "parsing") return state;
       return {
@@ -55,10 +77,33 @@ export function conversationReducer(
     }
 
     case "PARSE_ERROR": {
-      if (state.status !== "parsing" && state.status !== "needs_input") {
+      if (
+        state.status !== "parsing" &&
+        state.status !== "needs_input" &&
+        state.status !== "awaiting_airports"
+      ) {
         return state;
       }
       return { status: "error", error: action.error, previousState: state };
+    }
+
+    case "UPDATE_QUOTE": {
+      if (state.status === "complete") {
+        return { ...state, quote: action.quote };
+      }
+      if (state.status === "refining") {
+        return { ...state, quote: action.quote };
+      }
+      if (state.status === "building") {
+        return {
+          ...state,
+          partialQuote: {
+            ...state.partialQuote,
+            ...action.quote,
+          },
+        };
+      }
+      return state;
     }
 
     case "BUILD_START": {
