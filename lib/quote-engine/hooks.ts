@@ -43,9 +43,18 @@ async function resolveAgentId(): Promise<string> {
 }
 
 export function useQuoteBuilder() {
-  const state = useQuoteConversationStore((store) => store.state);
-  const [isParsing, setIsParsing] = useState(false);
-  const [isBuilding, setIsBuilding] = useState(false);
+  const status = useQuoteConversationStore(selectStatus);
+  const parsingInput = useQuoteConversationStore((store) =>
+    store.state.status === "parsing" ? store.state.input : "",
+  );
+  const parsingLocale = useQuoteConversationStore((store) =>
+    store.state.status === "parsing"
+      ? (store.state.partial.locale ?? "es")
+      : "es",
+  );
+  const buildingParsed = useQuoteConversationStore((store) =>
+    store.state.status === "building" ? store.state.parsed : null,
+  );
   const parseAbortRef = useRef<AbortController | null>(null);
   const buildAbortRef = useRef<AbortController | null>(null);
   const parseRunIdRef = useRef<string | null>(null);
@@ -53,8 +62,7 @@ export function useQuoteBuilder() {
   const buildInFlightRef = useRef(false);
 
   useEffect(() => {
-    if (state.status !== "parsing") {
-      setIsParsing(false);
+    if (status !== "parsing" || !parsingInput) {
       return;
     }
 
@@ -63,12 +71,9 @@ export function useQuoteBuilder() {
     parseAbortRef.current = controller;
     const runId = nanoid();
     parseRunIdRef.current = runId;
-    setIsParsing(true);
-
-    const locale = state.partial.locale ?? "es";
 
     void streamParseEvents(
-      { text: state.input, locale },
+      { text: parsingInput, locale: parsingLocale },
       { signal: controller.signal },
     )
       .catch((error) => {
@@ -88,19 +93,17 @@ export function useQuoteBuilder() {
       .finally(() => {
         if (parseRunIdRef.current === runId) {
           parseRunIdRef.current = null;
-          setIsParsing(false);
         }
       });
 
     return () => {
       controller.abort();
     };
-  }, [state.status, state.status === "parsing" ? state.input : ""]);
+  }, [status, parsingInput, parsingLocale]);
 
   useEffect(() => {
-    if (state.status !== "building") {
+    if (status !== "building" || !buildingParsed) {
       buildInFlightRef.current = false;
-      setIsBuilding(false);
       return;
     }
 
@@ -114,9 +117,8 @@ export function useQuoteBuilder() {
     buildAbortRef.current = controller;
     const runId = nanoid();
     buildRunIdRef.current = runId;
-    setIsBuilding(true);
 
-    void streamBuildEvents(state.parsed, { signal: controller.signal })
+    void streamBuildEvents(buildingParsed, { signal: controller.signal })
       .catch((error) => {
         if (error instanceof Error && error.name === "AbortError") return;
         if (buildRunIdRef.current !== runId) return;
@@ -135,7 +137,6 @@ export function useQuoteBuilder() {
         if (buildRunIdRef.current === runId) {
           buildRunIdRef.current = null;
           buildInFlightRef.current = false;
-          setIsBuilding(false);
         }
       });
 
@@ -143,23 +144,22 @@ export function useQuoteBuilder() {
       controller.abort();
       buildInFlightRef.current = false;
     };
-  }, [state.status, state.status === "building" ? state.parsed : null]);
+  }, [status, buildingParsed]);
 
   const cancelParse = useCallback(() => {
     parseAbortRef.current?.abort();
     parseAbortRef.current = null;
-    setIsParsing(false);
   }, []);
 
   const cancelBuild = useCallback(() => {
     buildAbortRef.current?.abort();
     buildAbortRef.current = null;
-    setIsBuilding(false);
+    buildInFlightRef.current = false;
   }, []);
 
   return {
-    isParsing,
-    isBuilding,
+    isParsing: status === "parsing",
+    isBuilding: status === "building",
     cancelParse,
     cancelBuild,
   };

@@ -173,13 +173,7 @@ export const selectIsLocked = (store: QuoteConversationStore) =>
   store.state.status === "refining";
 
 export const selectNeedsInput = (store: QuoteConversationStore) =>
-  store.state.status === "needs_input"
-    ? {
-        questions: store.state.questions,
-        partial: store.state.partial,
-        input: store.state.input,
-      }
-    : null;
+  store.state.status === "needs_input" ? store.state : null;
 
 export const selectAwaitingAirports = (store: QuoteConversationStore) =>
   store.state.status === "awaiting_airports" ? store.state : null;

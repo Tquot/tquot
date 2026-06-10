@@ -62,9 +62,15 @@ export function QuoteConversation() {
   const completeQuote = isCompleteQuote(quote) ? quote : null;
 
   useEffect(() => {
-    if (messages.length === 0) {
-      addAssistantMessage(t.chatWelcome);
-    }
+    if (messages.length > 0) return;
+
+    const welcomeTimer = window.setTimeout(() => {
+      if (useQuoteConversationStore.getState().messages.length === 0) {
+        addAssistantMessage(t.chatWelcome);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(welcomeTimer);
   }, [addAssistantMessage, messages.length, t.chatWelcome]);
 
   useEffect(() => {
