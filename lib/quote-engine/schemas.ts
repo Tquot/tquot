@@ -1,6 +1,20 @@
 import { z } from "zod";
 import type { ParsedTripInput } from "@/lib/quotes/build-quote";
 
+const MAX_PARSE_INPUT_CHARS = Number(process.env.PARSER_MAX_INPUT_CHARS ?? 8000);
+
+export const ParseRequestSchema = z.object({
+  text: z.string().min(1).max(MAX_PARSE_INPUT_CHARS),
+  currentDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
+  languageHint: z.enum(["es", "en"]).optional(),
+  locale: z.enum(["es", "en"]).optional(),
+});
+
+export type ParseRequestBody = z.infer<typeof ParseRequestSchema>;
+
 const hotelLevelSchema = z.enum(["budget", "standard", "premium", "luxury"]);
 
 export const ParsedTripInputSchema = z.object({

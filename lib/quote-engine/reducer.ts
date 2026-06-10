@@ -19,7 +19,8 @@ export function conversationReducer(
       if (
         state.status !== "idle" &&
         state.status !== "complete" &&
-        state.status !== "error"
+        state.status !== "error" &&
+        state.status !== "needs_input"
       ) {
         return state;
       }
@@ -32,7 +33,9 @@ export function conversationReducer(
     }
 
     case "PARSE_COMPLETE": {
-      if (state.status !== "parsing") return state;
+      if (state.status !== "parsing" && state.status !== "needs_input") {
+        return state;
+      }
       return {
         status: "building",
         parsed: action.parsed,
@@ -41,8 +44,20 @@ export function conversationReducer(
       };
     }
 
-    case "PARSE_ERROR": {
+    case "PARSE_NEEDS_INPUT": {
       if (state.status !== "parsing") return state;
+      return {
+        status: "needs_input",
+        input: state.input,
+        questions: action.questions,
+        partial: action.partial,
+      };
+    }
+
+    case "PARSE_ERROR": {
+      if (state.status !== "parsing" && state.status !== "needs_input") {
+        return state;
+      }
       return { status: "error", error: action.error, previousState: state };
     }
 
@@ -87,7 +102,11 @@ export function conversationReducer(
     case "REFINE_COMPLETE": {
       if (state.status !== "refining") return state;
       if (state.operationId !== action.operationId) return state;
-      return { status: "complete", parsed: state.parsed, quote: action.quote };
+      return {
+        status: "complete",
+        parsed: action.parsed ?? state.parsed,
+        quote: action.quote,
+      };
     }
 
     case "REFINE_ERROR": {

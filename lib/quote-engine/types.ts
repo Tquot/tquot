@@ -102,6 +102,34 @@ export type BuildEvent =
   | { type: "build.error"; error: string; ts: number };
 
 // ─────────────────────────────────────────────────────────
+// Parse stream protocol (SSE)
+// ─────────────────────────────────────────────────────────
+
+export type ParseStage =
+  | "started"
+  | "anonymizing"
+  | "extracting"
+  | "enriching"
+  | "mapping";
+
+export type ParseEvent =
+  | { type: "parse.started"; ts: number }
+  | {
+      type: "parse.progress";
+      stage: ParseStage;
+      partial?: Partial<ParsedTripInput>;
+      ts: number;
+    }
+  | {
+      type: "parse.needs_input";
+      questions: string[];
+      partial: Partial<ParsedTripInput>;
+      ts: number;
+    }
+  | { type: "parse.complete"; parsed: ParsedTripInput; ts: number }
+  | { type: "parse.error"; error: string; ts: number };
+
+// ─────────────────────────────────────────────────────────
 // State machine
 // ─────────────────────────────────────────────────────────
 
@@ -125,6 +153,12 @@ export type ConversationState =
   | {
       status: "parsing";
       input: string;
+      partial: Partial<ParsedTripInput>;
+    }
+  | {
+      status: "needs_input";
+      input: string;
+      questions: string[];
       partial: Partial<ParsedTripInput>;
     }
   | {
@@ -155,13 +189,23 @@ export type ConversationAction =
   | { type: "USER_SUBMIT"; input: string }
   | { type: "PARSE_PROGRESS"; partial: Partial<ParsedTripInput> }
   | { type: "PARSE_COMPLETE"; parsed: ParsedTripInput }
+  | {
+      type: "PARSE_NEEDS_INPUT";
+      questions: string[];
+      partial: Partial<ParsedTripInput>;
+    }
   | { type: "PARSE_ERROR"; error: ConversationError }
   | { type: "BUILD_START"; parsed: ParsedTripInput }
   | { type: "BUILD_EVENT"; event: BuildEvent }
   | { type: "BUILD_COMPLETE"; quote: Quote }
   | { type: "BUILD_ERROR"; error: ConversationError }
   | { type: "REFINE_START"; operation: RefinementOperation; operationId: string }
-  | { type: "REFINE_COMPLETE"; quote: Quote; operationId: string }
+  | {
+      type: "REFINE_COMPLETE";
+      quote: Quote;
+      operationId: string;
+      parsed?: ParsedTripInput;
+    }
   | { type: "REFINE_ERROR"; error: ConversationError; operationId: string }
   | { type: "RETRY" }
   | { type: "RESET" };

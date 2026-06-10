@@ -151,6 +151,27 @@ export const selectIsLocked = (store: QuoteConversationStore) =>
   store.state.status === "building" ||
   store.state.status === "refining";
 
+export const selectNeedsInput = (store: QuoteConversationStore) =>
+  store.state.status === "needs_input"
+    ? {
+        questions: store.state.questions,
+        partial: store.state.partial,
+        input: store.state.input,
+      }
+    : null;
+
+export const selectParsedTripInput = (store: QuoteConversationStore) => {
+  switch (store.state.status) {
+    case "building":
+      return store.state.parsed;
+    case "complete":
+    case "refining":
+      return store.state.parsed;
+    default:
+      return null;
+  }
+};
+
 export const selectParsingPartial = (store: QuoteConversationStore) =>
   store.state.status === "parsing" ? store.state.partial : null;
 
