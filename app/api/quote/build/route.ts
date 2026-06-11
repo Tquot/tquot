@@ -35,6 +35,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const cookieHeader = req.headers.get("cookie") ?? undefined;
+
   const abort = new AbortController();
   req.signal.addEventListener("abort", () => abort.abort());
 
@@ -55,6 +57,7 @@ export async function POST(req: NextRequest) {
           signal: abort.signal,
           onEvent: send,
           apiOrigin: req.nextUrl.origin,
+          cookieHeader,
         });
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") {

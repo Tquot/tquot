@@ -223,6 +223,7 @@ export interface Quote {
 export async function buildQuote(
   input: ParsedTripInput,
   apiOrigin = "",
+  cookieHeader?: string,
 ): Promise<Quote> {
   console.log("[buildQuote] ParsedTripInput received", input);
 
@@ -269,6 +270,7 @@ export async function buildQuote(
             durationDays,
           },
           apiOrigin,
+          cookieHeader,
         )
       : Promise.resolve(null);
 
@@ -286,6 +288,7 @@ export async function buildQuote(
           airportChoices: input.airportChoices,
           locale: input.locale ?? "es",
           apiOrigin,
+          cookieHeader,
         })
       : Promise.resolve(emptySection()),
     includeTransfers && transferLocations
@@ -299,6 +302,7 @@ export async function buildQuote(
             pickupLocation: transferLocations.pickupLocation,
             dropoffLocation: transferLocations.dropoffLocation,
             apiOrigin,
+            cookieHeader,
           }),
         )
       : Promise.resolve(emptySection()),
@@ -314,6 +318,7 @@ export async function buildQuote(
             seed,
             inventory,
             apiOrigin,
+            cookieHeader,
           }),
         )
       : Promise.resolve(emptySection()),
@@ -329,6 +334,7 @@ export async function buildQuote(
             hotelLevel: input.preferences.hotelLevel,
             inventory,
             apiOrigin,
+            cookieHeader,
           }),
         )
       : Promise.resolve(emptySection()),
@@ -417,16 +423,28 @@ export async function buildQuote(
 // Search APIs
 // ─────────────────────────────────────────────────────────────
 
+function buildServerFetchHeaders(
+  apiOrigin: string,
+  cookieHeader?: string,
+): Record<string, string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (apiOrigin && cookieHeader) {
+    headers.Cookie = cookieHeader;
+  }
+  return headers;
+}
+
 async function postSearchApi<T>(
   path: string,
   body: Record<string, unknown>,
   apiOrigin = "",
+  cookieHeader?: string,
 ): Promise<T | null> {
   try {
     const url = apiOrigin ? `${apiOrigin.replace(/\/$/, "")}${path}` : path;
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: buildServerFetchHeaders(apiOrigin, cookieHeader),
       body: JSON.stringify(body),
     });
     const data = await response.json();
@@ -449,6 +467,7 @@ async function searchFlightsApi(
     locale?: DuffelLocale;
   },
   apiOrigin = "",
+  cookieHeader?: string,
 ): Promise<FlightOption[]> {
   const data = await postSearchApi<{ flights?: FlightOption[]; fallback?: boolean }>(
     "/api/search-flights-duffel",
@@ -460,6 +479,7 @@ async function searchFlightsApi(
       locale: params.locale ?? "es",
     },
     apiOrigin,
+    cookieHeader,
   );
   console.log("[buildQuote] /api/search-flights returned", {
     request: params,
@@ -481,6 +501,7 @@ async function searchHotelsApi(
     agencyId?: string;
   },
   apiOrigin = "",
+  cookieHeader?: string,
 ): Promise<HotelOption[]> {
   const data = await postSearchApi<{ hotels?: HotelOption[]; fallback?: boolean }>(
     "/api/search-hotels",
@@ -494,6 +515,7 @@ async function searchHotelsApi(
       agencyId: params.agencyId,
     },
     apiOrigin,
+    cookieHeader,
   );
   console.log("[buildQuote] /api/search-hotels returned", {
     request: params,
@@ -516,13 +538,14 @@ async function searchTransfersHotelbedsApi(
     agencyId?: string;
   },
   apiOrigin = "",
+  cookieHeader?: string,
 ): Promise<TransferOption[]> {
   try {
     const path = "/api/search-transfers-hotelbeds";
     const url = apiOrigin ? `${apiOrigin.replace(/\/$/, "")}${path}` : path;
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: buildServerFetchHeaders(apiOrigin, cookieHeader),
       body: JSON.stringify({
         destination: params.destination,
         checkIn: params.checkIn,
@@ -562,13 +585,14 @@ async function searchExperiencesHotelbedsApi(
     agencyId?: string;
   },
   apiOrigin = "",
+  cookieHeader?: string,
 ): Promise<ExperienceOption[]> {
   try {
     const path = "/api/search-experiences-hotelbeds";
     const url = apiOrigin ? `${apiOrigin.replace(/\/$/, "")}${path}` : path;
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: buildServerFetchHeaders(apiOrigin, cookieHeader),
       body: JSON.stringify({
         destination: params.destination,
         checkIn: params.checkIn,
@@ -607,13 +631,14 @@ async function searchHotelsHotelbedsApi(
     agencyId?: string;
   },
   apiOrigin = "",
+  cookieHeader?: string,
 ): Promise<HotelOption[]> {
   try {
     const path = "/api/search-hotels-hotelbeds";
     const url = apiOrigin ? `${apiOrigin.replace(/\/$/, "")}${path}` : path;
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: buildServerFetchHeaders(apiOrigin, cookieHeader),
       body: JSON.stringify({
         destination: params.destination,
         checkIn: params.checkIn,
@@ -869,13 +894,14 @@ async function fetchInventoryForQuote(
     durationDays: number;
   },
   apiOrigin = "",
+  cookieHeader?: string,
 ): Promise<InventoryQuoteSearchResponse | null> {
   try {
     const path = "/api/inventory/quote-search";
     const url = apiOrigin ? `${apiOrigin.replace(/\/$/, "")}${path}` : path;
     const response = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: buildServerFetchHeaders(apiOrigin, cookieHeader),
       body: JSON.stringify(params),
     });
     if (!response.ok) {
@@ -1157,6 +1183,7 @@ async function buildFlightsFromApiOrMock(params: {
   airportChoices?: AirportFlightChoices;
   locale?: DuffelLocale;
   apiOrigin?: string;
+  cookieHeader?: string;
 }): Promise<QuoteSectionBuildResult> {
   const {
     origin,
@@ -1167,6 +1194,7 @@ async function buildFlightsFromApiOrMock(params: {
     seed,
     locale = "es",
     apiOrigin = "",
+    cookieHeader,
   } = params;
   const adults = pax.adults;
 
@@ -1200,6 +1228,7 @@ async function buildFlightsFromApiOrMock(params: {
         locale,
       },
       apiOrigin,
+      cookieHeader,
     ),
     searchFlightsApi(
       {
@@ -1210,6 +1239,7 @@ async function buildFlightsFromApiOrMock(params: {
         locale,
       },
       apiOrigin,
+      cookieHeader,
     ),
   ]);
 
@@ -1311,6 +1341,7 @@ async function fillApiHotelsSequentially(
   },
   nights: number,
   apiOrigin: string,
+  cookieHeader?: string,
 ): Promise<void> {
   if (items.length >= HOTEL_QUOTE_LIMIT) return;
 
@@ -1318,13 +1349,18 @@ async function fillApiHotelsSequentially(
     const hotelbedsHotels = await searchHotelsHotelbedsApi(
       hotelSearchParams,
       apiOrigin,
+      cookieHeader,
     );
     console.log("[buildQuote] Hotelbeds hotels", hotelbedsHotels);
     appendHotelbedsToQuoteItems(items, hotelbedsHotels, nights);
   }
 
   if (items.length < HOTEL_QUOTE_LIMIT) {
-    const bookingHotels = await searchHotelsApi(hotelSearchParams, apiOrigin);
+    const bookingHotels = await searchHotelsApi(
+      hotelSearchParams,
+      apiOrigin,
+      cookieHeader,
+    );
     console.log("[buildQuote] Booking hotels", bookingHotels);
     appendBookingToQuoteItems(items, bookingHotels, nights);
   }
@@ -1340,6 +1376,7 @@ async function buildHotelsFromInventoryOrApiOrMock(params: {
   seed: number;
   inventory: InventoryQuoteSearchResponse | null;
   apiOrigin?: string;
+  cookieHeader?: string;
   alwaysIncludeApi?: boolean;
 }): Promise<QuoteSectionBuildResult> {
   const {
@@ -1352,6 +1389,7 @@ async function buildHotelsFromInventoryOrApiOrMock(params: {
     seed,
     inventory,
     apiOrigin = "",
+    cookieHeader,
     alwaysIncludeApi = false,
   } = params;
 
@@ -1373,6 +1411,7 @@ async function buildHotelsFromInventoryOrApiOrMock(params: {
       hotelSearchParams,
       nights,
       apiOrigin,
+      cookieHeader,
     );
   }
 
@@ -1427,6 +1466,7 @@ async function buildHotelsFromInventoryOrApiOrMock(params: {
       hotelSearchParams,
       nights,
       apiOrigin,
+      cookieHeader,
     );
   }
 
@@ -1477,6 +1517,7 @@ async function fillApiExperiencesSequentially(
     agencyId?: string;
   },
   apiOrigin: string,
+  cookieHeader?: string,
 ): Promise<void> {
   if (items.length >= EXPERIENCE_QUOTE_LIMIT) return;
 
@@ -1484,6 +1525,7 @@ async function fillApiExperiencesSequentially(
     const hotelbedsExperiences = await searchExperiencesHotelbedsApi(
       experienceSearchParams,
       apiOrigin,
+      cookieHeader,
     );
     console.log("[buildQuote] Hotelbeds experiences", hotelbedsExperiences);
     appendHotelbedsExperiencesToQuoteItems(items, hotelbedsExperiences);
@@ -1526,6 +1568,7 @@ async function fillApiTransfersSequentially(
   pickupLocation: string,
   dropoffLocation: string,
   apiOrigin: string,
+  cookieHeader?: string,
 ): Promise<void> {
   if (items.length >= TRANSFER_QUOTE_LIMIT) return;
 
@@ -1533,6 +1576,7 @@ async function fillApiTransfersSequentially(
     const hotelbedsTransfers = await searchTransfersHotelbedsApi(
       transferSearchParams,
       apiOrigin,
+      cookieHeader,
     );
     console.log("[buildQuote] Hotelbeds transfers", hotelbedsTransfers);
     appendHotelbedsTransfersToQuoteItems(
@@ -1609,6 +1653,7 @@ async function buildTransfersFromInventoryOrApiOrMock(params: {
   pickupLocation: string;
   dropoffLocation: string;
   apiOrigin?: string;
+  cookieHeader?: string;
 }): Promise<QuoteSectionBuildResult> {
   const {
     destination,
@@ -1619,6 +1664,7 @@ async function buildTransfersFromInventoryOrApiOrMock(params: {
     pickupLocation,
     dropoffLocation,
     apiOrigin = "",
+    cookieHeader,
   } = params;
 
   const inventoryRows = inventory?.transfers ?? [];
@@ -1660,6 +1706,7 @@ async function buildTransfersFromInventoryOrApiOrMock(params: {
       pickupLocation,
       dropoffLocation,
       apiOrigin,
+      cookieHeader,
     );
   }
 
@@ -1703,6 +1750,7 @@ async function buildExperiencesFromInventoryOrApiOrMock(params: {
   hotelLevel: HotelLevel;
   inventory: InventoryQuoteSearchResponse | null;
   apiOrigin?: string;
+  cookieHeader?: string;
 }): Promise<QuoteSectionBuildResult> {
   const {
     destination,
@@ -1712,6 +1760,7 @@ async function buildExperiencesFromInventoryOrApiOrMock(params: {
     seed,
     inventory,
     apiOrigin = "",
+    cookieHeader,
   } = params;
 
   const inventoryRows = inventory?.experiences ?? [];
@@ -1752,6 +1801,7 @@ async function buildExperiencesFromInventoryOrApiOrMock(params: {
       items,
       experienceSearchParams,
       apiOrigin,
+      cookieHeader,
     );
   }
 

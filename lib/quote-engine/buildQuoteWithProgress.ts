@@ -13,6 +13,7 @@ export interface BuildQuoteWithProgressOptions {
   signal?: AbortSignal;
   onEvent: (event: BuildEvent) => void;
   apiOrigin?: string;
+  cookieHeader?: string;
 }
 
 function assertNotAborted(signal?: AbortSignal): void {
@@ -43,7 +44,7 @@ function sectionResults(quote: Quote, section: QuoteSection): unknown[] {
  */
 export async function buildQuoteWithProgress(
   parsed: ParsedTripInput,
-  { signal, onEvent, apiOrigin = "" }: BuildQuoteWithProgressOptions,
+  { signal, onEvent, apiOrigin = "", cookieHeader }: BuildQuoteWithProgressOptions,
 ): Promise<Quote> {
   const ts = () => Date.now();
 
@@ -58,7 +59,7 @@ export async function buildQuoteWithProgress(
 
   let quote: Quote;
   try {
-    quote = await buildQuote(parsed, apiOrigin);
+    quote = await buildQuote(parsed, apiOrigin, cookieHeader);
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown_error";
     for (const section of BUILD_SECTIONS) {
