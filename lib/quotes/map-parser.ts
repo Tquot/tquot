@@ -202,6 +202,103 @@ function tripTypeToIncludes(tripType?: TripRequest["tripType"]) {
   }
 }
 
+function resolveTripDates(trip: TripRequest): { start: string; end: string } {
+  const today = new Date().toISOString().slice(0, 10);
+  const start = normalizeTripDate(trip.departureDate, today);
+
+  if (trip.returnDate?.trim()) {
+    return { start, end: normalizeTripDate(trip.returnDate, addDaysIso(start, 3)) };
+  }
+
+  if (trip.departureDate?.trim() && trip.durationDays && trip.durationDays > 0) {
+    return { start, end: addDaysIso(start, trip.durationDays - 1) };
+  }
+
+  return { start, end: addDaysIso(start, 3) };
+}
+
+function lodgingPreferenceToLevel(
+  preference?: TripRequest["lodgingPreference"],
+  stars?: number,
+): HotelLevel {
+  const fromStars = stars ? hotelCategoryToLevel(stars) : null;
+
+  const fromPreference = ((): HotelLevel | null => {
+    switch (preference) {
+      case "winery":
+        return "luxury";
+      case "lodge":
+      case "riad":
+      case "boutique":
+      case "resort":
+        return "premium";
+      case "hostel":
+        return "budget";
+      case "apartment":
+        return "standard";
+      case "hotel":
+        return fromStars;
+      default:
+        return null;
+    }
+  })();
+
+  if (fromStars && fromPreference) {
+    const rank: Record<HotelLevel, number> = {
+      budget: 0,
+      standard: 1,
+      premium: 2,
+      luxury: 3,
+    };
+    return rank[fromPreference] > rank[fromStars] ? fromPreference : fromStars;
+  }
+
+  return fromPreference ?? fromStars ?? "standard";
+}
+
+const EXPERIENCE_THEMES = new Set<TripRequest["tripTheme"]>([
+  "safari",
+  "adventure",
+  "wine_tourism",
+  "cultural",
+]);
+
+function resolveTripIncludes(trip: TripRequest) {
+  const includes = tripTypeToIncludes(trip.tripType);
+
+  if (trip.tripTheme && EXPERIENCE_THEMES.has(trip.tripTheme)) {
+    return { ...includes, includeExperiences: true };
+  }
+
+  return includes;
+}
+
+function buildEnrichedSpecialRequests(trip: TripRequest): string | undefined {
+  const parts: string[] = [];
+
+  if (trip.specialRequests?.trim()) {
+    parts.push(trip.specialRequests.trim());
+  }
+
+  if (trip.travelPurpose === "groups_mice") {
+    parts.push("[MICE/grupos]");
+  }
+
+  if (trip.requirements?.length) {
+    parts.push(`Requisitos: ${trip.requirements.join(", ")}`);
+  }
+
+  if (trip.experienceKeywords?.length) {
+    parts.push(`Actividades: ${trip.experienceKeywords.join(", ")}`);
+  }
+
+  if (trip.lodgingPreference && trip.lodgingPreference !== "hotel") {
+    parts.push(`Alojamiento: ${trip.lodgingPreference}`);
+  }
+
+  return parts.length > 0 ? parts.join(" · ") : undefined;
+}
+
 /** Maps parser `TripRequest` to the deterministic quote builder input. */
 export function tripRequestToParsedTripInput(
   trip: TripRequest,
@@ -210,9 +307,8 @@ export function tripRequestToParsedTripInput(
   const destination = trip.destination?.trim();
   if (!destination) return null;
 
-  const today = new Date().toISOString().slice(0, 10);
-  const start = normalizeTripDate(trip.departureDate, today);
-  const end = normalizeTripDate(trip.returnDate, addDaysIso(start, 3));
+  const { start, end } = resolveTripDates(trip);
+  const specialRequests = buildEnrichedSpecialRequests(trip);
 
   return {
     origin: trip.origin?.trim() || options?.fallbackOrigin || "Madrid",
@@ -224,11 +320,14 @@ export function tripRequestToParsedTripInput(
     },
     budget: trip.budget,
     preferences: {
-      hotelLevel: hotelCategoryToLevel(trip.hotelCategory),
-      directFlights: inferDirectFlights(trip.specialRequests),
+      hotelLevel: lodgingPreferenceToLevel(
+        trip.lodgingPreference,
+        trip.hotelCategory,
+      ),
+      directFlights: inferDirectFlights(specialRequests),
       accessibility: trip.accessibilityNeeds ?? false,
     },
-    ...tripTypeToIncludes(trip.tripType),
+    ...resolveTripIncludes(trip),
   };
 }
 

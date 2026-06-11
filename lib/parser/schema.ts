@@ -23,6 +23,55 @@ export const TripRequestSchema = z.object({
     .describe(
       "transport_only: solo vuelo/transfer/coche sin hotel; accommodation_only: solo alojamiento; full_trip: viaje completo o por defecto.",
     ),
+  durationDays: z
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .describe(
+      "Duración del viaje en días de calendario cuando se menciona sin fechas fijas (ej: 10 días, una semana). Para noches: durationDays = noches + 1.",
+    ),
+  tripTheme: z
+    .enum([
+      "wine_tourism",
+      "safari",
+      "corporate",
+      "beach",
+      "city",
+      "adventure",
+      "wellness",
+      "cultural",
+      "honeymoon",
+      "family",
+      "groups_mice",
+    ])
+    .optional()
+    .describe("Tema o tipo de viaje inferido del contexto."),
+  experienceKeywords: z
+    .array(z.string())
+    .optional()
+    .describe("Actividades o experiencias concretas mencionadas (ej: catas privadas, safari)."),
+  lodgingPreference: z
+    .enum([
+      "hotel",
+      "winery",
+      "lodge",
+      "riad",
+      "boutique",
+      "resort",
+      "apartment",
+      "hostel",
+    ])
+    .optional()
+    .describe("Tipo de alojamiento preferido si se menciona."),
+  travelPurpose: z
+    .enum(["leisure", "business", "honeymoon", "groups_mice"])
+    .optional()
+    .describe("Propósito del viaje: ocio, negocios, luna de miel o grupos/MICE."),
+  requirements: z
+    .array(z.string())
+    .optional()
+    .describe("Requisitos estructurados (ej: sala de reuniones, habitaciones comunicadas)."),
   status: z.enum(["ready", "needs_input"]),
   questions: z.array(z.string()).optional(),
 });

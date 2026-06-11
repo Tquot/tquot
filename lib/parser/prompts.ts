@@ -9,7 +9,7 @@ import {
   type InputLanguageHint,
 } from "./detect-language";
 
-export const PROMPT_VERSION = "2026-05-25.2";
+export const PROMPT_VERSION = "2026-06-11.1";
 
 export const EXTRACTION_SYSTEM_PROMPT = `Eres el motor de extracción de TQuot, una plataforma de cotización de viajes para agencias.
 
@@ -47,6 +47,58 @@ FECHAS Y ESTANCIA (según tripType):
   returnDate NO es obligatorio si faltan noches: con solo check-in, pregunta cuántas noches en el idioma del agente
   y mantén status="needs_input". Cuando tengas entrada + noches (o returnDate explícito), status="ready".
 - Si hay rango de fechas claro (ida y vuelta, o entrada y salida), extrae departureDate y returnDate.
+- Si solo hay durationDays sin departureDate, NO inventes fechas: status="needs_input" y pregunta fecha de salida/entrada.
+- Si hay departureDate + durationDays sin returnDate, calcula returnDate = departureDate + (durationDays - 1) días en YYYY-MM-DD
+  (viaje de 10 días = del día 1 al día 10 inclusive).
+
+VIAJES COMPLEJOS (campos nuevos):
+
+tripTheme — infiere UN valor del contexto:
+- enoturismo, catas, viñedos, bodegas → wine_tourism
+- safari, Kenia, Tanzania, reserva natural → safari
+- viaje de empresa, congreso, incentivo, MICE → corporate o groups_mice (ver travelPurpose)
+- playa, costa → beach; ciudad, urbano → city; trekking, deporte → adventure
+- spa, retiro → wellness; museos, patrimonio → cultural
+- luna de miel → honeymoon; con niños, familia → family
+- grupos grandes, eventos → groups_mice
+
+durationDays — cuando mencionen duración SIN fechas de calendario:
+- "10 días" → 10; "una semana" → 7; "2 semanas" → 14; "fin de semana" → 3
+- "X noches" → durationDays = X + 1 (ej: 5 noches → 6)
+- No rellenes departureDate solo por tener durationDays
+
+lodgingPreference — del tipo de alojamiento mencionado:
+- bodega, alojamiento en bodega → winery
+- lodge, safari lodge → lodge; riad → riad; boutique → boutique
+- resort → resort; apartamento → apartment; hostal → hostel
+- hotel genérico o solo estrellas → hotel u omite
+
+experienceKeywords — array de actividades concretas citadas:
+- ej: ["catas privadas", "enoturismo"], ["safari", "game drive"], ["city tour"]
+
+travelPurpose y MICE:
+- travelPurpose: "groups_mice" si hay más de 8 personas O se menciona sala de reuniones, congreso, incentivo, evento corporativo
+- travelPurpose: "business" para viajes de negocios sin señales MICE/grupo
+- Si domina MICE/grupos, usa también tripTheme: "groups_mice"
+
+requirements — necesidades estructuradas en array:
+- ej: ["sala de reuniones"], ["habitaciones comunicadas"], ["traslado aeropuerto para grupo"]
+
+EJEMPLOS (extracción esperada, abreviados):
+
+1) "Viaje de enoturismo por La Rioja con catas privadas y alojamiento en bodega"
+→ destination: "La Rioja", tripTheme: "wine_tourism", experienceKeywords: ["enoturismo", "catas privadas"],
+  lodgingPreference: "winery", status: "needs_input", questions sobre fechas y número de viajeros
+
+2) "Safari en Kenia 10 días, vuelo desde Madrid, lodge de lujo"
+→ destination: "Kenia", origin: "Madrid", durationDays: 10, tripTheme: "safari",
+  lodgingPreference: "lodge", hotelCategory: 5, experienceKeywords: ["safari"],
+  status: "needs_input" si faltan fechas concretas o número de viajeros
+
+3) "Viaje de empresa a Lisboa para 15 personas, hotel 5 estrellas, sala de reuniones"
+→ destination: "Lisboa", adults: 15, hotelCategory: 5, travelPurpose: "groups_mice",
+  tripTheme: "groups_mice", requirements: ["sala de reuniones"],
+  status: "needs_input" si faltan fechas; pregunta si incluyen vuelos si no se mencionan
 
 Si faltan datos críticos para cotizar, devuelve status="needs_input" y pon preguntas concretas en questions.
 Si la solicitud tiene suficiente información para buscar, devuelve status="ready".
@@ -135,6 +187,9 @@ REGLAS:
 - Recalcula status y questions.
 - Aplica las mismas reglas de fechas/noches que en extracción (pregunta sobre noches de estancia en el idioma del agente
   si solo hay check-in; accommodation_only no exige returnDate hasta tener noches o salida).
+- Si el agente aporta departureDate y ya tienes durationDays, calcula returnDate = departureDate + (durationDays - 1).
+- Preserva tripTheme, experienceKeywords, lodgingPreference, travelPurpose y requirements salvo contradicción explícita.
+- Reaplica reglas MICE: >8 personas o sala de reuniones → travelPurpose: "groups_mice".
 - Las preguntas nuevas en "questions" deben estar en el mismo idioma que las respuestas del agente en este turno.
 - Mantén el resto de campos ya extraídos inalterados salvo que el agente los contradiga explícitamente.`;
 
