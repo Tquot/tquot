@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
         await buildQuoteWithProgress(parsed.data, {
           signal: abort.signal,
           onEvent: send,
+          apiOrigin: req.nextUrl.origin,
         });
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") {

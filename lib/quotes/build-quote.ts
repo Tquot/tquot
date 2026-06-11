@@ -220,7 +220,10 @@ export interface Quote {
 // Public API
 // ─────────────────────────────────────────────────────────────
 
-export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
+export async function buildQuote(
+  input: ParsedTripInput,
+  apiOrigin = "",
+): Promise<Quote> {
   console.log("[buildQuote] ParsedTripInput received", input);
 
   const origin = normalizePlace(input.origin);
@@ -258,12 +261,15 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
 
   const inventorySearch =
     includeHotels || includeExperiences || includeTransfers
-      ? fetchInventoryForQuote({
-          destination,
-          accessibility: input.preferences.accessibility,
-          hotelLevel: input.preferences.hotelLevel,
-          durationDays,
-        })
+      ? fetchInventoryForQuote(
+          {
+            destination,
+            accessibility: input.preferences.accessibility,
+            hotelLevel: input.preferences.hotelLevel,
+            durationDays,
+          },
+          apiOrigin,
+        )
       : Promise.resolve(null);
 
   const [flightsResult, transfersResult, hotelsResult, experiencesResult] =
@@ -279,6 +285,7 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
           enrichedTrip: input.enrichedTrip,
           airportChoices: input.airportChoices,
           locale: input.locale ?? "es",
+          apiOrigin,
         })
       : Promise.resolve(emptySection()),
     includeTransfers && transferLocations
@@ -291,6 +298,7 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
             inventory,
             pickupLocation: transferLocations.pickupLocation,
             dropoffLocation: transferLocations.dropoffLocation,
+            apiOrigin,
           }),
         )
       : Promise.resolve(emptySection()),
@@ -305,6 +313,7 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
             accessibility: input.preferences.accessibility,
             seed,
             inventory,
+            apiOrigin,
           }),
         )
       : Promise.resolve(emptySection()),
@@ -319,6 +328,7 @@ export async function buildQuote(input: ParsedTripInput): Promise<Quote> {
             accessibility: input.preferences.accessibility,
             hotelLevel: input.preferences.hotelLevel,
             inventory,
+            apiOrigin,
           }),
         )
       : Promise.resolve(emptySection()),
@@ -430,13 +440,16 @@ async function postSearchApi<T>(
   }
 }
 
-async function searchFlightsApi(params: {
-  origin: string;
-  destination: string;
-  date: string;
-  adults: number;
-  locale?: DuffelLocale;
-}): Promise<FlightOption[]> {
+async function searchFlightsApi(
+  params: {
+    origin: string;
+    destination: string;
+    date: string;
+    adults: number;
+    locale?: DuffelLocale;
+  },
+  apiOrigin = "",
+): Promise<FlightOption[]> {
   const data = await postSearchApi<{ flights?: FlightOption[]; fallback?: boolean }>(
     "/api/search-flights-duffel",
     {
@@ -446,6 +459,7 @@ async function searchFlightsApi(params: {
       adults: params.adults,
       locale: params.locale ?? "es",
     },
+    apiOrigin,
   );
   console.log("[buildQuote] /api/search-flights returned", {
     request: params,
@@ -847,14 +861,19 @@ type InventoryQuoteSearchResponse = {
   transfers?: InventoryQuoteRow[];
 };
 
-async function fetchInventoryForQuote(params: {
-  destination: string;
-  accessibility: boolean;
-  hotelLevel: HotelLevel;
-  durationDays: number;
-}): Promise<InventoryQuoteSearchResponse | null> {
+async function fetchInventoryForQuote(
+  params: {
+    destination: string;
+    accessibility: boolean;
+    hotelLevel: HotelLevel;
+    durationDays: number;
+  },
+  apiOrigin = "",
+): Promise<InventoryQuoteSearchResponse | null> {
   try {
-    const response = await fetch("/api/inventory/quote-search", {
+    const path = "/api/inventory/quote-search";
+    const url = apiOrigin ? `${apiOrigin.replace(/\/$/, "")}${path}` : path;
+    const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(params),
@@ -1137,9 +1156,18 @@ async function buildFlightsFromApiOrMock(params: {
   enrichedTrip?: EnrichedTripRequest;
   airportChoices?: AirportFlightChoices;
   locale?: DuffelLocale;
+  apiOrigin?: string;
 }): Promise<QuoteSectionBuildResult> {
-  const { origin, destination, dates, pax, directFlights, seed, locale = "es" } =
-    params;
+  const {
+    origin,
+    destination,
+    dates,
+    pax,
+    directFlights,
+    seed,
+    locale = "es",
+    apiOrigin = "",
+  } = params;
   const adults = pax.adults;
 
   if (shouldSkipFlightSearch(origin, destination)) {
@@ -1163,20 +1191,26 @@ async function buildFlightsFromApiOrMock(params: {
   });
 
   const [outboundFlights, returnFlights] = await Promise.all([
-    searchFlightsApi({
-      origin: originIata,
-      destination: destinationIata,
-      date: dates.start,
-      adults,
-      locale,
-    }),
-    searchFlightsApi({
-      origin: destinationIata,
-      destination: originIata,
-      date: dates.end,
-      adults,
-      locale,
-    }),
+    searchFlightsApi(
+      {
+        origin: originIata,
+        destination: destinationIata,
+        date: dates.start,
+        adults,
+        locale,
+      },
+      apiOrigin,
+    ),
+    searchFlightsApi(
+      {
+        origin: destinationIata,
+        destination: originIata,
+        date: dates.end,
+        adults,
+        locale,
+      },
+      apiOrigin,
+    ),
   ]);
 
   console.log("[buildQuote] flights before mapping to QuoteItem", {
