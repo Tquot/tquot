@@ -2,13 +2,16 @@ import { z } from "zod";
 
 function preprocessBudget(value: unknown): unknown {
   if (value === undefined || value === null || value === "") return undefined;
-  if (typeof value === "number") return value;
-  if (typeof value === "string") {
-    const match = value.match(/\d[\d.,]*/);
-    if (!match) return undefined;
-    return match[0].replace(/\./g, "").replace(",", ".");
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : undefined;
   }
-  return value;
+  if (typeof value === "string") {
+    const digitGroups = value.match(/\d+/g);
+    if (!digitGroups?.length) return undefined;
+    const parsed = parseFloat(digitGroups.join(""));
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
 }
 
 // ─────────────────────────────────────────────────────────────
