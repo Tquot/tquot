@@ -1,5 +1,16 @@
 import { z } from "zod";
 
+function preprocessBudget(value: unknown): unknown {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value === "number") return value;
+  if (typeof value === "string") {
+    const match = value.match(/\d[\d.,]*/);
+    if (!match) return undefined;
+    return match[0].replace(/\./g, "").replace(",", ".");
+  }
+  return value;
+}
+
 // ─────────────────────────────────────────────────────────────
 // Schema principal: TripRequest (plano para Claude Structured Outputs)
 // ─────────────────────────────────────────────────────────────
@@ -11,7 +22,9 @@ export const TripRequestSchema = z.object({
   returnDate: z.string().optional().describe("Fecha de regreso en formato YYYY-MM-DD."),
   adults: z.number().optional().describe("Número de adultos."),
   children: z.number().optional().describe("Número de niños."),
-  budget: z.number().optional().describe("Presupuesto mencionado."),
+  budget: z
+    .preprocess(preprocessBudget, z.coerce.number().optional())
+    .describe("Presupuesto mencionado."),
   currency: z.string().optional().describe("Moneda del presupuesto, por ejemplo EUR o USD."),
   hotelCategory: z.number().optional().describe("Categoría de hotel en estrellas."),
   specialRequests: z.string().optional().describe("Peticiones especiales en texto libre."),
