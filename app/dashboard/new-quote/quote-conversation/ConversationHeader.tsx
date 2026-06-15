@@ -145,26 +145,24 @@ export function ConversationHeader({
 
       {clientSaveModalOpen ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
           onClick={closeClientSaveModal}
         >
           <div
-            className="w-full max-w-md rounded-2xl border border-tquot-border bg-tquot-surface shadow-xl"
+            className="relative z-10 mx-4 w-full max-w-md rounded-xl bg-tquot-surface p-6 shadow-lg"
             onClick={(event) => event.stopPropagation()}
             role="dialog"
             aria-modal="true"
             aria-labelledby="client-save-modal-title"
           >
-            <div className="border-b border-tquot-border px-5 py-4">
-              <h2
-                id="client-save-modal-title"
-                className="text-lg font-bold text-tquot-text"
-              >
-                {t.clientSaveModalTitle}
-              </h2>
-            </div>
+            <h2
+              id="client-save-modal-title"
+              className="mb-4 text-lg font-bold text-tquot-text"
+            >
+              {t.clientSaveModalTitle}
+            </h2>
 
-            <div className="space-y-4 px-5 py-4">
+            <div className="space-y-4">
               <label className="block">
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-tquot-muted">
                   {t.clientName} *
@@ -190,7 +188,7 @@ export function ConversationHeader({
               </label>
             </div>
 
-            <div className="flex flex-col gap-3 border-t border-tquot-border px-5 py-4">
+            <div className="mt-6 flex flex-col gap-3">
               <button
                 type="button"
                 onClick={handleConfirmSave}
