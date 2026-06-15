@@ -60,6 +60,8 @@ const es = {
   clientEmail: "Email del cliente",
   clientFieldsHint:
     "Opcional. Si indicas nombre o email, vinculamos la cotización al cliente.",
+  clientSaveModalTitle: "¿Para qué cliente es esta cotización?",
+  saveWithoutClient: "Guardar sin cliente",
   clientQuoteCount: "Cotizaciones",
   clientLastQuote: "Última cotización",
   clientTotalSpent: "Total facturado",
@@ -649,6 +651,8 @@ const en: Record<keyof typeof es, string> = {
   clientEmail: "Client email",
   clientFieldsHint:
     "Optional. If you provide a name or email, we link the quote to the client.",
+  clientSaveModalTitle: "Who is this quote for?",
+  saveWithoutClient: "Save without client",
   clientQuoteCount: "Quotes",
   clientLastQuote: "Last quote",
   clientTotalSpent: "Total spent",

@@ -54,8 +54,6 @@ export function QuoteConversation() {
 
   const [chatInput, setChatInput] = useState("");
   const [agentNotes, setAgentNotes] = useState(t.defaultAgentNotes);
-  const [clientName, setClientName] = useState("");
-  const [clientEmail, setClientEmail] = useState("");
   const [savedQuoteId, setSavedQuoteId] = useState<string | null>(null);
   const [isSavingQuote, setIsSavingQuote] = useState(false);
   const [comparatorPanel, setComparatorPanel] =
@@ -104,7 +102,10 @@ export function QuoteConversation() {
     setChatInput("");
   }
 
-  async function persistCurrentQuote(): Promise<string | null> {
+  async function persistCurrentQuote(client?: {
+    clientName?: string;
+    clientEmail?: string;
+  }): Promise<string | null> {
     if (!completeQuote || !parsedTripInput) {
       console.log("[persistCurrentQuote] no quote or tripInput");
       return null;
@@ -112,13 +113,16 @@ export function QuoteConversation() {
 
     setIsSavingQuote(true);
     try {
-      console.log("[persistCurrentQuote] calling saveQuote", { clientName, clientEmail });
+      console.log("[persistCurrentQuote] calling saveQuote", {
+        clientName: client?.clientName,
+        clientEmail: client?.clientEmail,
+      });
       const result = await saveQuote({
         quote: completeQuote,
         tripInput: parsedTripInput,
         agentNotes: agentNotes || undefined,
-        clientName: clientName.trim() || undefined,
-        clientEmail: clientEmail.trim() || undefined,
+        clientName: client?.clientName?.trim() || undefined,
+        clientEmail: client?.clientEmail?.trim() || undefined,
       });
       console.log("[persistCurrentQuote] result", result);
       if (result.ok) {
@@ -134,8 +138,11 @@ export function QuoteConversation() {
     }
   }
 
-  async function handleSaveAndGenerateClientPdf() {
-    const quoteId = await persistCurrentQuote();
+  async function handleSaveAndGenerateClientPdf(client?: {
+    clientName: string;
+    clientEmail?: string;
+  }) {
+    const quoteId = await persistCurrentQuote(client);
     if (quoteId) openServerPdf(quoteId, "client");
   }
 
@@ -164,8 +171,6 @@ export function QuoteConversation() {
   function handleReset() {
     reset();
     setChatInput("");
-    setClientName("");
-    setClientEmail("");
     setSavedQuoteId(null);
     setComparatorPanel(null);
   }
@@ -181,7 +186,9 @@ export function QuoteConversation() {
         quote={headerQuote}
         isSavingQuote={isSavingQuote}
         onReset={handleReset}
-        onSaveClientPdf={() => void handleSaveAndGenerateClientPdf()}
+        onSaveClientPdf={(client) =>
+          void handleSaveAndGenerateClientPdf(client)
+        }
         onAgentPdf={() => void handleAgentPdf()}
         onClientPdf={() => void handleClientPdf()}
       />
@@ -244,31 +251,6 @@ export function QuoteConversation() {
 
       {completeQuote ? (
         <div className="border-t border-tquot-border bg-tquot-surface px-4 py-3 sm:px-6">
-          <div className="mb-4 grid gap-4 sm:grid-cols-2">
-            <label className="block">
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-tquot-muted">
-                {t.clientName}
-              </span>
-              <input
-                type="text"
-                value={clientName}
-                onChange={(event) => setClientName(event.target.value)}
-                className="w-full rounded-xl border border-tquot-border bg-tquot-bg px-3 py-2 text-sm outline-none focus:border-tquot-accent focus:ring-2 focus:ring-tquot-accent/20"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-tquot-muted">
-                {t.clientEmail}
-              </span>
-              <input
-                type="email"
-                value={clientEmail}
-                onChange={(event) => setClientEmail(event.target.value)}
-                className="w-full rounded-xl border border-tquot-border bg-tquot-bg px-3 py-2 text-sm outline-none focus:border-tquot-accent focus:ring-2 focus:ring-tquot-accent/20"
-              />
-            </label>
-          </div>
-          <p className="mb-4 text-xs text-tquot-muted">{t.clientFieldsHint}</p>
           <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-tquot-muted">
             {t.agentNotes}
           </label>
