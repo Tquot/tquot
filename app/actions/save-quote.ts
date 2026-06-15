@@ -15,6 +15,8 @@ type SaveQuoteArgs = {
   quote: Quote;
   tripInput: ParsedTripInput;
   agentNotes?: string;
+  clientName?: string;
+  clientEmail?: string;
 };
 
 type SaveQuoteSuccess = { ok: true; quoteId: string };
@@ -59,6 +61,87 @@ function collectPricedItems(quote: Quote): QuoteItem[] {
   ];
 }
 
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+async function upsertClientForQuote(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  userId: string,
+  clientName?: string,
+  clientEmail?: string,
+): Promise<string | null> {
+  const name = clientName?.trim();
+  const email = clientEmail?.trim();
+
+  if (!name && !email) {
+    return null;
+  }
+
+  const fullName = name || email!.split("@")[0] || "Cliente";
+  const normalizedEmail = email ? normalizeEmail(email) : null;
+
+  if (normalizedEmail) {
+    const { data: byEmail, error: emailLookupError } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("user_id", userId)
+      .ilike("email", normalizedEmail)
+      .maybeSingle();
+
+    if (emailLookupError) {
+      throw new Error(emailLookupError.message);
+    }
+
+    if (byEmail?.id) {
+      const { error: updateError } = await supabase
+        .from("clients")
+        .update({
+          full_name: fullName,
+          email: normalizedEmail,
+        })
+        .eq("id", byEmail.id);
+
+      if (updateError) {
+        throw new Error(updateError.message);
+      }
+
+      return byEmail.id as string;
+    }
+  } else if (name) {
+    const { data: byName, error: nameLookupError } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("user_id", userId)
+      .ilike("full_name", name)
+      .maybeSingle();
+
+    if (nameLookupError) {
+      throw new Error(nameLookupError.message);
+    }
+
+    if (byName?.id) {
+      return byName.id as string;
+    }
+  }
+
+  const { data: insertedClient, error: insertError } = await supabase
+    .from("clients")
+    .insert({
+      user_id: userId,
+      full_name: fullName,
+      email: normalizedEmail,
+    })
+    .select("id")
+    .single();
+
+  if (insertError || !insertedClient) {
+    throw new Error(insertError?.message ?? "Error al guardar el cliente");
+  }
+
+  return insertedClient.id as string;
+}
+
 export async function saveQuote(
   args: SaveQuoteArgs,
 ): Promise<SaveQuoteSuccess | SaveQuoteError> {
@@ -92,13 +175,20 @@ export async function saveQuote(
     const totalMarginPercent = baseTotal > 0 ? (margin / baseTotal) * 100 : 0;
     const nights = Math.max(0, args.quote.summary.durationDays - 1);
 
+    const clientId = await upsertClientForQuote(
+      supabase,
+      userId,
+      args.clientName,
+      args.clientEmail,
+    );
+
     const { data: insertedQuote, error: quoteInsertError } = await supabase
       .from("quotes")
       .insert({
         user_id: userId,
         agency_id: agency.id,
         agent_id: userId,
-        client_id: null,
+        client_id: clientId,
         reference: `${args.quote.id}-${Date.now()}`,
         valid_until: addDaysIso(new Date(), 30),
         origin: args.tripInput.origin,

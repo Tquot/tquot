@@ -83,6 +83,7 @@ export function LanguageToggle({ email, recentQuotes }: LanguageToggleProps) {
         "rounded-xl bg-tquot-teal p-5 text-base font-semibold text-white shadow-md transition-colors hover:bg-[#00b396] sm:col-span-2 lg:col-span-1",
     },
     { href: "/dashboard/inventory", label: t.inventory, className: quickLinkClass },
+    { href: "/dashboard/clients", label: t.clients, className: quickLinkClass },
     {
       href: "/dashboard/integrations",
       label: t.integrations,
@@ -112,6 +113,9 @@ export function LanguageToggle({ email, recentQuotes }: LanguageToggleProps) {
           <nav className="flex items-center gap-1 sm:gap-2">
             <Link href="/dashboard/inventory" className={navLinkClass}>
               {t.inventory}
+            </Link>
+            <Link href="/dashboard/clients" className={navLinkClass}>
+              {t.clients}
             </Link>
             <Link href="/dashboard/integrations" className={navLinkClass}>
               {t.integrations}
