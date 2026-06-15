@@ -172,6 +172,12 @@ async function upsertClientForQuote(
 export async function saveQuote(
   args: SaveQuoteArgs,
 ): Promise<SaveQuoteSuccess | SaveQuoteError> {
+  console.log("[saveQuote] called with", {
+    clientName: args.clientName,
+    clientEmail: args.clientEmail,
+    hasQuote: !!args.quote,
+  });
+
   try {
     const auth = await getAuthenticatedUser();
     if (auth.response) {
