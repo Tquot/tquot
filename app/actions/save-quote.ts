@@ -71,15 +71,24 @@ async function upsertClientForQuote(
   clientName?: string,
   clientEmail?: string,
 ): Promise<string | null> {
+  console.log("[upsertClientForQuote] received", {
+    clientName,
+    clientEmail,
+    userId,
+  });
+
   const name = clientName?.trim();
   const email = clientEmail?.trim();
 
   if (!name && !email) {
+    console.log("[upsertClientForQuote] skipped — no name or email provided");
     return null;
   }
 
   const fullName = name || email!.split("@")[0] || "Cliente";
   const normalizedEmail = email ? normalizeEmail(email) : null;
+
+  console.log("[upsertClientForQuote] normalized", { fullName, normalizedEmail });
 
   if (normalizedEmail) {
     const { data: byEmail, error: emailLookupError } = await supabase
@@ -90,22 +99,29 @@ async function upsertClientForQuote(
       .maybeSingle();
 
     if (emailLookupError) {
+      console.error("[upsertClientForQuote] email lookup error", emailLookupError);
       throw new Error(emailLookupError.message);
     }
 
+    console.log("[upsertClientForQuote] email lookup result", byEmail);
+
     if (byEmail?.id) {
-      const { error: updateError } = await supabase
+      const { data: updatedClient, error: updateError } = await supabase
         .from("clients")
         .update({
           full_name: fullName,
           email: normalizedEmail,
         })
-        .eq("id", byEmail.id);
+        .eq("id", byEmail.id)
+        .select("id")
+        .single();
 
       if (updateError) {
+        console.error("[upsertClientForQuote] update error", updateError);
         throw new Error(updateError.message);
       }
 
+      console.log("[upsertClientForQuote] updated existing client", updatedClient);
       return byEmail.id as string;
     }
   } else if (name) {
@@ -117,10 +133,14 @@ async function upsertClientForQuote(
       .maybeSingle();
 
     if (nameLookupError) {
+      console.error("[upsertClientForQuote] name lookup error", nameLookupError);
       throw new Error(nameLookupError.message);
     }
 
+    console.log("[upsertClientForQuote] name lookup result", byName);
+
     if (byName?.id) {
+      console.log("[upsertClientForQuote] matched existing client by name", byName);
       return byName.id as string;
     }
   }
@@ -135,10 +155,17 @@ async function upsertClientForQuote(
     .select("id")
     .single();
 
-  if (insertError || !insertedClient) {
-    throw new Error(insertError?.message ?? "Error al guardar el cliente");
+  if (insertError) {
+    console.error("[upsertClientForQuote] insert error", insertError);
+    throw new Error(insertError.message ?? "Error al guardar el cliente");
   }
 
+  if (!insertedClient) {
+    console.error("[upsertClientForQuote] insert returned no data");
+    throw new Error("Error al guardar el cliente");
+  }
+
+  console.log("[upsertClientForQuote] inserted new client", insertedClient);
   return insertedClient.id as string;
 }
 
