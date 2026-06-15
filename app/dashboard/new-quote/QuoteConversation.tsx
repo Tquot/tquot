@@ -105,10 +105,14 @@ export function QuoteConversation() {
   }
 
   async function persistCurrentQuote(): Promise<string | null> {
-    if (!completeQuote || !parsedTripInput) return null;
+    if (!completeQuote || !parsedTripInput) {
+      console.log("[persistCurrentQuote] no quote or tripInput");
+      return null;
+    }
 
     setIsSavingQuote(true);
     try {
+      console.log("[persistCurrentQuote] calling saveQuote", { clientName, clientEmail });
       const result = await saveQuote({
         quote: completeQuote,
         tripInput: parsedTripInput,
@@ -116,10 +120,14 @@ export function QuoteConversation() {
         clientName: clientName.trim() || undefined,
         clientEmail: clientEmail.trim() || undefined,
       });
+      console.log("[persistCurrentQuote] result", result);
       if (result.ok) {
         setSavedQuoteId(result.quoteId);
         return result.quoteId;
       }
+      return null;
+    } catch (error) {
+      console.error("[persistCurrentQuote] error", error);
       return null;
     } finally {
       setIsSavingQuote(false);
