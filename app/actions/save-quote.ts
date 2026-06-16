@@ -10,6 +10,7 @@ import {
   type QuoteItemType,
 } from "@/lib/quotes/build-quote";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { upsertClient } from "./clients";
 
 type SaveQuoteArgs = {
   quote: Quote;
@@ -61,113 +62,6 @@ function collectPricedItems(quote: Quote): QuoteItem[] {
   ];
 }
 
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
-
-async function upsertClientForQuote(
-  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
-  userId: string,
-  clientName?: string,
-  clientEmail?: string,
-): Promise<string | null> {
-  console.log("[upsertClientForQuote] received", {
-    clientName,
-    clientEmail,
-    userId,
-  });
-
-  const name = clientName?.trim();
-  const email = clientEmail?.trim();
-
-  if (!name && !email) {
-    console.log("[upsertClientForQuote] skipped — no name or email provided");
-    return null;
-  }
-
-  const fullName = name || email!.split("@")[0] || "Cliente";
-  const normalizedEmail = email ? normalizeEmail(email) : null;
-
-  console.log("[upsertClientForQuote] normalized", { fullName, normalizedEmail });
-
-  if (normalizedEmail) {
-    const { data: byEmail, error: emailLookupError } = await supabase
-      .from("clients")
-      .select("id")
-      .eq("user_id", userId)
-      .ilike("email", normalizedEmail)
-      .maybeSingle();
-
-    if (emailLookupError) {
-      console.error("[upsertClientForQuote] email lookup error", emailLookupError);
-      throw new Error(emailLookupError.message);
-    }
-
-    console.log("[upsertClientForQuote] email lookup result", byEmail);
-
-    if (byEmail?.id) {
-      const { data: updatedClient, error: updateError } = await supabase
-        .from("clients")
-        .update({
-          full_name: fullName,
-          email: normalizedEmail,
-        })
-        .eq("id", byEmail.id)
-        .select("id")
-        .single();
-
-      if (updateError) {
-        console.error("[upsertClientForQuote] update error", updateError);
-        throw new Error(updateError.message);
-      }
-
-      console.log("[upsertClientForQuote] updated existing client", updatedClient);
-      return byEmail.id as string;
-    }
-  } else if (name) {
-    const { data: byName, error: nameLookupError } = await supabase
-      .from("clients")
-      .select("id")
-      .eq("user_id", userId)
-      .ilike("full_name", name)
-      .maybeSingle();
-
-    if (nameLookupError) {
-      console.error("[upsertClientForQuote] name lookup error", nameLookupError);
-      throw new Error(nameLookupError.message);
-    }
-
-    console.log("[upsertClientForQuote] name lookup result", byName);
-
-    if (byName?.id) {
-      console.log("[upsertClientForQuote] matched existing client by name", byName);
-      return byName.id as string;
-    }
-  }
-
-  const { data: insertedClient, error: insertError } = await supabase
-    .from("clients")
-    .insert({
-      user_id: userId,
-      full_name: fullName,
-      email: normalizedEmail,
-    })
-    .select("id")
-    .single();
-
-  if (insertError) {
-    console.error("[upsertClientForQuote] insert error", insertError);
-    throw new Error(insertError.message ?? "Error al guardar el cliente");
-  }
-
-  if (!insertedClient) {
-    console.error("[upsertClientForQuote] insert returned no data");
-    throw new Error("Error al guardar el cliente");
-  }
-
-  console.log("[upsertClientForQuote] inserted new client", insertedClient);
-  return insertedClient.id as string;
-}
 
 export async function saveQuote(
   args: SaveQuoteArgs,
@@ -208,12 +102,16 @@ export async function saveQuote(
     const totalMarginPercent = baseTotal > 0 ? (margin / baseTotal) * 100 : 0;
     const nights = Math.max(0, args.quote.summary.durationDays - 1);
 
-    const clientId = await upsertClientForQuote(
-      supabase,
-      userId,
-      args.clientName,
-      args.clientEmail,
-    );
+    let clientId: string | null = null;
+    const name = args.clientName?.trim();
+    const email = args.clientEmail?.trim();
+    if (name || email) {
+      const result = await upsertClient({
+        name: name || email!.split("@")[0] || "Cliente",
+        email: email || null,
+      });
+      clientId = result.id;
+    }
 
     const { data: insertedQuote, error: quoteInsertError } = await supabase
       .from("quotes")

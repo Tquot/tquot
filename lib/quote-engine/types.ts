@@ -7,6 +7,36 @@ import type { RefineAction } from "@/lib/quotes/refine/types";
 
 export type { ParsedTripInput, Quote } from "@/lib/quotes/build-quote";
 
+// ─────────────────────────────────────────────────────────
+// Hotel price comparison (snapshot vs live)
+// ─────────────────────────────────────────────────────────
+
+export type HotelProvider = "hotelbeds" | "booking" | "expedia";
+
+export interface HotelPriceQuote {
+  provider: HotelProvider;
+  netPrice: number;
+  currency: string;
+  rateKey?: string;
+  fetchedAt: string;
+  source: "snapshot" | "live";
+  stale?: boolean;
+  meta?: Record<string, unknown>;
+}
+
+export interface HotelDetails {
+  id: string;
+  name: string;
+  provider: HotelProvider;
+  netPrice: number;
+  currency: string;
+  rateKey?: string;
+  fetchedAt: string;
+  hotelCode?: string;
+  providerId?: string;
+  connectionId?: string;
+}
+
 /** Refinement intent applied after the initial quote is complete (maps to existing refine actions). */
 export type RefinementOperation = RefineAction;
 

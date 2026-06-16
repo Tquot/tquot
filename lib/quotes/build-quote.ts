@@ -23,6 +23,7 @@ import {
 } from "@/lib/inventory/inventory-utils";
 import type { InventoryQuoteRow } from "@/lib/inventory/search-for-quote";
 import type { EnrichedTripRequest } from "@/lib/parser/airport-resolution";
+import { providerSlug } from "@/lib/connectors/provider-logo";
 
 // ─────────────────────────────────────────────────────────────
 // Input
@@ -112,6 +113,11 @@ export type QuoteItemHotelDetails = {
   connectionId?: string;
   rateKey?: string;
   netPrice?: number;
+  /** Provider slug for snapshot pricing in the comparator. */
+  provider?: "hotelbeds" | "booking" | "expedia";
+  currency?: string;
+  /** ISO timestamp when this price was captured at quote build time. */
+  fetchedAt?: string;
 };
 
 export type QuoteItemExperienceDetails = {
@@ -727,21 +733,41 @@ function mapApiFlightToQuoteItem(
   });
 }
 
+function resolveHotelProvider(
+  providerId?: string,
+  providerLabel?: string,
+): QuoteItemHotelDetails["provider"] | undefined {
+  const slug = providerSlug(providerId ?? providerLabel ?? "");
+  if (slug === "hotelbeds" || slug === "booking" || slug === "expedia") {
+    return slug;
+  }
+  const label = (providerLabel ?? "").toLowerCase();
+  if (label.includes("hotelbeds")) return "hotelbeds";
+  if (label.includes("booking")) return "booking";
+  if (label.includes("expedia")) return "expedia";
+  return undefined;
+}
+
 function buildHotelDetails(
   hotel: HotelOption,
   providerId?: string,
+  providerLabel?: string,
 ): QuoteItemHotelDetails | undefined {
   const hotelCode = hotel.hotelCode ?? hotel.propertyId;
   const connectionId = hotel.connectionId;
   if (!hotelCode && !providerId && !connectionId) {
     return undefined;
   }
+  const provider = resolveHotelProvider(providerId, providerLabel);
   return {
     ...(hotelCode ? { hotelCode } : {}),
     ...(providerId ? { providerId } : {}),
     ...(connectionId ? { connectionId } : {}),
     ...(hotel.rateKey ? { rateKey: hotel.rateKey } : {}),
     ...(Number.isFinite(hotel.netPrice) ? { netPrice: hotel.netPrice } : {}),
+    ...(provider ? { provider } : {}),
+    currency: "EUR",
+    fetchedAt: new Date().toISOString(),
   };
 }
 
@@ -765,7 +791,7 @@ function mapApiHotelToQuoteItem(
     return null;
   }
 
-  const hotelDetails = buildHotelDetails(hotel, providerId);
+  const hotelDetails = buildHotelDetails(hotel, providerId, providerLabel);
 
   return draftItem({
     id,

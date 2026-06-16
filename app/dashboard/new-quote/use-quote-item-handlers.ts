@@ -11,23 +11,21 @@ import {
   type ParsedTripInput,
   type Quote,
 } from "@/lib/quotes/build-quote";
+import type { HotelDetails } from "@/lib/quote-engine/types";
 import type { ComparatorResultRow } from "@/lib/comparator";
 import type { DashboardTranslation } from "../translations";
 import {
-  cloneQuote,
-  allQuoteItems,
-} from "./quote-shared";
-import {
-  fetchHotelComparatorPanel,
-  type ComparatorPanelState,
+  quoteItemToHotelDetails,
+  type CompareHotelState,
 } from "./quote-comparator";
+import { cloneQuote, allQuoteItems } from "./quote-shared";
 
 type UseQuoteItemHandlersParams = {
   quote: Quote | null;
   tripInput: ParsedTripInput | null;
   updateQuote: (quote: Quote) => void;
-  setComparatorPanel: (panel: ComparatorPanelState | null) => void;
-  comparatorPanel: ComparatorPanelState | null;
+  setCompareHotel: (state: CompareHotelState) => void;
+  compareHotel: CompareHotelState;
   t: DashboardTranslation;
 };
 
@@ -35,8 +33,8 @@ export function useQuoteItemHandlers({
   quote,
   tripInput,
   updateQuote,
-  setComparatorPanel,
-  comparatorPanel,
+  setCompareHotel,
+  compareHotel,
   t,
 }: UseQuoteItemHandlersParams) {
   const handleSelectQuoteItem = useCallback(
@@ -123,50 +121,48 @@ export function useQuoteItemHandlers({
   );
 
   const handleCompareHotel = useCallback(
-    async (itemId: string) => {
-      if (!quote || !tripInput) return;
-
-      setComparatorPanel({
-        itemId,
-        loading: true,
-        error: null,
-        results: null,
-        catalogProviders: [],
-      });
-
-      const panel = await fetchHotelComparatorPanel({
-        quote,
-        tripInput,
-        itemId,
-        t,
-      });
-      setComparatorPanel(panel);
+    (itemId: string) => {
+      if (!quote) return;
+      const item = quote.hotels.find((entry) => entry.id === itemId);
+      if (!item) return;
+      const hotel = quoteItemToHotelDetails(item);
+      if (!hotel) return;
+      setCompareHotel({ itemId, hotel });
     },
-    [quote, tripInput, setComparatorPanel, t],
+    [quote, setCompareHotel],
   );
 
   const handleSelectComparatorPrice = useCallback(
-    (row: ComparatorResultRow) => {
-      if (!comparatorPanel || !quote || row.status !== "ok" || !row.bestRoom) {
-        return;
-      }
+    (_row: ComparatorResultRow) => {
+      // Price selection is handled via explicit refresh in HotelCompareModal.
+      if (!compareHotel) return;
+      setCompareHotel(null);
+    },
+    [compareHotel, setCompareHotel],
+  );
 
+  const handleHotelRefreshed = useCallback(
+    (refreshed: HotelDetails) => {
+      if (!compareHotel || !quote) return;
       const next = cloneQuote(quote);
-      const item = next.hotels.find((entry) => entry.id === comparatorPanel.itemId);
+      const item = next.hotels.find((entry) => entry.id === compareHotel.itemId);
       if (!item) return;
 
-      item.price = row.bestRoom.netPrice;
-      item.provider = row.providerName;
+      item.price = refreshed.netPrice;
       item.hotelDetails = {
         ...item.hotelDetails,
-        providerId: row.providerId,
+        netPrice: refreshed.netPrice,
+        rateKey: refreshed.rateKey,
+        fetchedAt: refreshed.fetchedAt,
+        currency: refreshed.currency,
+        provider: refreshed.provider,
       };
       applyItemMargin(item, getItemMarginPercent(item));
       syncQuotePricing(next);
       updateQuote(next);
-      setComparatorPanel(null);
+      setCompareHotel({ itemId: compareHotel.itemId, hotel: refreshed });
     },
-    [comparatorPanel, quote, updateQuote, setComparatorPanel],
+    [compareHotel, quote, updateQuote, setCompareHotel],
   );
 
   return {
@@ -177,5 +173,6 @@ export function useQuoteItemHandlers({
     handleFlightFareSelect,
     handleCompareHotel,
     handleSelectComparatorPrice,
+    handleHotelRefreshed,
   };
 }

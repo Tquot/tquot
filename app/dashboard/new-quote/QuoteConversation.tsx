@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { saveQuote } from "@/app/actions/save-quote";
+import { saveQuoteWithClient } from "@/app/actions/quotes";
 import { useConversation } from "@/lib/quote-engine/hooks";
 import { useQuoteConversationStore } from "@/lib/quote-engine/store";
 import type { Quote } from "@/lib/quotes/build-quote";
@@ -9,10 +9,8 @@ import { useDashboardLanguage } from "../dashboard-language-provider";
 import { ConversationHeader } from "./quote-conversation/ConversationHeader";
 import { ConversationPanel } from "./quote-conversation/ConversationPanel";
 import { QuoteCanvas } from "./quote-conversation/QuoteCanvas";
-import {
-  HotelComparatorPanel,
-  type ComparatorPanelState,
-} from "./quote-comparator";
+import { HotelCompareModal } from "@/components/quote-canvas/HotelCompareModal";
+import type { CompareHotelState } from "./quote-comparator";
 import {
   generateAgentPDF,
   generateClientPDF,
@@ -56,8 +54,7 @@ export function QuoteConversation() {
   const [agentNotes, setAgentNotes] = useState(t.defaultAgentNotes);
   const [savedQuoteId, setSavedQuoteId] = useState<string | null>(null);
   const [isSavingQuote, setIsSavingQuote] = useState(false);
-  const [comparatorPanel, setComparatorPanel] =
-    useState<ComparatorPanelState | null>(null);
+  const [compareHotel, setCompareHotel] = useState<CompareHotelState>(null);
 
   const completeQuote = isCompleteQuote(quote) ? quote : null;
 
@@ -81,8 +78,8 @@ export function QuoteConversation() {
     quote: completeQuote,
     tripInput: parsedTripInput,
     updateQuote,
-    setComparatorPanel,
-    comparatorPanel,
+    setCompareHotel,
+    compareHotel,
     t,
   });
 
@@ -102,34 +99,21 @@ export function QuoteConversation() {
     setChatInput("");
   }
 
-  async function persistCurrentQuote(client?: {
-    clientName?: string;
-    clientEmail?: string;
-  }): Promise<string | null> {
+  async function persistCurrentQuote(): Promise<string | null> {
     if (!completeQuote || !parsedTripInput) {
-      console.log("[persistCurrentQuote] no quote or tripInput");
       return null;
     }
 
     setIsSavingQuote(true);
     try {
-      console.log("[persistCurrentQuote] calling saveQuote", {
-        clientName: client?.clientName,
-        clientEmail: client?.clientEmail,
-      });
-      const result = await saveQuote({
+      const result = await saveQuoteWithClient({
         quote: completeQuote,
         tripInput: parsedTripInput,
         agentNotes: agentNotes || undefined,
-        clientName: client?.clientName?.trim() || undefined,
-        clientEmail: client?.clientEmail?.trim() || undefined,
+        client: { kind: "skip" },
       });
-      console.log("[persistCurrentQuote] result", result);
-      if (result.ok) {
-        setSavedQuoteId(result.quoteId);
-        return result.quoteId;
-      }
-      return null;
+      setSavedQuoteId(result.quoteId);
+      return result.quoteId;
     } catch (error) {
       console.error("[persistCurrentQuote] error", error);
       return null;
@@ -138,12 +122,9 @@ export function QuoteConversation() {
     }
   }
 
-  async function handleSaveAndGenerateClientPdf(client?: {
-    clientName: string;
-    clientEmail?: string;
-  }) {
-    const quoteId = await persistCurrentQuote(client);
-    if (quoteId) openServerPdf(quoteId, "client");
+  function handleQuoteSaved(result: { quoteId: string; clientId: string | null }) {
+    setSavedQuoteId(result.quoteId);
+    openServerPdf(result.quoteId, "client");
   }
 
   async function handleAgentPdf() {
@@ -172,7 +153,7 @@ export function QuoteConversation() {
     reset();
     setChatInput("");
     setSavedQuoteId(null);
-    setComparatorPanel(null);
+    setCompareHotel(null);
   }
 
   const headerQuote = useMemo(
@@ -184,11 +165,11 @@ export function QuoteConversation() {
     <div className="flex min-h-screen flex-col bg-tquot-bg text-tquot-text">
       <ConversationHeader
         quote={headerQuote}
+        tripInput={parsedTripInput}
+        agentNotes={agentNotes}
         isSavingQuote={isSavingQuote}
         onReset={handleReset}
-        onSaveClientPdf={(client) =>
-          void handleSaveAndGenerateClientPdf(client)
-        }
+        onQuoteSaved={handleQuoteSaved}
         onAgentPdf={() => void handleAgentPdf()}
         onClientPdf={() => void handleClientPdf()}
       />
@@ -235,17 +216,24 @@ export function QuoteConversation() {
         </main>
       </div>
 
-      {completeQuote && comparatorPanel ? (
-        <HotelComparatorPanel
-          item={
-            completeQuote.hotels.find(
-              (entry) => entry.id === comparatorPanel.itemId,
-            ) ?? null
-          }
-          panel={comparatorPanel}
-          locale={locale}
-          onClose={() => setComparatorPanel(null)}
-          onSelectPrice={handlers.handleSelectComparatorPrice}
+      {completeQuote && compareHotel && parsedTripInput ? (
+        <HotelCompareModal
+          open
+          hotel={compareHotel.hotel}
+          searchContext={{
+            destination: parsedTripInput.destination,
+            checkIn: parsedTripInput.dates.start,
+            checkOut: parsedTripInput.dates.end,
+            guests: [
+              {
+                adults: completeQuote.summary.passengers.adults,
+                children: completeQuote.summary.passengers.children || undefined,
+              },
+            ],
+          }}
+          additionalProviders={["hotelbeds", "booking", "expedia"]}
+          onClose={() => setCompareHotel(null)}
+          onHotelRefreshed={handlers.handleHotelRefreshed}
         />
       ) : null}
 

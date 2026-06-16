@@ -42,10 +42,10 @@ import {
   type AirportChoicesState,
 } from "@/lib/quote-engine/airport-selection";
 import { FlightQuoteItemsSection, QuoteItemsSection } from "./quote-results";
+import { HotelCompareModal } from "@/components/quote-canvas/HotelCompareModal";
 import {
-  HotelComparatorPanel,
-  type ComparatorPanelState,
-  fetchHotelComparatorPanel,
+  quoteItemToHotelDetails,
+  type CompareHotelState,
 } from "./quote-comparator";
 import {
   generateAgentPDF,
@@ -299,9 +299,7 @@ export function QuoteEngine() {
     destination: null,
   });
   const [parserQuestions, setParserQuestions] = useState<string[] | null>(null);
-  const [comparatorPanel, setComparatorPanel] = useState<ComparatorPanelState | null>(
-    null,
-  );
+  const [compareHotel, setCompareHotel] = useState<CompareHotelState>(null);
 
   const flightsIncluded =
     tripInput?.includeFlights ??
@@ -449,53 +447,41 @@ export function QuoteEngine() {
     });
   }
 
-  async function handleCompareHotel(itemId: string) {
-    if (!quote || !tripInput) return;
-
-    setComparatorPanel({
-      itemId,
-      loading: true,
-      error: null,
-      results: null,
-      catalogProviders: [],
-    });
-
-    const panel = await fetchHotelComparatorPanel({
-      quote,
-      tripInput,
-      itemId,
-      t,
-    });
-    setComparatorPanel(panel);
+  function handleCompareHotel(itemId: string) {
+    if (!quote) return;
+    const item = quote.hotels.find((entry) => entry.id === itemId);
+    if (!item) return;
+    const hotel = quoteItemToHotelDetails(item);
+    if (!hotel) return;
+    setCompareHotel({ itemId, hotel });
   }
 
-  function handleSelectComparatorPrice(row: ComparatorResultRow) {
-    if (!comparatorPanel || row.status !== "ok" || !row.bestRoom) {
-      return;
-    }
-
+  function handleHotelRefreshed(refreshed: import("@/lib/quote-engine/types").HotelDetails) {
+    if (!compareHotel) return;
     setQuote((current) => {
-      if (!current) {
-        return current;
-      }
-
+      if (!current) return current;
       const next = cloneQuote(current);
-      const item = next.hotels.find((entry) => entry.id === comparatorPanel.itemId);
-      if (!item) {
-        return current;
-      }
-
-      item.price = row.bestRoom!.netPrice;
-      item.provider = row.providerName;
+      const item = next.hotels.find((entry) => entry.id === compareHotel.itemId);
+      if (!item) return current;
+      item.price = refreshed.netPrice;
       item.hotelDetails = {
         ...item.hotelDetails,
-        providerId: row.providerId,
+        netPrice: refreshed.netPrice,
+        rateKey: refreshed.rateKey,
+        fetchedAt: refreshed.fetchedAt,
+        currency: refreshed.currency,
+        provider: refreshed.provider,
       };
       applyItemMargin(item, getItemMarginPercent(item));
       syncQuotePricing(next);
       return next;
     });
-    setComparatorPanel(null);
+    setCompareHotel({ itemId: compareHotel.itemId, hotel: refreshed });
+  }
+
+  function handleSelectComparatorPrice(_row: ComparatorResultRow) {
+    if (!compareHotel) return;
+    setCompareHotel(null);
   }
 
   function sendChatMessage() {
@@ -1228,13 +1214,24 @@ export function QuoteEngine() {
         ) : null}
       </main>
 
-      {comparatorPanel && quote ? (
-        <HotelComparatorPanel
-          item={quote.hotels.find((entry) => entry.id === comparatorPanel.itemId) ?? null}
-          panel={comparatorPanel}
-          locale={locale}
-          onClose={() => setComparatorPanel(null)}
-          onSelectPrice={handleSelectComparatorPrice}
+      {compareHotel && quote && tripInput ? (
+        <HotelCompareModal
+          open
+          hotel={compareHotel.hotel}
+          searchContext={{
+            destination: tripInput.destination,
+            checkIn: tripInput.dates.start,
+            checkOut: tripInput.dates.end,
+            guests: [
+              {
+                adults: quote.summary.passengers.adults,
+                children: quote.summary.passengers.children || undefined,
+              },
+            ],
+          }}
+          additionalProviders={["hotelbeds", "booking", "expedia"]}
+          onClose={() => setCompareHotel(null)}
+          onHotelRefreshed={handleHotelRefreshed}
         />
       ) : null}
     </div>

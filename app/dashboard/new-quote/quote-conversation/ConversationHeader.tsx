@@ -2,30 +2,31 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import type { Quote } from "@/lib/quotes/build-quote";
+import { Modal } from "@/components/ui/Modal";
+import type { ParsedTripInput, Quote } from "@/lib/quotes/build-quote";
 import { useDashboardLanguage } from "../../dashboard-language-provider";
 import { formatMessage } from "../../format-message";
 import { LocaleToggleButtons } from "../../locale-toggle-buttons";
-
-type ClientSaveOptions = {
-  clientName: string;
-  clientEmail?: string;
-};
+import { ClientSaveForm } from "./ClientSaveForm";
 
 type ConversationHeaderProps = {
   quote: Partial<Quote> | Quote | null;
+  tripInput: ParsedTripInput | null;
+  agentNotes?: string;
   isSavingQuote: boolean;
   onReset: () => void;
-  onSaveClientPdf: (client?: ClientSaveOptions) => void;
+  onQuoteSaved: (result: { quoteId: string; clientId: string | null }) => void;
   onAgentPdf: () => void;
   onClientPdf: () => void;
 };
 
 export function ConversationHeader({
   quote,
+  tripInput,
+  agentNotes,
   isSavingQuote,
   onReset,
-  onSaveClientPdf,
+  onQuoteSaved,
   onAgentPdf,
   onClientPdf,
 }: ConversationHeaderProps) {
@@ -34,34 +35,6 @@ export function ConversationHeader({
     quote && "pricing" in quote && quote.pricing ? (quote as Quote) : null;
 
   const [clientSaveModalOpen, setClientSaveModalOpen] = useState(false);
-  const [modalClientName, setModalClientName] = useState("");
-  const [modalClientEmail, setModalClientEmail] = useState("");
-
-  function openClientSaveModal() {
-    setModalClientName("");
-    setModalClientEmail("");
-    setClientSaveModalOpen(true);
-  }
-
-  function closeClientSaveModal() {
-    setClientSaveModalOpen(false);
-  }
-
-  function handleConfirmSave() {
-    const name = modalClientName.trim();
-    if (!name) return;
-
-    closeClientSaveModal();
-    onSaveClientPdf({
-      clientName: name,
-      clientEmail: modalClientEmail.trim() || undefined,
-    });
-  }
-
-  function handleSaveWithoutClient() {
-    closeClientSaveModal();
-    onSaveClientPdf();
-  }
 
   return (
     <>
@@ -117,8 +90,8 @@ export function ConversationHeader({
             </button>
             <button
               type="button"
-              onClick={openClientSaveModal}
-              disabled={!completeQuote || isSavingQuote}
+              onClick={() => setClientSaveModalOpen(true)}
+              disabled={!completeQuote || !tripInput || isSavingQuote}
               className="rounded-xl border border-tquot-teal/30 bg-tquot-teal/10 px-4 py-2.5 text-sm font-semibold text-tquot-teal disabled:opacity-50"
             >
               {isSavingQuote ? t.savingQuote : t.saveAndGeneratePdf}
@@ -143,72 +116,25 @@ export function ConversationHeader({
         </div>
       </header>
 
-      {clientSaveModalOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-          onClick={closeClientSaveModal}
-        >
-          <div
-            className="relative z-10 mx-4 w-full max-w-md rounded-xl bg-tquot-surface p-6 shadow-lg"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="client-save-modal-title"
-          >
-            <h2
-              id="client-save-modal-title"
-              className="mb-4 text-lg font-bold text-tquot-text"
-            >
-              {t.clientSaveModalTitle}
-            </h2>
-
-            <div className="space-y-4">
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-tquot-muted">
-                  {t.clientName} *
-                </span>
-                <input
-                  type="text"
-                  value={modalClientName}
-                  onChange={(event) => setModalClientName(event.target.value)}
-                  autoFocus
-                  className="w-full rounded-xl border border-tquot-border bg-tquot-bg px-3 py-2 text-sm outline-none focus:border-tquot-accent focus:ring-2 focus:ring-tquot-accent/20"
-                />
-              </label>
-              <label className="block">
-                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-tquot-muted">
-                  {t.clientEmail}
-                </span>
-                <input
-                  type="email"
-                  value={modalClientEmail}
-                  onChange={(event) => setModalClientEmail(event.target.value)}
-                  className="w-full rounded-xl border border-tquot-border bg-tquot-bg px-3 py-2 text-sm outline-none focus:border-tquot-accent focus:ring-2 focus:ring-tquot-accent/20"
-                />
-              </label>
-            </div>
-
-            <div className="mt-6 flex flex-col gap-3">
-              <button
-                type="button"
-                onClick={handleConfirmSave}
-                disabled={!modalClientName.trim() || isSavingQuote}
-                className="rounded-xl bg-tquot-teal px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
-              >
-                {isSavingQuote ? t.savingQuote : t.saveAndGeneratePdf}
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveWithoutClient}
-                disabled={isSavingQuote}
-                className="text-sm font-semibold text-tquot-muted underline hover:text-tquot-accent disabled:opacity-50"
-              >
-                {t.saveWithoutClient}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <Modal
+        open={clientSaveModalOpen}
+        onClose={() => setClientSaveModalOpen(false)}
+        title={t.clientSaveModalTitle}
+        size="md"
+      >
+        {completeQuote && tripInput ? (
+          <ClientSaveForm
+            quote={completeQuote}
+            tripInput={tripInput}
+            agentNotes={agentNotes}
+            onSaved={(result) => {
+              setClientSaveModalOpen(false);
+              onQuoteSaved(result);
+            }}
+            onClose={() => setClientSaveModalOpen(false)}
+          />
+        ) : null}
+      </Modal>
     </>
   );
 }

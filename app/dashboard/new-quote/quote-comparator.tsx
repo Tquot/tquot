@@ -12,6 +12,40 @@ import { useDashboardLanguage } from "../dashboard-language-provider";
 import type { DashboardTranslation } from "../translations";
 import type { Locale } from "../translations";
 import { formatCurrency } from "./quote-shared";
+import type { HotelDetails, HotelProvider } from "@/lib/quote-engine/types";
+
+export type CompareHotelState = {
+  itemId: string;
+  hotel: HotelDetails;
+} | null;
+
+export function quoteItemToHotelDetails(item: QuoteItem): HotelDetails | null {
+  const details = item.hotelDetails;
+  if (!details) return null;
+
+  const slug = providerSlug(details.providerId ?? item.provider);
+  const provider: HotelProvider =
+    details.provider ??
+    (slug === "booking" || slug === "expedia" ? slug : "hotelbeds");
+
+  const netPrice = details.netPrice ?? item.price;
+  if (!Number.isFinite(netPrice) || netPrice <= 0) return null;
+
+  const name = item.title.split(" — ")[0]?.trim() || item.title;
+
+  return {
+    id: item.id,
+    name,
+    provider,
+    netPrice,
+    currency: details.currency ?? "EUR",
+    rateKey: details.rateKey,
+    fetchedAt: details.fetchedAt ?? new Date().toISOString(),
+    hotelCode: details.hotelCode,
+    providerId: details.providerId,
+    connectionId: details.connectionId,
+  };
+}
 
 const HOTEL_PROVIDER_CATEGORY = "hotels";
 
