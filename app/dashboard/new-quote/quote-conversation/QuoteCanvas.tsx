@@ -16,6 +16,8 @@ import {
   TotalCard,
 } from "../quote-shared";
 import { BookingHandoffLegSection } from "@/components/quote-canvas/LegBlock";
+import { RecommendationsSection } from "@/components/quote-conversation/canvas/RecommendationsSection";
+import type { Quote as EngineQuote } from "@/lib/quote-engine/types";
 import type { useQuoteItemHandlers } from "../use-quote-item-handlers";
 
 type QuoteCanvasProps = {
@@ -239,6 +241,14 @@ export function QuoteCanvas({
         })}
 
         {completeQuote ? <BookingHandoffLegSection /> : null}
+
+        {completeQuote &&
+        (completeQuote as EngineQuote).recommendations &&
+        (completeQuote as EngineQuote).recommendations!.length > 0 ? (
+          <RecommendationsSection
+            recommendations={(completeQuote as EngineQuote).recommendations!}
+          />
+        ) : null}
 
         {completeQuote ? (
           <div className="grid gap-4 rounded-xl border border-tquot-border bg-gradient-to-r from-tquot-teal/5 to-slate-50 p-5 shadow-sm sm:grid-cols-3 sm:divide-x sm:divide-tquot-border">

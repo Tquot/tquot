@@ -1,6 +1,7 @@
-import type { BuildEvent, QuoteSection } from "@/lib/quote-conversation/types";
+import type { BuildEvent, QuoteSection, RecommendationEvent } from "@/lib/quote-conversation/types";
 import type { ParsedTripInput, QuoteItem } from "@/lib/quotes/build-quote";
 import { providerSlug } from "@/lib/connectors/provider-logo";
+import { getEntry, type ServiceCategory } from "@/lib/recommendations/catalog";
 
 const SECTION_LABEL: Record<QuoteSection, string> = {
   flights: "vuelos",
@@ -80,6 +81,24 @@ export function narrateBuildEvent(
     case "build.error":
     case "section.partial":
     case "section.provider":
+      return null;
+  }
+}
+
+export function narrateRecommendationEvent(
+  event: RecommendationEvent,
+): string | null {
+  switch (event.type) {
+    case "recommendation.done": {
+      const entry = getEntry(event.category as ServiceCategory);
+      const source = event.source === "cache" ? " (de caché)" : "";
+      return `Añadí ${event.providers.length} sugerencias de ${entry.label.toLowerCase()}${source}.`;
+    }
+    case "recommendation.error": {
+      const entry = getEntry(event.category as ServiceCategory);
+      return `No pude buscar proveedores de ${entry.label.toLowerCase()}: ${shortError(event.error)}.`;
+    }
+    case "recommendation.started":
       return null;
   }
 }

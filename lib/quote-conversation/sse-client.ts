@@ -172,7 +172,8 @@ function isConversationStreamEvent(
     type.startsWith("build.") ||
     type.startsWith("section.") ||
     type.startsWith("narrator.") ||
-    type.startsWith("refinement.")
+    type.startsWith("refinement.") ||
+    type.startsWith("recommendation.")
   );
 }
 

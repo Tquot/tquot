@@ -7,6 +7,7 @@
  */
 
 import type { PriceSource } from "./theme";
+import type { Recommendation } from "@/lib/recommendations/types";
 
 // ─────────────────────────────────────────────────────────────
 // Agencia
@@ -111,6 +112,8 @@ export interface Quote {
   // Condiciones
   paymentTerms?: string | null;
   cancellationPolicy?: string | null;
+
+  recommendations?: Recommendation[];
 }
 
 // ─────────────────────────────────────────────────────────────

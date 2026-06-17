@@ -1,5 +1,11 @@
 export * from "@/lib/quote-conversation/types";
-export type { Quote } from "@/lib/quotes/build-quote";
+import type { Recommendation } from "@/lib/recommendations/types";
+import type { Quote as BuildQuote } from "@/lib/quotes/build-quote";
+
+export type Quote = BuildQuote &
+  QuoteWithGroup & {
+    recommendations?: Recommendation[];
+  };
 
 export interface Hotel {
   id: string;
@@ -47,6 +53,7 @@ export interface QuoteGroupDistribution {
 
 export interface QuoteGroup {
   distribution: QuoteGroupDistribution;
+  isCorporate?: boolean;
 }
 
 export interface QuoteWithGroup {

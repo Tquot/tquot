@@ -21,6 +21,7 @@ import React from "react";
 import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
 import { colors, fonts, fontSize, fontWeight, spacing, page } from "../theme";
 import { AgencyLogo } from "../components/AgencyLogo";
+import { RecommendationsBlock } from "../components/RecommendationsBlock";
 import { SectionLabel } from "../components/Decoration";
 import { SourceBadge } from "../components/SourceBadge";
 import {
@@ -504,6 +505,10 @@ export function AgentPDF({ quote }: AgentPDFProps) {
             <SectionLabel variant="light">Notas internas del agente</SectionLabel>
             <Text style={styles.notesText}>{quote.agentNotes}</Text>
           </View>
+        )}
+
+        {quote.recommendations && quote.recommendations.length > 0 && (
+          <RecommendationsBlock recommendations={quote.recommendations} variant="agent" />
         )}
 
         {/* Leyenda de fuentes */}

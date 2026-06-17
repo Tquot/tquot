@@ -3,15 +3,18 @@ import { nanoid } from "nanoid";
 import { getAuthenticatedUser } from "@/app/api/parser/_auth";
 import { buildQuoteWithProgress } from "@/lib/quote-engine/buildQuoteWithProgress";
 import { parseParsedTripInputBody } from "@/lib/quote-engine/schemas";
-import { narrateBuildEvent } from "@/lib/narrator/templates";
+import { toParsedTripInputV2 } from "@/lib/quote-engine/schemas-v2";
+import { narrateBuildEvent, narrateRecommendationEvent } from "@/lib/narrator/templates";
 import {
   streamOpeningMessage,
   streamSummaryMessage,
 } from "@/lib/narrator/synthesizer";
+import { generateRecommendations } from "@/lib/recommendations/generate";
 import type {
   ConversationStreamEvent,
   BuildEvent,
 } from "@/lib/quote-conversation/types";
+import type { Quote } from "@/lib/quote-engine/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -122,6 +125,77 @@ export async function POST(req: NextRequest) {
 
         send({ type: "build.done", quote, ts: Date.now() });
 
+        const parsedV2 = toParsedTripInputV2(parsed.data);
+        const quoteWithRecs = quote as Quote;
+
+        const recommendationsPromise = generateRecommendations({
+          parsed: parsedV2,
+          quote: quoteWithRecs,
+          signal: abort.signal,
+          onEvent: (event) => {
+            if (event.type === "started") {
+              send({
+                type: "recommendation.started",
+                category: event.category,
+                legId: event.legId,
+                ts: Date.now(),
+              });
+            }
+            if (event.type === "done") {
+              send({
+                type: "recommendation.done",
+                category: event.category,
+                legId: event.legId,
+                providers: event.providers,
+                source: event.source,
+                ts: Date.now(),
+              });
+              const narration = narrateRecommendationEvent({
+                type: "recommendation.done",
+                category: event.category,
+                legId: event.legId,
+                providers: event.providers,
+                source: event.source,
+                ts: Date.now(),
+              });
+              if (narration) {
+                send({
+                  type: "narrator.message.complete",
+                  messageId: nanoid(),
+                  content: narration,
+                  phase: "progress",
+                  ts: Date.now(),
+                });
+              }
+            }
+            if (event.type === "error") {
+              send({
+                type: "recommendation.error",
+                category: event.category,
+                legId: event.legId,
+                error: event.error,
+                ts: Date.now(),
+              });
+              const narration = narrateRecommendationEvent({
+                type: "recommendation.error",
+                category: event.category,
+                legId: event.legId,
+                error: event.error,
+                ts: Date.now(),
+              });
+              if (narration) {
+                send({
+                  type: "narrator.message.complete",
+                  messageId: nanoid(),
+                  content: narration,
+                  phase: "progress",
+                  ts: Date.now(),
+                });
+              }
+            }
+          },
+        });
+
         const summaryId = nanoid();
         send({
           type: "narrator.message.start",
@@ -146,6 +220,11 @@ export async function POST(req: NextRequest) {
           messageId: summaryId,
           ts: Date.now(),
         });
+
+        const recommendations = await recommendationsPromise;
+        if (recommendations.length > 0) {
+          quoteWithRecs.recommendations = recommendations;
+        }
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") {
           return;

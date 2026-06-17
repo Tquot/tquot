@@ -17,6 +17,7 @@ import React from "react";
 import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
 import { colors, fonts, fontSize, fontWeight, spacing, page } from "../theme";
 import { AgencyLogo } from "../components/AgencyLogo";
+import { RecommendationsBlock } from "../components/RecommendationsBlock";
 import { GoldRule, SectionLabel } from "../components/Decoration";
 import {
   formatCurrency,
@@ -466,6 +467,10 @@ export function ClientPDF({ quote }: ClientPDFProps) {
             Impuestos incluidos · Válido hasta {formatDate(quote.validUntil)}
           </Text>
         </View>
+
+        {quote.recommendations && quote.recommendations.length > 0 && (
+          <RecommendationsBlock recommendations={quote.recommendations} variant="client" />
+        )}
 
         {/* Condiciones */}
         {(quote.paymentTerms || quote.cancellationPolicy) && (
