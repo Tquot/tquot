@@ -36,11 +36,14 @@ export function LegBlock({ leg, legIndex, totalLegs, agencyConfig }: Props) {
   const handoffQuote = quote as Quote & { group?: { distribution: { doubles: number; singles: number; triples: number; totalRooms: number } } };
   const context = { agencyConfig, quote: handoffQuote, parsed };
 
-  const hotels = (quote.hotels ?? [])
+  const selectedItems = (items: Quote["hotels"]) =>
+    (items ?? []).filter((item) => !item.alternative);
+
+  const hotels = selectedItems(quote.hotels)
     .map((item) => quoteItemToHotel(item, leg.id))
     .filter((hotel): hotel is NonNullable<typeof hotel> => hotel !== null);
 
-  const flights = (quote.flights ?? [])
+  const flights = selectedItems(quote.flights)
     .map((item) => quoteItemToFlight(item, leg.id))
     .filter((flight): flight is NonNullable<typeof flight> => flight !== null);
 
@@ -60,7 +63,7 @@ export function LegBlock({ leg, legIndex, totalLegs, agencyConfig }: Props) {
       </header>
 
       {hotels.map((hotel) => {
-        const sourceItem = (quote.hotels ?? []).find((item) => item.id === hotel.id);
+        const sourceItem = selectedItems(quote.hotels).find((item) => item.id === hotel.id);
         const provider = sourceItem ? handoffProviderForHotel(sourceItem) : hotel.provider;
         const handoff = provider
           ? getHandoff(provider, hotel, context)
