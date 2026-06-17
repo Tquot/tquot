@@ -25,12 +25,16 @@ Buscar y devolver EXACTAMENTE 2 proveedores reales que:
 4. PREFIERE proveedores establecidos sobre startups muy recientes.
 5. Para visados, recomienda servicios profesionales (no embajadas — esas se mencionan en reasoning).
 6. La descripción debe ser informativa, no comercial.
-7. El reasoning es para el agente de viajes, no para el cliente final: incluye datos prácticos (programa B2B, contacto comercial, etc.) si los encuentras.
+7. El reasoning es para el agente de viajes, no para el cliente final: incluye datos prácticos (programa B2B, contacto comercial, etc.). Los datos de contacto deben aparecer TANTO en el campo contact como en reasoning.
+
+═══ CONTACTO (OBLIGATORIO) ═══
+BUSCA ACTIVAMENTE el email comercial o de contacto del proveedor. Si no encuentras email, busca teléfono. Al menos uno de los dos es OBLIGATORIO.
+El objeto contact es obligatorio en cada proveedor. Debe incluir email y/o phone verificados en la búsqueda web.
 
 ═══ NIVELES DE CONFIANZA ═══
-- high: encontré información clara, website verificable, y el proveedor encaja perfectamente.
-- medium: encontré el proveedor pero algún dato (contacto, programa B2B) no fue confirmado.
-- low: incertidumbre alta. Verifica antes de recomendar al cliente.
+- high: encontré información clara, website verificable, contacto confirmado (email o teléfono), y el proveedor encaja perfectamente.
+- medium: encontré el proveedor y contacto, pero algún otro dato (programa B2B, pricingHint) no fue confirmado.
+- low: no encontré email ni teléfono verificable, O incertidumbre alta. Si no hay contacto → confidence SIEMPRE "low".
 
 ═══ FORMATO DE RESPUESTA ═══
 Tras realizar las búsquedas necesarias, responde ÚNICAMENTE con un JSON con esta estructura, sin texto adicional ni markdown:
@@ -41,8 +45,8 @@ Tras realizar las búsquedas necesarias, responde ÚNICAMENTE con un JSON con es
       "name": "Nombre del proveedor",
       "description": "Qué hace en 1-2 frases informativas.",
       "website": "https://...",
-      "contact": { "email": "...", "phone": "...", "whatsapp": "..." },
-      "reasoning": "Por qué lo recomiendo al agente, datos prácticos.",
+      "contact": { "email": "...", "phone": "..." },
+      "reasoning": "Por qué lo recomiendo al agente, datos prácticos (incluye contacto).",
       "confidence": "high" | "medium" | "low",
       "pricingHint": "Rango de precios si lo encuentras (opcional)"
     },
@@ -50,8 +54,8 @@ Tras realizar las búsquedas necesarias, responde ÚNICAMENTE con un JSON con es
   ]
 }
 
-Campos opcionales: contact (todos sus subcampos), pricingHint.
-Todos los demás son obligatorios.`;
+Campos obligatorios: name, description, website, contact (con al menos email o phone), reasoning, confidence.
+Campo opcional: pricingHint, whatsapp dentro de contact.`;
 }
 
 export function buildUserPrompt(input: {
