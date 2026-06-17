@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { saveQuoteWithClient } from "@/app/actions/quotes";
-import { useConversation } from "@/lib/quote-engine/hooks";
-import { useQuoteConversationStore } from "@/lib/quote-engine/store";
+import { useQuoteConversation } from "@/hooks/useQuoteConversation";
+import { useQuoteConversationStore } from "@/lib/quote-conversation/store";
 import type { Quote } from "@/lib/quotes/build-quote";
 import { useDashboardLanguage } from "../dashboard-language-provider";
 import { ConversationHeader } from "./quote-conversation/ConversationHeader";
-import { ConversationPanel } from "./quote-conversation/ConversationPanel";
+import { ConversationPanel } from "@/components/quote-conversation/conversation/ConversationPanel";
 import { QuoteCanvas } from "./quote-conversation/QuoteCanvas";
 import { HotelCompareModal } from "@/components/quote-canvas/HotelCompareModal";
 import type { CompareHotelState } from "./quote-comparator";
@@ -27,30 +27,22 @@ export function QuoteConversation() {
   const {
     status,
     messages,
-    isLocked,
     isParsing,
     isBuilding,
-    isRefining,
     error,
-    needsInput,
-    awaitingAirports,
     parsingPartial,
     buildProgress,
     quote,
     parsedTripInput,
     updateQuote,
-    confirmAirports,
-    submitInitialRequest,
-    submitRefinement,
     retry,
     reset,
-  } = useConversation();
+  } = useQuoteConversation();
 
   const addAssistantMessage = useQuoteConversationStore(
     (store) => store.addAssistantMessage,
   );
 
-  const [chatInput, setChatInput] = useState("");
   const [agentNotes, setAgentNotes] = useState(t.defaultAgentNotes);
   const [savedQuoteId, setSavedQuoteId] = useState<string | null>(null);
   const [isSavingQuote, setIsSavingQuote] = useState(false);
@@ -83,22 +75,6 @@ export function QuoteConversation() {
     t,
   });
 
-  function handleSubmit() {
-    const trimmed = chatInput.trim();
-    if (!trimmed || isLocked) return;
-
-    if (status === "complete") {
-      void submitRefinement(trimmed);
-    } else if (status === "needs_input" && needsInput) {
-      const combined = `${needsInput.input}\n\nRespuestas:\n${trimmed}`;
-      submitInitialRequest(combined);
-    } else if (status === "idle" || status === "error") {
-      submitInitialRequest(trimmed);
-    }
-
-    setChatInput("");
-  }
-
   async function persistCurrentQuote(): Promise<string | null> {
     if (!completeQuote || !parsedTripInput) {
       return null;
@@ -114,8 +90,8 @@ export function QuoteConversation() {
       });
       setSavedQuoteId(result.quoteId);
       return result.quoteId;
-    } catch (error) {
-      console.error("[persistCurrentQuote] error", error);
+    } catch (persistError) {
+      console.error("[persistCurrentQuote] error", persistError);
       return null;
     } finally {
       setIsSavingQuote(false);
@@ -151,7 +127,6 @@ export function QuoteConversation() {
 
   function handleReset() {
     reset();
-    setChatInput("");
     setSavedQuoteId(null);
     setCompareHotel(null);
   }
@@ -191,17 +166,7 @@ export function QuoteConversation() {
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <aside className="flex min-h-[42vh] flex-col border-b border-tquot-border bg-white lg:min-h-0 lg:w-2/5 lg:border-b-0 lg:border-r">
-          <ConversationPanel
-            messages={messages}
-            chatInput={chatInput}
-            onChatInputChange={setChatInput}
-            onSubmit={handleSubmit}
-            isLocked={isLocked || isRefining}
-            status={status}
-            needsInput={needsInput}
-            awaitingAirports={awaitingAirports}
-            onConfirmAirports={confirmAirports}
-          />
+          <ConversationPanel />
         </aside>
 
         <main className="min-h-[50vh] flex-1 bg-tquot-surface lg:min-h-0 lg:w-3/5">

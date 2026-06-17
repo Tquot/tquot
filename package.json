@@ -7,15 +7,18 @@
     "build": "next build",
     "build:airports": "node scripts/build-airports.mjs",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.85",
     "@anthropic-ai/sdk": "^0.96.0",
     "@react-pdf/renderer": "^4.5.1",
     "@supabase/auth-helpers-nextjs": "^0.15.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.105.4",
     "@upstash/redis": "^1.38.0",
+    "ai": "^6.0.207",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
     "nanoid": "^5.1.11",
@@ -35,7 +38,8 @@
     "eslint": "^9.27.0",
     "eslint-config-next": "^15.3.2",
     "tailwindcss": "^4.1.7",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.9"
   },
   "optionalDependencies": {
     "@tailwindcss/oxide-win32-x64-msvc": "^4.3.0"
