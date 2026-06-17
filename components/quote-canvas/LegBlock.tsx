@@ -17,7 +17,7 @@ import {
 } from "@/lib/quote-conversation/store";
 import type { TripLeg } from "@/lib/quote-engine/schemas-v2";
 import { toParsedTripInputV2 } from "@/lib/quote-engine/schemas-v2";
-import type { Quote } from "@/lib/quotes/build-quote";
+import type { Quote, QuoteItem } from "@/lib/quotes/build-quote";
 
 interface Props {
   leg: TripLeg;
@@ -36,8 +36,8 @@ export function LegBlock({ leg, legIndex, totalLegs, agencyConfig }: Props) {
   const handoffQuote = quote as Quote & { group?: { distribution: { doubles: number; singles: number; triples: number; totalRooms: number } } };
   const context = { agencyConfig, quote: handoffQuote, parsed };
 
-  const selectedItems = (items: Quote["hotels"]) =>
-    (items ?? []).filter((item) => !item.alternative);
+  const selectedItems = (items: QuoteItem[] | undefined) =>
+    (items ?? []).filter((item: QuoteItem) => !item.alternative);
 
   const hotels = selectedItems(quote.hotels)
     .map((item) => quoteItemToHotel(item, leg.id))
