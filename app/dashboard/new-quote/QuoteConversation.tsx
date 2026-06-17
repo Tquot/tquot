@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { saveQuoteWithClient } from "@/app/actions/quotes";
 import { useQuoteConversation } from "@/hooks/useQuoteConversation";
+import { BookingConfigProvider } from "@/lib/booking-handoff/context";
+import type { AgencyBookingConfig } from "@/lib/booking-handoff/types";
 import { useQuoteConversationStore } from "@/lib/quote-conversation/store";
 import type { Quote } from "@/lib/quotes/build-quote";
 import { useDashboardLanguage } from "../dashboard-language-provider";
@@ -22,7 +24,11 @@ function isCompleteQuote(quote: Partial<Quote> | Quote | null): quote is Quote {
   return Boolean(quote && quote.pricing && quote.summary && quote.id);
 }
 
-export function QuoteConversation() {
+type QuoteConversationProps = {
+  agencyConfig: AgencyBookingConfig;
+};
+
+export function QuoteConversation({ agencyConfig }: QuoteConversationProps) {
   const { locale, t } = useDashboardLanguage();
   const {
     status,
@@ -137,6 +143,7 @@ export function QuoteConversation() {
   );
 
   return (
+    <BookingConfigProvider config={agencyConfig}>
     <div className="flex min-h-screen flex-col bg-tquot-bg text-tquot-text">
       <ConversationHeader
         quote={headerQuote}
@@ -216,5 +223,6 @@ export function QuoteConversation() {
         </div>
       ) : null}
     </div>
+    </BookingConfigProvider>
   );
 }

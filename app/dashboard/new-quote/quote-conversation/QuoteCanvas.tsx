@@ -15,6 +15,7 @@ import {
   SectionSkeleton,
   TotalCard,
 } from "../quote-shared";
+import { BookingHandoffLegSection } from "@/components/quote-canvas/LegBlock";
 import type { useQuoteItemHandlers } from "../use-quote-item-handlers";
 
 type QuoteCanvasProps = {
@@ -236,6 +237,8 @@ export function QuoteCanvas({
             </div>
           );
         })}
+
+        {completeQuote ? <BookingHandoffLegSection /> : null}
 
         {completeQuote ? (
           <div className="grid gap-4 rounded-xl border border-tquot-border bg-gradient-to-r from-tquot-teal/5 to-slate-50 p-5 shadow-sm sm:grid-cols-3 sm:divide-x sm:divide-tquot-border">
