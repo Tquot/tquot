@@ -1,6 +1,7 @@
 import type { ParsedTripInputV2, TripLeg } from "@/lib/quote-engine/schemas-v2";
 import type { Quote } from "@/lib/quote-engine/types";
-import { SERVICE_CATALOG, type ServiceCategory, getEntry } from "./catalog";
+import { shouldIncludeTransfers } from "@/lib/quotes/transfer-eligibility";
+import { SERVICE_CATALOG, type ServiceCategory } from "./catalog";
 
 export interface RelevantCategory {
   category: ServiceCategory;
@@ -98,12 +99,21 @@ function isRelevantHeuristic(
   switch (category) {
     case "insurance":
       return true;
+    case "travel_insurance":
+      return true;
     case "visa":
       return ctx.isInternational;
     case "sim":
       return ctx.isInternational;
+    case "activities":
+      return needsActivityProviders(ctx.quote);
     case "tour_guide":
       return ctx.quote.experiences.length < 3;
+    case "transfers":
+      return (
+        ctx.quote.transfers.length === 0 &&
+        tripIncludesTransfersDetection(ctx.parsed)
+      );
     case "restaurant":
       return (
         ctx.isLuxuryTrip ||
@@ -120,16 +130,36 @@ function isRelevantHeuristic(
   }
 }
 
+function needsActivityProviders(quote: Quote): boolean {
+  if (quote.experiences.length < 3) return true;
+  return !quote.experiences.some((experience) => experience.source === "api");
+}
+
+function tripIncludesTransfersDetection(parsed: ParsedTripInputV2): boolean {
+  return parsed.legs.some((leg, index) => {
+    const origin =
+      leg.origin?.trim() ||
+      (index > 0 ? parsed.legs[index - 1]?.destination : "") ||
+      "";
+    return shouldIncludeTransfers({
+      origin,
+      destination: leg.destination,
+    });
+  });
+}
+
 function prioritize(
   candidates: RelevantCategory[],
   ctx: { isCorporate: boolean; isLuxuryTrip: boolean; isLongStay: boolean },
 ): RelevantCategory[] {
   const score = (c: RelevantCategory): number => {
     let s = 0;
-    if (c.category === "insurance") s += 100;
+    if (c.category === "insurance" || c.category === "travel_insurance") s += 100;
     if (c.category === "visa") s += 90;
     if (c.category === "sim") s += 70;
     if (c.category === "train" || c.category === "car_rental") s += 60;
+    if (c.category === "transfers") s += 58;
+    if (c.category === "activities") s += 55;
     if (c.category === "tour_guide") s += 50;
     if (c.category === "restaurant" && ctx.isLuxuryTrip) s += 40;
     if (c.category === "spa" && ctx.isLuxuryTrip) s += 30;
