@@ -71,7 +71,8 @@ export async function generateRecommendations(
   return recommendations;
 }
 
-interface GenerateOneInput extends GenerateInput {
+interface GenerateOneInput extends Omit<GenerateInput, "parsed"> {
+  parsed: ParsedTripInputV2;
   cat: ReturnType<typeof selectRelevantCategories>[number];
   tripContext: string;
   validateUrls: boolean;
