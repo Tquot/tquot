@@ -1,5 +1,7 @@
 import type { ParsedTripInputV2, TripLeg } from "@/lib/quote-engine/schemas-v2";
 import type { Quote } from "@/lib/quote-engine/types";
+import { isV1, migrateV1ToV2, toParsedTripInputV2 } from "@/lib/quote-engine/migrate-v1-v2";
+import type { ParsedTripInput } from "@/lib/quotes/build-quote";
 import { shouldIncludeTransfers } from "@/lib/quotes/transfer-eligibility";
 import { SERVICE_CATALOG, type ServiceCategory } from "./catalog";
 
@@ -11,19 +13,49 @@ export interface RelevantCategory {
 
 const MAX_RECOMMENDATIONS = 5;
 
+export function normalizeParsedInput(
+  parsed: ParsedTripInputV2 | unknown,
+): ParsedTripInputV2 {
+  if (
+    typeof parsed === "object" &&
+    parsed !== null &&
+    "version" in parsed &&
+    (parsed as ParsedTripInputV2).version === 2
+  ) {
+    return parsed as ParsedTripInputV2;
+  }
+
+  if (isV1(parsed)) {
+    if ("dates" in parsed && "passengers" in parsed) {
+      return toParsedTripInputV2(parsed as ParsedTripInput);
+    }
+    const rawInput =
+      typeof parsed === "object" &&
+      parsed !== null &&
+      "rawInput" in parsed &&
+      typeof (parsed as { rawInput?: unknown }).rawInput === "string"
+        ? (parsed as { rawInput: string }).rawInput
+        : "";
+    return migrateV1ToV2(parsed, rawInput);
+  }
+
+  return parsed as ParsedTripInputV2;
+}
+
 export function selectRelevantCategories(
-  parsed: ParsedTripInputV2,
+  parsed: ParsedTripInputV2 | unknown,
   quote: Quote,
 ): RelevantCategory[] {
-  const totalNights = parsed.legs.reduce((sum, leg) => {
+  const normalizedParsed = normalizeParsedInput(parsed);
+  const totalNights = normalizedParsed.legs.reduce((sum, leg) => {
     const a = new Date(leg.arrivalDate).getTime();
     const d = new Date(leg.departureDate).getTime();
     return sum + Math.max(1, Math.round((d - a) / 86_400_000));
   }, 0);
 
-  const isInternational = isInternationalTrip(parsed);
+  const isInternational = isInternationalTrip(normalizedParsed);
   const isLuxuryTrip =
-    parsed.budget.kind === "tier" && parsed.budget.tier === "luxury";
+    normalizedParsed.budget.kind === "tier" && normalizedParsed.budget.tier === "luxury";
   const isCorporate = !!quote.group?.isCorporate;
   const isLongStay = totalNights >= 7;
 
@@ -40,7 +72,7 @@ export function selectRelevantCategories(
 
     if (
       !isRelevantHeuristic(entry.category, {
-        parsed,
+        parsed: normalizedParsed,
         quote,
         isLuxuryTrip,
         isCorporate,
@@ -53,7 +85,7 @@ export function selectRelevantCategories(
     candidates.push({
       category: entry.category,
       scope: entry.scope,
-      legs: entry.scope === "per_destination" ? parsed.legs : [],
+      legs: entry.scope === "per_destination" ? normalizedParsed.legs : [],
     });
   }
 

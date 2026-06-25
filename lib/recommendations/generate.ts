@@ -2,14 +2,14 @@ import "server-only";
 import type { ParsedTripInputV2 } from "@/lib/quote-engine/schemas-v2";
 import type { Quote } from "@/lib/quote-engine/types";
 import type { Recommendation, RecommendedProvider } from "./types";
-import { selectRelevantCategories } from "./selector";
+import { normalizeParsedInput, selectRelevantCategories } from "./selector";
 import { getEntry } from "./catalog";
 import { readCache, writeCache, normalizeDestination } from "./cache";
 import { runRecommendationAgent } from "./agent";
 import { validateProviderUrls } from "./url-validator";
 
 interface GenerateInput {
-  parsed: ParsedTripInputV2;
+  parsed: ParsedTripInputV2 | unknown;
   quote: Quote;
   signal?: AbortSignal;
   onEvent?: (event: ProgressEvent) => void;
@@ -29,23 +29,25 @@ type ProgressEvent =
 export async function generateRecommendations(
   input: GenerateInput,
 ): Promise<Recommendation[]> {
-  const relevant = selectRelevantCategories(input.parsed, input.quote);
+  const normalizedParsed = normalizeParsedInput(input.parsed);
+  const relevant = selectRelevantCategories(normalizedParsed, input.quote);
   if (relevant.length === 0) return [];
 
   const validateUrls = process.env.RECOMMENDATIONS_VALIDATE_URLS === "true";
-  const tripContext = buildTripContext(input.parsed, input.quote);
+  const tripContext = buildTripContext(normalizedParsed, input.quote);
 
   const tasks: Promise<Recommendation | null>[] = [];
+  const runInput = { ...input, parsed: normalizedParsed };
 
   for (const cat of relevant) {
     if (cat.scope === "global") {
-      tasks.push(generateOne({ ...input, cat, tripContext, validateUrls }));
+      tasks.push(generateOne({ ...runInput, cat, tripContext, validateUrls }));
     } else {
       const uniqueDestinations = uniqueByDestination(cat.legs);
       for (const leg of uniqueDestinations.slice(0, 2)) {
         tasks.push(
           generateOne({
-            ...input,
+            ...runInput,
             cat,
             tripContext,
             validateUrls,
