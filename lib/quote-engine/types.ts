@@ -59,3 +59,22 @@ export interface QuoteGroup {
 export interface QuoteWithGroup {
   group?: QuoteGroup;
 }
+
+export interface Experience {
+  id: string;
+  legId: string;
+  name: string;
+  price: number;
+  currency: string;
+  provider?: string;
+}
+
+export interface Transfer {
+  id: string;
+  legId: string;
+  price: number;
+  currency: string;
+  provider?: string;
+  pickupLocation?: string;
+  dropoffLocation?: string;
+}

@@ -1,90 +1,157 @@
-import { buildQuote } from "@/lib/quotes/build-quote";
-import type { ParsedTripInput, Quote } from "@/lib/quotes/build-quote";
-import type { BuildEvent, QuoteSection } from "@/lib/quote-engine/types";
+import type { ParsedTripInputV2, TripLeg } from "./schemas-v2";
+import type { Flight, Hotel, Experience, Transfer } from "./types";
+import type { BuildEvent, QuoteSection } from "@/lib/quote-conversation/types";
 
-const BUILD_SECTIONS: QuoteSection[] = [
-  "flights",
-  "hotels",
-  "experiences",
-  "transfers",
-];
-
-export interface BuildQuoteWithProgressOptions {
+interface Options {
   signal?: AbortSignal;
   onEvent: (event: BuildEvent) => void;
   apiOrigin?: string;
   cookieHeader?: string;
 }
 
-function assertNotAborted(signal?: AbortSignal): void {
-  if (signal?.aborted) {
-    const err = new Error("Build aborted");
-    err.name = "AbortError";
-    throw err;
-  }
+interface LegResults {
+  flights: Flight[];
+  hotels: Hotel[];
+  experiences: Experience[];
+  transfers: Transfer[];
 }
 
-function sectionResults(quote: Quote, section: QuoteSection): unknown[] {
-  switch (section) {
-    case "flights":
-      return quote.flights;
-    case "hotels":
-      return quote.hotels;
-    case "experiences":
-      return quote.experiences;
-    case "transfers":
-      return quote.transfers;
-  }
-}
-
-/**
- * Wraps {@link buildQuote} and emits SSE-friendly progress events.
- * Phase 0: section lifecycle events bracket a single buildQuote call.
- * Later phases can split per-section search for true parallel streaming.
- */
 export async function buildQuoteWithProgress(
-  parsed: ParsedTripInput,
-  { signal, onEvent, apiOrigin = "", cookieHeader }: BuildQuoteWithProgressOptions,
-): Promise<Quote> {
-  const ts = () => Date.now();
+  parsed: ParsedTripInputV2,
+  { signal, onEvent, apiOrigin = "", cookieHeader }: Options,
+): Promise<import("./types").Quote> {
+  const { searchFlights, searchHotels, searchExperiences, searchTransfers, composeQuote } =
+    await import("./internal");
 
-  onEvent({ type: "build.started", ts: ts() });
-  assertNotAborted(signal);
+  const searchCtx = { apiOrigin, cookieHeader };
+  const resultsByLeg = new Map<string, LegResults>();
 
-  for (const section of BUILD_SECTIONS) {
-    onEvent({ type: "section.started", section, ts: ts() });
-  }
+  await Promise.allSettled(
+    parsed.legs.map(async (leg, legIndex) => {
+      const legResults: LegResults = {
+        flights: [],
+        hotels: [],
+        experiences: [],
+        transfers: [],
+      };
+      resultsByLeg.set(leg.id, legResults);
 
-  assertNotAborted(signal);
+      async function searchSection(
+        section: QuoteSection,
+        l: TripLeg,
+        target: LegResults,
+        runner: () => Promise<unknown[]>,
+      ) {
+        onEvent({ type: "section.started", section, legId: l.id, ts: Date.now() });
+        try {
+          const data = await runner();
+          switch (section) {
+            case "hotels":
+              target.hotels = data as Hotel[];
+              break;
+            case "experiences":
+              target.experiences = data as Experience[];
+              break;
+            case "transfers":
+              target.transfers = data as Transfer[];
+              break;
+          }
+          onEvent({
+            type: "section.done",
+            section,
+            legId: l.id,
+            results: data,
+            ts: Date.now(),
+          });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "unknown";
+          onEvent({
+            type: "section.error",
+            section,
+            legId: l.id,
+            error: message,
+            skipped: true,
+            ts: Date.now(),
+          });
+        }
+      }
 
-  let quote: Quote;
-  try {
-    quote = await buildQuote(parsed, apiOrigin, cookieHeader);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "unknown_error";
-    for (const section of BUILD_SECTIONS) {
+      await Promise.allSettled([
+        searchSection("hotels", leg, legResults, async () =>
+          leg.needsAccommodation
+            ? await searchHotels(leg, parsed, legIndex, searchCtx)
+            : [],
+        ),
+        searchSection("experiences", leg, legResults, async () =>
+          await searchExperiences(leg, parsed, legIndex, searchCtx),
+        ),
+        searchSection("transfers", leg, legResults, async () =>
+          leg.needsTransport === "flight"
+            ? await searchTransfers(leg, parsed, legIndex, searchCtx)
+            : [],
+        ),
+      ]);
+    }),
+  );
+
+  for (let i = 0; i < parsed.legs.length; i++) {
+    const leg = parsed.legs[i];
+    if (leg.needsTransport !== "flight") continue;
+
+    const origin = leg.origin ?? parsed.legs[i - 1]?.destination ?? null;
+    if (!origin) continue;
+
+    onEvent({ type: "section.started", section: "flights", legId: leg.id, ts: Date.now() });
+    try {
+      const flights = await searchFlights(
+        {
+          origin,
+          destination: leg.destination,
+          date: leg.arrivalDate,
+          travelers: parsed.travelers,
+        },
+        leg.id,
+        searchCtx,
+      );
+      resultsByLeg.get(leg.id)!.flights = flights;
+      onEvent({
+        type: "section.done",
+        section: "flights",
+        legId: leg.id,
+        results: flights,
+        ts: Date.now(),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "unknown";
       onEvent({
         type: "section.error",
-        section,
+        section: "flights",
+        legId: leg.id,
         error: message,
         skipped: true,
-        ts: ts(),
+        ts: Date.now(),
       });
     }
-    throw err;
   }
 
-  assertNotAborted(signal);
+  if (signal?.aborted) throw new Error("aborted");
 
-  for (const section of BUILD_SECTIONS) {
-    onEvent({
-      type: "section.done",
-      section,
-      results: sectionResults(quote, section),
-      ts: ts(),
-    });
+  const allFlights: Flight[] = [];
+  const allHotels: Hotel[] = [];
+  const allExperiences: Experience[] = [];
+  const allTransfers: Transfer[] = [];
+
+  for (const results of resultsByLeg.values()) {
+    allFlights.push(...results.flights);
+    allHotels.push(...results.hotels);
+    allExperiences.push(...results.experiences);
+    allTransfers.push(...results.transfers);
   }
 
-  onEvent({ type: "build.done", quote, ts: ts() });
-  return quote;
+  return composeQuote(parsed, {
+    flights: allFlights,
+    hotels: allHotels,
+    experiences: allExperiences,
+    transfers: allTransfers,
+  });
 }

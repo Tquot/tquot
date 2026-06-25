@@ -100,14 +100,11 @@ export type SectionStatus =
   | { kind: "done"; results: unknown[] }
   | { kind: "error"; error: string; skipped: boolean };
 
-export type BuildProgress = Record<QuoteSection, SectionStatus>;
+export type LegBuildProgress = Record<QuoteSection, SectionStatus>;
 
-export const initialBuildProgress: BuildProgress = {
-  flights: { kind: "pending" },
-  hotels: { kind: "pending" },
-  experiences: { kind: "pending" },
-  transfers: { kind: "pending" },
-};
+export type BuildProgress = Record<string, LegBuildProgress>;
+
+export const initialBuildProgress: BuildProgress = {};
 
 // ─────────────────────────────────────────────────────────
 // Build stream protocol (SSE)
@@ -115,19 +112,27 @@ export const initialBuildProgress: BuildProgress = {
 
 export type BuildEvent =
   | { type: "build.started"; ts: number }
-  | { type: "section.started"; section: QuoteSection; ts: number }
+  | { type: "section.started"; section: QuoteSection; legId?: string; ts: number }
   | {
       type: "section.provider";
       section: QuoteSection;
+      legId?: string;
       provider: string;
       status: "searching" | "ok" | "failed";
       ts: number;
     }
-  | { type: "section.partial"; section: QuoteSection; results: unknown[]; ts: number }
-  | { type: "section.done"; section: QuoteSection; results: unknown[]; ts: number }
+  | {
+      type: "section.partial";
+      section: QuoteSection;
+      legId?: string;
+      results: unknown[];
+      ts: number;
+    }
+  | { type: "section.done"; section: QuoteSection; legId?: string; results: unknown[]; ts: number }
   | {
       type: "section.error";
       section: QuoteSection;
+      legId?: string;
       error: string;
       skipped: boolean;
       ts: number;

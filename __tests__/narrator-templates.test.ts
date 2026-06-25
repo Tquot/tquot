@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { narrateBuildEvent } from "@/lib/narrator/templates";
+import { toParsedTripInputV2 } from "@/lib/quote-engine/schemas-v2";
+import type { ParsedTripInput } from "@/lib/quotes/build-quote";
 
-const parsed = {
+const parsedV1 = {
   origin: "MAD",
   destination: "Roma",
   dates: { start: "2026-03-15", end: "2026-03-18" },
@@ -10,12 +12,15 @@ const parsed = {
   includeHotels: true,
   includeExperiences: true,
   includeFlights: true,
-} as const;
+} satisfies ParsedTripInput;
+
+const parsed = toParsedTripInputV2(parsedV1);
+const legId = parsed.legs[0]!.id;
 
 describe("narrateBuildEvent", () => {
   it("section.started flights con origen", () => {
     const msg = narrateBuildEvent(
-      { type: "section.started", section: "flights", ts: 0 },
+      { type: "section.started", section: "flights", legId, ts: 0 },
       parsed,
     );
     expect(msg).toMatch(/MAD.*Roma/);
@@ -25,29 +30,23 @@ describe("narrateBuildEvent", () => {
     const flights = [
       {
         id: "f1",
-        type: "flight" as const,
-        title: "IB",
-        provider: "IB",
+        legId,
+        carrier: "IB",
+        carrierName: "IB",
         price: 280,
-        markup: 0,
-        finalPrice: 280,
-        source: "api" as const,
-        flightDetails: { airline: "IB", priceNumeric: 280 },
+        currency: "EUR",
       },
       {
         id: "f2",
-        type: "flight" as const,
-        title: "VY",
-        provider: "VY",
+        legId,
+        carrier: "VY",
+        carrierName: "VY",
         price: 220,
-        markup: 0,
-        finalPrice: 220,
-        source: "api" as const,
-        flightDetails: { airline: "VY", priceNumeric: 220 },
+        currency: "EUR",
       },
     ];
     const msg = narrateBuildEvent(
-      { type: "section.done", section: "flights", results: flights, ts: 0 },
+      { type: "section.done", section: "flights", legId, results: flights, ts: 0 },
       parsed,
     );
     expect(msg).toMatch(/2 opciones/);

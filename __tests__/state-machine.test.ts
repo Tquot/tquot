@@ -3,6 +3,7 @@ import {
   conversationReducer,
   initialState,
 } from "@/lib/quote-conversation/state-machine";
+import type { Quote } from "@/lib/quotes/build-quote";
 
 describe("conversationReducer — flujo de refinamiento con plan", () => {
   const mockParsed = {
@@ -15,10 +16,9 @@ describe("conversationReducer — flujo de refinamiento con plan", () => {
     includeFlights: true,
     origin: "MAD",
   } as const;
-  const mockQuote = {
+  const mockQuote: Quote = {
     id: "q-1",
-    totalPrice: 1500,
-    pricing: { finalTotal: 1500, baseTotal: 1200, margin: 300, currency: "EUR" as const },
+    pricing: { finalTotal: 1500, baseTotal: 1200, margin: 300, currency: "EUR" },
     summary: {
       route: "MAD → Roma",
       durationDays: 4,
@@ -29,12 +29,12 @@ describe("conversationReducer — flujo de refinamiento con plan", () => {
     experiences: [],
     transfers: [],
     _meta: {
-      flightsSource: "mock" as const,
-      hotelsSource: "mock" as const,
-      experiencesSource: "mock" as const,
-      transfersSource: "mock" as const,
+      flightsSource: "mock",
+      hotelsSource: "mock",
+      experiencesSource: "mock",
+      transfersSource: "mock",
     },
-  } as const;
+  };
   const mockPlan = {
     id: "plan-1",
     userInput: "cambia el hotel",

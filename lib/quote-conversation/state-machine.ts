@@ -7,6 +7,7 @@ import type {
 } from "./types";
 import { initialBuildProgress } from "./types";
 import type { Quote, QuoteItem } from "@/lib/quotes/build-quote";
+import { sectionResultsToQuoteItems } from "@/lib/quote-engine/internal";
 
 export const initialState: ConversationState = { status: "idle" };
 
@@ -236,17 +237,18 @@ export function conversationReducer(
 function sectionItemsToPartialQuote(
   section: QuoteSection,
   results: unknown[],
+  existing: Partial<Quote>,
 ): Partial<Quote> {
   const items = results as QuoteItem[];
   switch (section) {
     case "flights":
-      return { flights: items };
+      return { flights: [...(existing.flights ?? []), ...items] };
     case "hotels":
-      return { hotels: items };
+      return { hotels: [...(existing.hotels ?? []), ...items] };
     case "experiences":
-      return { experiences: items };
+      return { experiences: [...(existing.experiences ?? []), ...items] };
     case "transfers":
-      return { transfers: items };
+      return { transfers: [...(existing.transfers ?? []), ...items] };
     default:
       return {};
   }
@@ -256,50 +258,77 @@ function applyBuildEvent(
   state: Extract<ConversationState, { status: "building" }>,
   event: BuildEvent,
 ): ConversationState {
-  const progress: BuildProgress = { ...state.progress };
+  const legId = "legId" in event && event.legId ? event.legId : "_global";
+  const legProgress: BuildProgress[string] = {
+    ...(state.progress[legId] ?? {
+      flights: { kind: "pending" as const },
+      hotels: { kind: "pending" as const },
+      experiences: { kind: "pending" as const },
+      transfers: { kind: "pending" as const },
+    }),
+  };
 
   switch (event.type) {
     case "build.started":
       return state;
 
     case "section.started":
-      progress[event.section] = { kind: "searching" };
-      return { ...state, progress };
+      legProgress[event.section] = { kind: "searching" };
+      return {
+        ...state,
+        progress: { ...state.progress, [legId]: legProgress },
+      };
 
     case "section.provider":
       if (event.status === "searching") {
-        progress[event.section] = { kind: "searching", provider: event.provider };
+        legProgress[event.section] = { kind: "searching", provider: event.provider };
       }
-      return { ...state, progress };
+      return {
+        ...state,
+        progress: { ...state.progress, [legId]: legProgress },
+      };
 
     case "section.partial": {
-      progress[event.section] = {
+      legProgress[event.section] = {
         kind: "partial",
         results: event.results,
       };
+      const quoteItems = sectionResultsToQuoteItems(event.section, event.results);
       const partialQuote = {
         ...state.partialQuote,
-        ...sectionItemsToPartialQuote(event.section, event.results),
+        ...sectionItemsToPartialQuote(event.section, quoteItems, state.partialQuote),
       };
-      return { ...state, progress, partialQuote };
+      return {
+        ...state,
+        progress: { ...state.progress, [legId]: legProgress },
+        partialQuote,
+      };
     }
 
     case "section.done": {
-      progress[event.section] = { kind: "done", results: event.results };
+      legProgress[event.section] = { kind: "done", results: event.results };
+      const quoteItems = sectionResultsToQuoteItems(event.section, event.results);
       const partialQuote = {
         ...state.partialQuote,
-        ...sectionItemsToPartialQuote(event.section, event.results),
+        ...sectionItemsToPartialQuote(event.section, quoteItems, state.partialQuote),
       };
-      return { ...state, progress, partialQuote };
+      return {
+        ...state,
+        progress: { ...state.progress, [legId]: legProgress },
+        partialQuote,
+      };
     }
 
     case "section.error":
-      progress[event.section] = {
+      legProgress[event.section] = {
         kind: "error",
         error: event.error,
         skipped: event.skipped,
       };
-      return { ...state, progress };
+      return {
+        ...state,
+        progress: { ...state.progress, [legId]: legProgress },
+      };
 
     case "build.done":
     case "build.error":

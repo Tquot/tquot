@@ -3,8 +3,8 @@ import { nanoid } from "nanoid";
 import { getAuthenticatedUser } from "@/app/api/parser/_auth";
 import { buildQuoteWithProgress } from "@/lib/quote-engine/buildQuoteWithProgress";
 import { parseParsedTripInputBody } from "@/lib/quote-engine/schemas";
-import { toParsedTripInputV2 } from "@/lib/quote-engine/schemas-v2";
 import { narrateBuildEvent, narrateRecommendationEvent } from "@/lib/narrator/templates";
+import { buildClarificationMessages } from "@/lib/narrator/clarification";
 import {
   streamOpeningMessage,
   streamSummaryMessage,
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
         error: "invalid_parsed_input",
         details: parsed.error,
       }),
-      { status: 400 },
+      { status: 400, headers: { "Content-Type": "application/json" } },
     );
   }
 
@@ -100,6 +100,17 @@ export async function POST(req: NextRequest) {
           ts: Date.now(),
         });
 
+        const clarifications = buildClarificationMessages(parsed.data);
+        for (const content of clarifications) {
+          send({
+            type: "narrator.message.complete",
+            messageId: nanoid(),
+            content,
+            phase: "clarification",
+            ts: Date.now(),
+          });
+        }
+
         send({ type: "build.started", ts: Date.now() });
 
         const quote = await buildQuoteWithProgress(parsed.data, {
@@ -125,11 +136,10 @@ export async function POST(req: NextRequest) {
 
         send({ type: "build.done", quote, ts: Date.now() });
 
-        const parsedV2 = toParsedTripInputV2(parsed.data);
         const quoteWithRecs = quote as Quote;
 
         const recommendationsPromise = generateRecommendations({
-          parsed: parsedV2,
+          parsed: parsed.data,
           quote: quoteWithRecs,
           signal: abort.signal,
           onEvent: (event) => {

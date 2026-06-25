@@ -206,7 +206,10 @@ export function QuoteCanvas({
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex-1 space-y-6 overflow-y-auto p-6">
         {sections.map((section) => {
-          const progress = buildProgress?.[section.key];
+          const legProgress = buildProgress
+            ? Object.values(buildProgress)[0]
+            : undefined;
+          const progress = legProgress?.[section.key];
           const items = sectionItems(quote, section.key);
           const searching =
             showSkeleton &&

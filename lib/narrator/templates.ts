@@ -1,6 +1,6 @@
 import type { BuildEvent, QuoteSection, RecommendationEvent } from "@/lib/quote-conversation/types";
-import type { ParsedTripInput, QuoteItem } from "@/lib/quotes/build-quote";
-import { providerSlug } from "@/lib/connectors/provider-logo";
+import type { ParsedTripInputV2, TripLeg } from "@/lib/quote-engine/schemas-v2";
+import type { Flight, Hotel, Experience, Transfer } from "@/lib/quote-engine/types";
 import { getEntry, type ServiceCategory } from "@/lib/recommendations/catalog";
 
 const SECTION_LABEL: Record<QuoteSection, string> = {
@@ -10,77 +10,36 @@ const SECTION_LABEL: Record<QuoteSection, string> = {
   transfers: "traslados",
 };
 
-type NarratableFlight = {
-  carrier: string;
-  price: number;
-  currency: string;
-};
-
-type NarratableHotel = {
-  provider: string;
-  name: string;
-  netPrice: number;
-  currency: string;
-};
-
-function flightFromItem(item: QuoteItem): NarratableFlight {
-  return {
-    carrier: item.flightDetails?.airline ?? item.provider,
-    price: item.price,
-    currency: "EUR",
-  };
-}
-
-function hotelFromItem(item: QuoteItem): NarratableHotel {
-  const slug = providerSlug(item.provider);
-  let provider = "other";
-  if (item.source === "inventory") provider = "own";
-  else if (slug === "hotelbeds") provider = "hotelbeds";
-  else if (slug === "booking") provider = "booking";
-
-  return {
-    provider,
-    name: item.title.split(" — ")[0] ?? item.title,
-    netPrice: item.hotelDetails?.netPrice ?? item.price,
-    currency: "EUR",
-  };
-}
-
 export function narrateBuildEvent(
   event: BuildEvent,
-  parsed: ParsedTripInput,
+  parsed: ParsedTripInputV2,
 ): string | null {
+  const leg =
+    "legId" in event && event.legId
+      ? (parsed.legs.find((l) => l.id === event.legId) ?? null)
+      : null;
+
   switch (event.type) {
     case "section.started":
-      return narrateSectionStarted(event.section, parsed);
+      return narrateSectionStarted(event.section, leg, parsed);
 
     case "section.done":
       switch (event.section) {
         case "flights":
-          return narrateFlightsDone(
-            (event.results as QuoteItem[]).map(flightFromItem),
-            parsed,
-          );
+          return narrateFlightsDone(event.results as Flight[], leg);
         case "hotels":
-          return narrateHotelsDone(
-            (event.results as QuoteItem[]).map(hotelFromItem),
-            parsed,
-          );
+          return narrateHotelsDone(event.results as Hotel[], leg);
         case "experiences":
-          return narrateExperiencesDone(event.results as QuoteItem[]);
+          return narrateExperiencesDone(event.results as Experience[], leg);
         case "transfers":
-          return narrateTransfersDone(event.results as QuoteItem[]);
+          return narrateTransfersDone(event.results as Transfer[], leg);
       }
       return null;
 
     case "section.error":
-      return narrateSectionError(event.section, event.error, event.skipped);
+      return narrateSectionError(event.section, event.error, event.skipped, leg);
 
-    case "build.started":
-    case "build.done":
-    case "build.error":
-    case "section.partial":
-    case "section.provider":
+    default:
       return null;
   }
 }
@@ -105,141 +64,110 @@ export function narrateRecommendationEvent(
 
 function narrateSectionStarted(
   section: QuoteSection,
-  parsed: ParsedTripInput,
+  leg: TripLeg | null,
+  parsed: ParsedTripInputV2,
 ): string {
-  const destination = parsed.destination ?? "el destino";
-  const origin = parsed.origin;
+  const dest = leg?.destination ?? parsed.legs[0]?.destination ?? "el destino";
+  const legSuffix = parsed.legs.length > 1 && leg ? ` (leg ${leg.order + 1})` : "";
 
   switch (section) {
-    case "flights":
+    case "flights": {
+      const origin = leg?.origin;
       return origin
-        ? `Buscando vuelos ${origin} → ${destination}…`
-        : `Buscando vuelos a ${destination}…`;
+        ? `Buscando vuelos ${origin} → ${dest}${legSuffix}…`
+        : `Buscando vuelos a ${dest}${legSuffix}…`;
+    }
     case "hotels":
-      return `Mirando hoteles en ${destination} para ${formatStay(parsed)}…`;
+      return `Mirando hoteles en ${dest}${legSuffix} para ${formatStay(leg)}…`;
     case "experiences":
-      return `Mirando experiencias disponibles en ${destination}…`;
+      return `Mirando experiencias en ${dest}${legSuffix}…`;
     case "transfers":
-      return `Comprobando traslados desde el aeropuerto…`;
+      return `Comprobando traslados en ${dest}${legSuffix}…`;
   }
 }
 
-function narrateFlightsDone(
-  flights: NarratableFlight[],
-  _parsed: ParsedTripInput,
-): string | null {
+function narrateFlightsDone(flights: Flight[], leg: TripLeg | null): string | null {
   if (flights.length === 0) {
-    return `No encontré vuelos disponibles para esas fechas. Si el cliente tiene flexibilidad, podemos mover un día arriba o abajo.`;
+    return `No encontré vuelos para ${leg?.destination ?? "este tramo"}. Mira si las fechas se pueden mover.`;
   }
 
-  const cheapest = flights.reduce(
-    (min, flight) => (flight.price < min.price ? flight : min),
-    flights[0],
-  );
-  const carriers = Array.from(
-    new Set(flights.map((flight) => flight.carrier).filter(Boolean)),
-  );
+  const cheapest = flights.reduce((min, f) => (f.price < min.price ? f : min), flights[0]);
+  const carriers = Array.from(new Set(flights.map((f) => f.carrier).filter(Boolean)));
+  const route = leg?.origin && leg ? `${leg.origin} → ${leg.destination}` : (leg?.destination ?? "");
 
   if (flights.length === 1) {
-    return `Encontré 1 vuelo: ${cheapest.carrier} a ${formatPrice(cheapest.price, cheapest.currency)}.`;
-  }
-
-  if (carriers.length === 1) {
-    return `Encontré ${flights.length} opciones con ${carriers[0]} desde ${formatPrice(cheapest.price, cheapest.currency)}.`;
+    return `1 vuelo ${route}: ${cheapest.carrier} a ${formatPrice(cheapest.price, cheapest.currency)}.`;
   }
 
   const carrierList = carriers.slice(0, 3).join(", ");
   const more = carriers.length > 3 ? " y más" : "";
-  return `Encontré ${flights.length} opciones de vuelo desde ${formatPrice(cheapest.price, cheapest.currency)} con ${carrierList}${more}.`;
+  return `${flights.length} opciones ${route} desde ${formatPrice(cheapest.price, cheapest.currency)} con ${carrierList}${more}.`;
 }
 
-function narrateHotelsDone(
-  hotels: NarratableHotel[],
-  _parsed: ParsedTripInput,
-): string | null {
+function narrateHotelsDone(hotels: Hotel[], leg: TripLeg | null): string | null {
   if (hotels.length === 0) {
-    return `No tengo hoteles para enseñarte con esos parámetros. Voy a ver si relajando el nivel hay más disponibilidad.`;
+    return `Sin hoteles en ${leg?.destination ?? "este destino"} con esos parámetros. Voy a relajar criterios.`;
   }
 
-  const own = hotels.filter((hotel) => hotel.provider === "own");
-  const hotelbeds = hotels.filter((hotel) => hotel.provider === "hotelbeds");
-  const booking = hotels.filter((hotel) => hotel.provider === "booking");
+  const own = hotels.filter((h) => h.provider === "own");
+  const hotelbeds = hotels.filter((h) => h.provider === "hotelbeds");
+  const booking = hotels.filter((h) => h.provider === "booking");
 
   const parts: string[] = [];
-  if (own.length > 0) {
-    parts.push(
-      `${own.length} ${own.length === 1 ? "hotel" : "hoteles"} de tu inventario`,
-    );
-  }
-  if (hotelbeds.length > 0) {
-    parts.push(
-      `${hotelbeds.length} ${hotelbeds.length === 1 ? "opción" : "opciones"} en Hotelbeds`,
-    );
-  }
-  if (booking.length > 0) {
-    parts.push(
-      `${booking.length} ${booking.length === 1 ? "opción" : "opciones"} en Booking`,
-    );
-  }
+  if (own.length > 0) parts.push(`${own.length} de tu inventario`);
+  if (hotelbeds.length > 0) parts.push(`${hotelbeds.length} en Hotelbeds`);
+  if (booking.length > 0) parts.push(`${booking.length} en Booking`);
 
-  const cheapest = hotels.reduce(
-    (min, hotel) => (hotel.netPrice < min.netPrice ? hotel : min),
-    hotels[0],
-  );
+  const cheapest = hotels.reduce((min, h) => (h.netPrice < min.netPrice ? h : min), hotels[0]);
   const summary = parts.join(", ").replace(/,([^,]*)$/, " y$1");
+  const destSuffix = leg ? ` en ${leg.destination}` : "";
 
-  return `Tengo ${summary}. La más económica está en ${formatPrice(cheapest.netPrice, cheapest.currency)}/noche.`;
+  return `${summary} ${destSuffix}. Desde ${formatPrice(cheapest.netPrice, cheapest.currency)}/noche.`;
 }
 
-function narrateExperiencesDone(experiences: QuoteItem[]): string | null {
-  if (experiences.length === 0) return null;
-  if (experiences.length === 1) return `Añadí 1 experiencia recomendada.`;
-  return `Añadí ${experiences.length} experiencias para considerar.`;
+function narrateExperiencesDone(items: Experience[], leg: TripLeg | null): string | null {
+  if (items.length === 0) return null;
+  const destSuffix = leg ? ` en ${leg.destination}` : "";
+  return `${items.length} ${items.length === 1 ? "experiencia" : "experiencias"}${destSuffix}.`;
 }
 
-function narrateTransfersDone(transfers: QuoteItem[]): string | null {
-  if (transfers.length === 0) return null;
-  if (transfers.length === 1) return `Incluyo traslado desde el aeropuerto.`;
-  return `Tengo ${transfers.length} opciones de traslado.`;
+function narrateTransfersDone(items: Transfer[], leg: TripLeg | null): string | null {
+  if (items.length === 0) return null;
+  const destSuffix = leg ? ` en ${leg.destination}` : "";
+  return `${items.length} ${items.length === 1 ? "opción de traslado" : "opciones de traslado"}${destSuffix}.`;
 }
 
 function narrateSectionError(
   section: QuoteSection,
   error: string,
   skipped: boolean,
+  leg: TripLeg | null,
 ): string {
+  const where = leg ? ` en ${leg.destination}` : "";
   if (skipped) {
-    return `Sin ${SECTION_LABEL[section]} esta vez (${shortError(error)}). Sigo con el resto.`;
+    return `Sin ${SECTION_LABEL[section]}${where} esta vez (${shortError(error)}). Sigo con el resto.`;
   }
-  return `Hubo un problema buscando ${SECTION_LABEL[section]}: ${shortError(error)}.`;
+  return `Error buscando ${SECTION_LABEL[section]}${where}: ${shortError(error)}.`;
 }
 
-function formatStay(parsed: ParsedTripInput): string {
-  const checkIn = parsed.dates?.start;
-  const checkOut = parsed.dates?.end;
-  if (!checkIn || !checkOut) return "las fechas pedidas";
-  const start = new Date(checkIn);
-  const end = new Date(checkOut);
-  const nights = Math.max(
-    1,
-    Math.round((end.getTime() - start.getTime()) / 86_400_000),
-  );
-  return `${nights} ${nights === 1 ? "noche" : "noches"} (${formatDate(checkIn)} a ${formatDate(checkOut)})`;
+function formatStay(leg: TripLeg | null): string {
+  if (!leg) return "las fechas pedidas";
+  const arr = new Date(leg.arrivalDate);
+  const dep = new Date(leg.departureDate);
+  const nights = Math.max(1, Math.round((dep.getTime() - arr.getTime()) / 86_400_000));
+  return `${nights} ${nights === 1 ? "noche" : "noches"} (${formatDate(leg.arrivalDate)} a ${formatDate(leg.departureDate)})`;
 }
 
 function formatDate(iso: string): string {
-  const date = new Date(iso);
-  return date.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+  return new Date(iso).toLocaleDateString("es-ES", { day: "numeric", month: "short" });
 }
 
 function formatPrice(amount: number, currency: string): string {
   const symbol = currency === "EUR" ? "€" : currency === "USD" ? "$" : currency;
-  const rounded = Math.round(amount);
-  return `${rounded} ${symbol}`;
+  return `${Math.round(amount)} ${symbol}`;
 }
 
 function shortError(error: string): string {
   const cleaned = error.replace(/^[A-Za-z]+(?:Api|Error)?:\s*/, "");
-  if (cleaned.length > 80) return cleaned.slice(0, 77) + "…";
-  return cleaned;
+  return cleaned.length > 80 ? cleaned.slice(0, 77) + "…" : cleaned;
 }
