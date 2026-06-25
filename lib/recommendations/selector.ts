@@ -27,7 +27,7 @@ export function normalizeParsedInput(
 
   if (isV1(parsed)) {
     if ("dates" in parsed && "passengers" in parsed) {
-      return toParsedTripInputV2(parsed as ParsedTripInput);
+      return toParsedTripInputV2(parsed as unknown as ParsedTripInput);
     }
     const rawInput =
       typeof parsed === "object" &&
