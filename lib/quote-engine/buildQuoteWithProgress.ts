@@ -1,5 +1,12 @@
 import type { ParsedTripInputV2, TripLeg } from "./schemas-v2";
-import type { Flight, Hotel, Experience, Transfer } from "./types";
+import {
+  composeQuote,
+  searchExperiences,
+  searchFlights,
+  searchHotels,
+  searchTransfers,
+  type TaggedQuoteItem,
+} from "./internal";
 import type { BuildEvent, QuoteSection } from "@/lib/quote-conversation/types";
 
 interface Options {
@@ -10,19 +17,16 @@ interface Options {
 }
 
 interface LegResults {
-  flights: Flight[];
-  hotels: Hotel[];
-  experiences: Experience[];
-  transfers: Transfer[];
+  flights: TaggedQuoteItem[];
+  hotels: TaggedQuoteItem[];
+  experiences: TaggedQuoteItem[];
+  transfers: TaggedQuoteItem[];
 }
 
 export async function buildQuoteWithProgress(
   parsed: ParsedTripInputV2,
   { signal, onEvent, apiOrigin = "", cookieHeader }: Options,
 ): Promise<import("./types").Quote> {
-  const { searchFlights, searchHotels, searchExperiences, searchTransfers, composeQuote } =
-    await import("./internal");
-
   const searchCtx = { apiOrigin, cookieHeader };
   const resultsByLeg = new Map<string, LegResults>();
 
@@ -40,20 +44,20 @@ export async function buildQuoteWithProgress(
         section: QuoteSection,
         l: TripLeg,
         target: LegResults,
-        runner: () => Promise<unknown[]>,
+        runner: () => Promise<TaggedQuoteItem[]>,
       ) {
         onEvent({ type: "section.started", section, legId: l.id, ts: Date.now() });
         try {
           const data = await runner();
           switch (section) {
             case "hotels":
-              target.hotels = data as Hotel[];
+              target.hotels = data;
               break;
             case "experiences":
-              target.experiences = data as Experience[];
+              target.experiences = data;
               break;
             case "transfers":
-              target.transfers = data as Transfer[];
+              target.transfers = data;
               break;
           }
           onEvent({
@@ -136,10 +140,10 @@ export async function buildQuoteWithProgress(
 
   if (signal?.aborted) throw new Error("aborted");
 
-  const allFlights: Flight[] = [];
-  const allHotels: Hotel[] = [];
-  const allExperiences: Experience[] = [];
-  const allTransfers: Transfer[] = [];
+  const allFlights: TaggedQuoteItem[] = [];
+  const allHotels: TaggedQuoteItem[] = [];
+  const allExperiences: TaggedQuoteItem[] = [];
+  const allTransfers: TaggedQuoteItem[] = [];
 
   for (const results of resultsByLeg.values()) {
     allFlights.push(...results.flights);
