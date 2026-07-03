@@ -313,6 +313,7 @@ export type ConversationState =
       input: string;
       partial: Partial<ParsedTripInput>;
       previousPartial?: Partial<ParsedTripInput>;
+      previousQuestions?: string[];
     }
   | {
       status: "needs_input";

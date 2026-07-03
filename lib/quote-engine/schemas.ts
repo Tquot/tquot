@@ -26,6 +26,7 @@ export const PreviousPartialSchema = z
       })
       .optional(),
     locale: z.enum(["es", "en"]).optional(),
+    questions: z.array(z.string()).optional(),
   })
   .passthrough();
 
@@ -38,6 +39,7 @@ export const ParseRequestSchema = z.object({
   languageHint: z.enum(["es", "en"]).optional(),
   locale: z.enum(["es", "en"]).optional(),
   previousPartial: PreviousPartialSchema.optional(),
+  questions: z.array(z.string()).optional(),
 });
 
 export type ParseRequestBody = z.infer<typeof ParseRequestSchema>;

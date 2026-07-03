@@ -291,6 +291,7 @@ export async function streamParseEvents(
     locale?: "es" | "en";
     languageHint?: "es" | "en";
     previousPartial?: Partial<ParsedTripInput>;
+    questions?: string[];
   },
   options: StreamSseOptions<ParseEvent> = {},
 ): Promise<SseTerminalResult> {

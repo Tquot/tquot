@@ -31,6 +31,7 @@ export function conversationReducer(
           input: action.input,
           partial: {},
           previousPartial: state.partial,
+          previousQuestions: state.questions,
         };
       }
       return { status: "parsing", input: action.input, partial: {} };

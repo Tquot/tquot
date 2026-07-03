@@ -15,6 +15,7 @@ export interface ParseWithProgressOptions {
   languageHint?: InputLanguageHint;
   locale?: DuffelLocale;
   previousPartial?: Partial<ParsedTripInput>;
+  previousQuestions?: string[];
 }
 
 function assertNotAborted(signal?: AbortSignal): void {
@@ -78,6 +79,7 @@ function shouldPrependPartialContext(
 function buildParseInput(
   text: string,
   previousPartial?: Partial<ParsedTripInput>,
+  previousQuestions?: string[],
 ): string {
   if (!shouldPrependPartialContext(text, previousPartial)) {
     return text;
@@ -86,8 +88,9 @@ function buildParseInput(
   const destination = previousPartial?.destination ?? "";
   const origin = previousPartial?.origin ?? "";
   const adults = previousPartial?.passengers?.adults ?? "";
+  const questions = (previousQuestions ?? []).join(" | ");
 
-  return `Contexto previo: destino=${destination}, origen=${origin}, adultos=${adults}. Respuesta del agente: ${text}`;
+  return `Contexto previo: destino=${destination}, origen=${origin}, adultos=${adults}. Preguntas pendientes: ${questions}. Respuesta del agente: ${text}`;
 }
 
 export async function parseWithProgress(
@@ -99,9 +102,10 @@ export async function parseWithProgress(
     languageHint,
     locale = "es",
     previousPartial,
+    previousQuestions,
   }: ParseWithProgressOptions,
 ): Promise<ParsedTripInput | null> {
-  const parseInput = buildParseInput(text, previousPartial);
+  const parseInput = buildParseInput(text, previousPartial, previousQuestions);
 
   onEvent({ type: "parse.started", ts: ts() });
   assertNotAborted(signal);

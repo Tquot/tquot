@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
           languageHint: parsedBody.data.languageHint,
           locale: parsedBody.data.locale ?? "es",
           previousPartial: parsedBody.data.previousPartial,
+          previousQuestions: parsedBody.data.questions,
         });
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") {
