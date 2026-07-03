@@ -90,7 +90,10 @@ async function upsertClientForQuote(
 
     console.log("[upsertClient] result:", { data: existing, error: selErr });
 
-    if (selErr) throw new Error(selErr.message);
+    if (selErr) {
+      console.error("[upsertClient] Supabase error:", selErr);
+      throw new Error(selErr.message);
+    }
     if (existing?.id) {
       const { data: updated, error: updateErr } = await supabase
         .from("clients")
@@ -104,7 +107,10 @@ async function upsertClientForQuote(
 
       console.log("[upsertClient] result:", { data: updated, error: updateErr });
 
-      if (updateErr) throw new Error(updateErr.message);
+      if (updateErr) {
+        console.error("[upsertClient] Supabase error:", updateErr);
+        throw new Error(updateErr.message);
+      }
       return existing.id as string;
     }
   }
@@ -121,7 +127,10 @@ async function upsertClientForQuote(
 
   console.log("[upsertClient] result:", { data: inserted, error: insErr });
 
-  if (insErr) throw new Error(insErr.message ?? "Error al guardar el cliente");
+  if (insErr) {
+    console.error("[upsertClient] Supabase error:", insErr);
+    throw new Error(insErr.message ?? "Error al guardar el cliente");
+  }
   if (!inserted) throw new Error("Error al guardar el cliente");
 
   return inserted.id as string;
@@ -130,13 +139,13 @@ async function upsertClientForQuote(
 export async function saveQuote(
   args: SaveQuoteArgs,
 ): Promise<SaveQuoteSuccess | SaveQuoteError> {
-  console.log("[saveQuote] called with", {
-    clientName: args.clientName,
-    clientEmail: args.clientEmail,
-    hasQuote: !!args.quote,
-  });
-
   try {
+    console.log("[saveQuote] called with", {
+      clientName: args.clientName,
+      clientEmail: args.clientEmail,
+      hasQuote: !!args.quote,
+    });
+
     const auth = await getAuthenticatedUser();
     if (auth.response) {
       return { ok: false, error: "No autenticado" };
@@ -248,11 +257,8 @@ export async function saveQuote(
     }
 
     return { ok: true, quoteId };
-  } catch (err) {
-    console.error("[saveQuote] error:", err);
-    return {
-      ok: false,
-      error: (err as Error).message ?? "Error desconocido guardando la cotización",
-    };
+  } catch (error) {
+    console.error("[saveQuote] FATAL ERROR:", error);
+    throw error;
   }
 }
