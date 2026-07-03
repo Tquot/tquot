@@ -1,3 +1,4 @@
+import { z } from "zod";
 import {
   TripRequestSchema,
   type TripRequest,
@@ -12,6 +13,71 @@ import {
 } from "./prompts";
 import { callStructured } from "./anthropic-client";
 import type { InputLanguageHint } from "./detect-language";
+
+const TripRequestInputSchema = z.preprocess(normalizeToV1, TripRequestSchema);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function looksLikeV2(raw: Record<string, unknown>): boolean {
+  if (raw.version === 2) return true;
+  if (!Array.isArray(raw.legs) || raw.legs.length === 0) return false;
+  return typeof raw.destination !== "string";
+}
+
+/** Maps v2-shaped model output back to v1 TripRequest before Zod validation. */
+function normalizeToV1(raw: unknown): TripRequest {
+  if (!isRecord(raw) || !looksLikeV2(raw)) {
+    return raw as TripRequest;
+  }
+
+  const legs = raw.legs as unknown[];
+  const firstLeg = isRecord(legs[0]) ? legs[0] : null;
+  const travelers = isRecord(raw.travelers) ? raw.travelers : null;
+  const parsingGaps = Array.isArray(raw.parsingGaps) ? raw.parsingGaps : [];
+
+  const v1: Record<string, unknown> = { ...raw };
+
+  if (firstLeg) {
+    if (typeof firstLeg.destination === "string") {
+      v1.destination = firstLeg.destination;
+    }
+    if (typeof firstLeg.origin === "string") {
+      v1.origin = firstLeg.origin;
+    }
+    if (typeof firstLeg.arrivalDate === "string") {
+      v1.departureDate = firstLeg.arrivalDate;
+    }
+    if (typeof firstLeg.departureDate === "string") {
+      v1.returnDate = firstLeg.departureDate;
+    }
+  }
+
+  if (travelers) {
+    if (typeof travelers.adults === "number") {
+      v1.adults = travelers.adults;
+    }
+    if (Array.isArray(travelers.children)) {
+      v1.children = travelers.children.length;
+    }
+  }
+
+  if (typeof v1.status !== "string") {
+    v1.status = parsingGaps.length > 0 ? "needs_input" : "ready";
+  }
+
+  delete v1.version;
+  delete v1.legs;
+  delete v1.travelers;
+  delete v1.budget;
+  delete v1.preferences;
+  delete v1.parsingGaps;
+  delete v1.rawInput;
+  delete v1.notes;
+
+  return v1 as TripRequest;
+}
 
 export type ParserResult =
   | { status: "ready"; data: TripRequest; promptVersion: string }
@@ -71,7 +137,7 @@ export class ParserEngine {
     languageHint?: InputLanguageHint,
   ): Promise<TripRequest> {
     return callStructured({
-      schema: TripRequestSchema,
+      schema: TripRequestInputSchema,
       system: EXTRACTION_SYSTEM_PROMPT,
       userMessage: EXTRACTION_USER_PROMPT(rawInput, currentDate, languageHint),
       maxTokens: 2048,
