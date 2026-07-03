@@ -28,6 +28,19 @@ function looksLikeV2(raw: Record<string, unknown>): boolean {
 
 /** Maps v2-shaped model output back to v1 TripRequest before Zod validation. */
 function normalizeToV1(raw: unknown): TripRequest {
+  console.log(
+    "[normalizeToV1] input keys:",
+    typeof raw === "object" && raw !== null ? Object.keys(raw) : typeof raw,
+  );
+  console.log(
+    "[normalizeToV1] has legs:",
+    typeof raw === "object" && raw !== null && "legs" in raw,
+  );
+  console.log(
+    "[normalizeToV1] has destination:",
+    typeof raw === "object" && raw !== null && "destination" in raw,
+  );
+
   if (!isRecord(raw) || !looksLikeV2(raw)) {
     return raw as TripRequest;
   }
