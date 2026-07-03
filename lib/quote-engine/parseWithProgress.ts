@@ -14,6 +14,7 @@ export interface ParseWithProgressOptions {
   currentDate?: string;
   languageHint?: InputLanguageHint;
   locale?: DuffelLocale;
+  previousPartial?: Partial<ParsedTripInput>;
 }
 
 function assertNotAborted(signal?: AbortSignal): void {
@@ -50,10 +51,58 @@ function buildParsedTripInput(
   };
 }
 
+function hasDestinationKeyword(
+  text: string,
+  previousPartial?: Partial<ParsedTripInput>,
+): boolean {
+  const lower = text.toLowerCase();
+  if (/destino|viaje\s+a|travel\s+to|trip\s+to|vuelo\s+a/i.test(lower)) {
+    return true;
+  }
+  const dest = previousPartial?.destination?.trim();
+  if (dest && lower.includes(dest.toLowerCase())) {
+    return true;
+  }
+  return false;
+}
+
+function shouldPrependPartialContext(
+  text: string,
+  previousPartial?: Partial<ParsedTripInput>,
+): boolean {
+  if (!previousPartial) return false;
+  if (text.length < 30) return true;
+  return !hasDestinationKeyword(text, previousPartial);
+}
+
+function buildParseInput(
+  text: string,
+  previousPartial?: Partial<ParsedTripInput>,
+): string {
+  if (!shouldPrependPartialContext(text, previousPartial)) {
+    return text;
+  }
+
+  const destination = previousPartial?.destination ?? "";
+  const origin = previousPartial?.origin ?? "";
+  const adults = previousPartial?.passengers?.adults ?? "";
+
+  return `Contexto previo: destino=${destination}, origen=${origin}, adultos=${adults}. Respuesta del agente: ${text}`;
+}
+
 export async function parseWithProgress(
   text: string,
-  { signal, onEvent, currentDate, languageHint, locale = "es" }: ParseWithProgressOptions,
+  {
+    signal,
+    onEvent,
+    currentDate,
+    languageHint,
+    locale = "es",
+    previousPartial,
+  }: ParseWithProgressOptions,
 ): Promise<ParsedTripInput | null> {
+  const parseInput = buildParseInput(text, previousPartial);
+
   onEvent({ type: "parse.started", ts: ts() });
   assertNotAborted(signal);
 
@@ -67,8 +116,8 @@ export async function parseWithProgress(
   };
 
   emitProgress("anonymizing");
-  const resolvedLanguage = languageHint ?? detectInputLanguage(text);
-  const anonymizedText = anonymizeForClaude(text);
+  const resolvedLanguage = languageHint ?? detectInputLanguage(parseInput);
+  const anonymizedText = anonymizeForClaude(parseInput);
   assertNotAborted(signal);
 
   emitProgress("extracting");

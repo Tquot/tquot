@@ -312,6 +312,7 @@ export type ConversationState =
       status: "parsing";
       input: string;
       partial: Partial<ParsedTripInput>;
+      previousPartial?: Partial<ParsedTripInput>;
     }
   | {
       status: "needs_input";

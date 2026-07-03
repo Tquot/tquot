@@ -9,6 +9,26 @@ import type { ParsedTripInput as BuildQuoteParsedTripInput } from "@/lib/quotes/
 
 const MAX_PARSE_INPUT_CHARS = Number(process.env.PARSER_MAX_INPUT_CHARS ?? 8000);
 
+export const PreviousPartialSchema = z
+  .object({
+    destination: z.string().optional(),
+    origin: z.string().optional(),
+    dates: z
+      .object({
+        start: z.string(),
+        end: z.string(),
+      })
+      .optional(),
+    passengers: z
+      .object({
+        adults: z.number().int().min(1),
+        children: z.number().int().min(0),
+      })
+      .optional(),
+    locale: z.enum(["es", "en"]).optional(),
+  })
+  .passthrough();
+
 export const ParseRequestSchema = z.object({
   text: z.string().min(1).max(MAX_PARSE_INPUT_CHARS),
   currentDate: z
@@ -17,6 +37,7 @@ export const ParseRequestSchema = z.object({
     .optional(),
   languageHint: z.enum(["es", "en"]).optional(),
   locale: z.enum(["es", "en"]).optional(),
+  previousPartial: PreviousPartialSchema.optional(),
 });
 
 export type ParseRequestBody = z.infer<typeof ParseRequestSchema>;

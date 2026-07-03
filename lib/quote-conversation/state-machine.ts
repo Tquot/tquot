@@ -25,6 +25,14 @@ export function conversationReducer(
       ) {
         return state;
       }
+      if (state.status === "needs_input") {
+        return {
+          status: "parsing",
+          input: action.input,
+          partial: {},
+          previousPartial: state.partial,
+        };
+      }
       return { status: "parsing", input: action.input, partial: {} };
     }
 

@@ -8,6 +8,7 @@ import type {
   ParseEvent,
 } from "@/lib/quote-conversation/types";
 import { useQuoteConversationStore } from "@/lib/quote-conversation/store";
+import type { ParsedTripInput } from "@/lib/quotes/build-quote";
 
 export type SseTerminalResult = "complete" | "needs_input" | "error" | "aborted";
 
@@ -285,7 +286,12 @@ export function dispatchBuildEvent(event: BuildEvent): SseTerminalResult {
 }
 
 export async function streamParseEvents(
-  body: { text: string; locale?: "es" | "en"; languageHint?: "es" | "en" },
+  body: {
+    text: string;
+    locale?: "es" | "en";
+    languageHint?: "es" | "en";
+    previousPartial?: Partial<ParsedTripInput>;
+  },
   options: StreamSseOptions<ParseEvent> = {},
 ): Promise<SseTerminalResult> {
   let terminal: SseTerminalResult = "complete";

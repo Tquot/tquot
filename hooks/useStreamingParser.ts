@@ -15,6 +15,9 @@ export function useStreamingParser() {
       ? (store.state.partial.locale ?? "es")
       : "es",
   );
+  const parsingPreviousPartial = useQuoteConversationStore((store) =>
+    store.state.status === "parsing" ? store.state.previousPartial : undefined,
+  );
   const parseAbortRef = useRef<AbortController | null>(null);
   const parseRunIdRef = useRef<string | null>(null);
 
@@ -30,7 +33,11 @@ export function useStreamingParser() {
     parseRunIdRef.current = runId;
 
     void streamParseEvents(
-      { text: parsingInput, locale: parsingLocale },
+      {
+        text: parsingInput,
+        locale: parsingLocale,
+        previousPartial: parsingPreviousPartial,
+      },
       { signal: controller.signal },
     )
       .catch((error) => {
@@ -56,7 +63,7 @@ export function useStreamingParser() {
     return () => {
       controller.abort();
     };
-  }, [status, parsingInput, parsingLocale]);
+  }, [status, parsingInput, parsingLocale, parsingPreviousPartial]);
 
   const startParsing = (_input: string) => {
     // Parsing starts via USER_SUBMIT + useEffect on status === 'parsing'
