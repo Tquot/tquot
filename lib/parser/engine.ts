@@ -46,11 +46,11 @@ function normalizeToV1(raw: unknown): TripRequest {
   );
   console.log(
     "[normalizeToV1] has legs:",
-    Array.isArray((raw as any).legs),
+    Array.isArray((raw as Record<string, unknown>).legs),
   );
   console.log(
     "[normalizeToV1] has departureDate:",
-    !!(raw as any).departureDate,
+    !!(raw as Record<string, unknown>).departureDate,
   );
 
   if (!isRecord(raw) || !looksLikeV2(raw)) {
