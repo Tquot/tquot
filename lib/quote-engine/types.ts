@@ -54,6 +54,9 @@ export interface QuoteGroupDistribution {
 export interface QuoteGroup {
   distribution: QuoteGroupDistribution;
   isCorporate?: boolean;
+  totalPax?: number;
+  mice?: import("./group/types").MICERequirements;
+  detection?: import("./group/types").GroupDetection;
 }
 
 export interface QuoteWithGroup {

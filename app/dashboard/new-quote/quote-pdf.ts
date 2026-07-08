@@ -5,6 +5,7 @@ import {
   type Quote,
   type QuoteItemSource,
 } from "@/lib/quotes/build-quote";
+import { computeMICECost } from "@/lib/quote-engine/group/mice-defaults";
 import { readAgencyProfile } from "../agency/agency-profile";
 import type { DashboardTranslation } from "../translations";
 import type { Locale } from "../translations";
@@ -107,8 +108,30 @@ export function generateAgentPDF(params: {
     68,
   );
 
+  const quoteWithGroup = quote as Quote & { group?: any };
+  if (quoteWithGroup.group?.distribution) {
+    const { distribution, totalPax, isCorporate, mice } = quoteWithGroup.group;
+    const miceCost = mice ? computeMICECost(mice) : 0;
+    const groupTotalEstimated = quote.pricing.finalTotal + miceCost;
+
+    doc.setFontSize(9);
+    doc.setTextColor(139, 156, 179);
+    doc.text(
+      `Grupo: ${totalPax ?? quote.summary.passengers.total} pax · ${distribution.totalRooms} habitaciones (${distribution.doubles} dobles, ${distribution.singles} individuales, ${distribution.triples} triples)`,
+      14,
+      74,
+      { maxWidth: 182 },
+    );
+    doc.text(
+      `MICE: ${isCorporate ? "sí" : "no"} · Est. MICE: ${formatCurrency(miceCost, locale)} · Total grupo est.: ${formatCurrency(groupTotalEstimated, locale)}`,
+      14,
+      80,
+      { maxWidth: 182 },
+    );
+  }
+
   autoTable(doc, {
-    startY: 80,
+    startY: quoteWithGroup.group?.distribution ? 92 : 80,
     head: [
       [
         t.pdfTableLine,
@@ -226,8 +249,30 @@ export function generateClientPDF(params: {
     68,
   );
 
+  const quoteWithGroup = quote as Quote & { group?: any };
+  if (quoteWithGroup.group?.distribution) {
+    const { distribution, totalPax, mice } = quoteWithGroup.group;
+    const miceCost = mice ? computeMICECost(mice) : 0;
+    const groupTotalEstimated = quote.pricing.finalTotal + miceCost;
+
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text(
+      `Grupo: ${totalPax ?? quote.summary.passengers.total} pax · ${distribution.totalRooms} habitaciones (${distribution.doubles} dobles, ${distribution.singles} individuales, ${distribution.triples} triples)`,
+      14,
+      73,
+      { maxWidth: 182 },
+    );
+    doc.text(
+      `Est. MICE: ${formatCurrency(miceCost, locale)} · Total grupo est.: ${formatCurrency(groupTotalEstimated, locale)}`,
+      14,
+      78,
+      { maxWidth: 182 },
+    );
+  }
+
   autoTable(doc, {
-    startY: 82,
+    startY: quoteWithGroup.group?.distribution ? 88 : 82,
     head: [[t.pdfClientService, t.pdfClientProvider, t.pdfClientPrice]],
     body: items.map((item) => [
       item.title,

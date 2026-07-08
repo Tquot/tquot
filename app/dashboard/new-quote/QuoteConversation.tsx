@@ -110,25 +110,25 @@ export function QuoteConversation({ agencyConfig }: QuoteConversationProps) {
   }
 
   async function handleAgentPdf() {
-    const quoteId = await persistCurrentQuote();
-    if (quoteId) {
-      openServerPdf(quoteId, "agent");
+    if (completeQuote?.group) {
+      // Para cotizaciones de grupo usamos PDF en memoria (la info de grupo
+      // no está persistida en Supabase en este MVP).
+      generateAgentPDF({ quote: completeQuote, locale, t, agentNotes });
       return;
     }
-    if (completeQuote) {
-      generateAgentPDF({ quote: completeQuote, locale, t, agentNotes });
-    }
+
+    const quoteId = await persistCurrentQuote();
+    if (quoteId) openServerPdf(quoteId, "agent");
   }
 
   async function handleClientPdf() {
-    const quoteId = await persistCurrentQuote();
-    if (quoteId) {
-      openServerPdf(quoteId, "client");
+    if (completeQuote?.group) {
+      generateClientPDF({ quote: completeQuote, locale, t });
       return;
     }
-    if (completeQuote) {
-      generateClientPDF({ quote: completeQuote, locale, t });
-    }
+
+    const quoteId = await persistCurrentQuote();
+    if (quoteId) openServerPdf(quoteId, "client");
   }
 
   function handleReset() {

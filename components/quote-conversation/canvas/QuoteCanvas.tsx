@@ -4,6 +4,7 @@ import { useQuoteConversationStore, selectStatus } from "@/lib/quote-conversatio
 import { toParsedTripInputV2 } from "@/lib/quote-engine/schemas-v2";
 import type { ParsedTripInput } from "@/lib/quotes/build-quote";
 import { LegBlock } from "./LegBlock";
+import { selectCurrentQuote } from "@/lib/quote-conversation/store";
 
 function ParsingPreview({
   state,
@@ -45,6 +46,32 @@ function QuoteSummary() {
   );
 }
 
+function GroupSettingsPanel() {
+  const quote = useQuoteConversationStore(selectCurrentQuote) as
+    | (import("@/lib/quote-engine/types").Quote & { group?: any })
+    | null;
+  if (!quote?.group) return null;
+
+  const { distribution, isCorporate, totalPax } = quote.group;
+
+  return (
+    <section className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+      <h3 className="text-sm font-semibold text-neutral-900">Grupo / MICE</h3>
+      <div className="mt-2 text-sm text-neutral-700">
+        <p>
+          Distribución habitaciones: {distribution.totalRooms} total (
+          {distribution.doubles} dobles, {distribution.singles} individuales,{" "}
+          {distribution.triples} triples)
+        </p>
+        <p className="mt-1">
+          Viajeros de grupo: {totalPax ?? quote.summary.passengers.total} (
+          {isCorporate ? "corporativo/MICE" : "no corporativo"})
+        </p>
+      </div>
+    </section>
+  );
+}
+
 export function QuoteCanvas() {
   const status = useQuoteConversationStore(selectStatus);
   const state = useQuoteConversationStore((s) => s.state);
@@ -71,6 +98,11 @@ export function QuoteCanvas() {
       {parsed.legs.map((leg, idx) => (
         <LegBlock key={leg.id} leg={leg} legIndex={idx} totalLegs={parsed.legs.length} />
       ))}
+
+      {(status === "complete" ||
+        status === "awaiting_confirmation" ||
+        status === "planning_refinement" ||
+        status === "refining") && <GroupSettingsPanel />}
 
       {(status === "complete" ||
         status === "awaiting_confirmation" ||

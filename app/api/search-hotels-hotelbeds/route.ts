@@ -176,7 +176,55 @@ const BodySchema = z.object({
   children: z.number().int().min(0).default(0),
   hotelLevel: z.enum(["budget", "standard", "premium", "luxury"]).optional(),
   agencyId: z.string().optional(),
+  groupDistribution: z
+    .object({
+      doubles: z.number().int().min(0).default(0),
+      singles: z.number().int().min(0).default(0),
+      triples: z.number().int().min(0).default(0),
+    })
+    .optional(),
 });
+
+function buildRoomsFromGroupDistribution(params: {
+  children: number;
+  groupDistribution: {
+    doubles: number;
+    singles: number;
+    triples: number;
+  };
+}): Array<{
+  adults: number;
+  childrenAges: number[];
+}> {
+  const { children, groupDistribution } = params;
+  const childAges = Array.from({ length: children }, () => 8); // placeholder
+
+  let childIndex = 0;
+
+  const rooms: Array<{ adults: number; childrenAges: number[] }> = [];
+
+  // Doble: 2 adultos (capacidad 2 pax) -> los niños se colocan en triples.
+  for (let i = 0; i < groupDistribution.doubles; i += 1) {
+    rooms.push({ adults: 2, childrenAges: [] });
+  }
+
+  // Individual: 1 adulto + 0 niños.
+  for (let i = 0; i < groupDistribution.singles; i += 1) {
+    rooms.push({ adults: 1, childrenAges: [] });
+  }
+
+  // Triple: 2 adultos + 0..1 niño.
+  for (let i = 0; i < groupDistribution.triples; i += 1) {
+    const hasChild = childIndex < childAges.length;
+    rooms.push({
+      adults: 2,
+      childrenAges: hasChild ? [childAges[childIndex]!] : [],
+    });
+    if (hasChild) childIndex += 1;
+  }
+
+  return rooms;
+}
 
 function toHotelOption(hotel: {
   providerHotelId: string;
@@ -255,7 +303,7 @@ export async function POST(request: NextRequest) {
     if ("response" in auth) return auth.response;
 
     const body = BodySchema.parse(await request.json());
-    const { destination, checkIn, checkOut, adults, children, hotelLevel } = body;
+    const { destination, checkIn, checkOut, adults, children, hotelLevel, groupDistribution } = body;
 
     // Use session agency only; body.agencyId is accepted for compatibility.
     const agencyConnections = await listAgencyConnections(auth.agencyId);
@@ -286,6 +334,10 @@ export async function POST(request: NextRequest) {
     }
 
     const adapter = new HotelbedsAdapter("hotelbeds");
+    const rooms =
+      groupDistribution && (groupDistribution.doubles + groupDistribution.singles + groupDistribution.triples > 0)
+        ? buildRoomsFromGroupDistribution({ children, groupDistribution })
+        : [{ adults, childrenAges: Array(children).fill(8) }];
     const result = await adapter.searchHotels(connectionData.credentials, {
       destination: {
         coordinates,
@@ -293,7 +345,7 @@ export async function POST(request: NextRequest) {
       },
       checkIn,
       checkOut,
-      rooms: [{ adults, childrenAges: Array(children).fill(8) }],
+      rooms,
       currency: "EUR",
       language: "ENG",
     });

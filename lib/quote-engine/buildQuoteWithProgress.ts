@@ -8,6 +8,10 @@ import {
   type TaggedQuoteItem,
 } from "./internal";
 import type { BuildEvent, QuoteSection } from "@/lib/quote-conversation/types";
+import { detectGroup } from "./group/detector";
+import { distributeRooms } from "./group/room-distributor";
+import { createDefaultMICE } from "./group/mice-defaults";
+import type { QuoteGroupDistribution } from "./types";
 
 interface Options {
   signal?: AbortSignal;
@@ -29,6 +33,24 @@ export async function buildQuoteWithProgress(
 ): Promise<import("./types").Quote> {
   const searchCtx = { apiOrigin, cookieHeader };
   const resultsByLeg = new Map<string, LegResults>();
+
+  const groupDetection = detectGroup(parsed);
+  const groupDistribution = groupDetection.isGroup
+    ? distributeRooms({ travelers: parsed.travelers })
+    : null;
+  const groupConfig =
+    groupDetection.isGroup && groupDistribution
+      ? {
+          isGroup: true,
+          isCorporate: groupDetection.isCorporate,
+          totalPax: groupDetection.totalPax,
+          detection: groupDetection,
+          distribution: groupDistribution as QuoteGroupDistribution,
+          mice: groupDetection.isCorporate
+            ? createDefaultMICE(groupDetection.totalPax)
+            : undefined,
+        }
+      : undefined;
 
   await Promise.allSettled(
     parsed.legs.map(async (leg, legIndex) => {
@@ -83,7 +105,13 @@ export async function buildQuoteWithProgress(
       await Promise.allSettled([
         searchSection("hotels", leg, legResults, async () =>
           leg.needsAccommodation
-            ? await searchHotels(leg, parsed, legIndex, searchCtx)
+            ? await searchHotels(
+                leg,
+                parsed,
+                legIndex,
+                searchCtx,
+                groupDistribution ?? undefined,
+              )
             : [],
         ),
         searchSection("experiences", leg, legResults, async () =>
@@ -152,10 +180,23 @@ export async function buildQuoteWithProgress(
     allTransfers.push(...results.transfers);
   }
 
-  return composeQuote(parsed, {
+  const quote = composeQuote(parsed, {
     flights: allFlights,
     hotels: allHotels,
     experiences: allExperiences,
     transfers: allTransfers,
-  });
+  }) as import("./types").Quote;
+
+  if (groupConfig) {
+    // Attach group configuration for downstream UI/PDF/handoff.
+    quote.group = {
+      distribution: groupConfig.distribution,
+      isCorporate: groupConfig.isCorporate,
+      totalPax: groupConfig.totalPax,
+      mice: groupConfig.mice,
+      detection: groupConfig.detection,
+    };
+  }
+
+  return quote;
 }

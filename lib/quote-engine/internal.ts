@@ -6,6 +6,7 @@ import type {
   HotelLevel,
   QuoteDataSource,
 } from "@/lib/quotes/build-quote";
+import type { QuoteGroupDistribution } from "./types";
 import {
   buildQuote,
   syncQuotePricing,
@@ -43,6 +44,7 @@ export function v2LegToParsedTripInput(
     includeFlights?: boolean;
     includeHotels?: boolean;
     includeExperiences?: boolean;
+    hotelbedsGroupDistribution?: QuoteGroupDistribution;
   },
 ): ParsedTripInput {
   const origin =
@@ -75,6 +77,13 @@ export function v2LegToParsedTripInput(
     includeExperiences: options.includeExperiences ?? true,
     includeFlights: options.includeFlights ?? leg.needsTransport === "flight",
     locale: "es",
+    hotelbedsGroupDistribution: options.hotelbedsGroupDistribution
+      ? {
+          doubles: options.hotelbedsGroupDistribution.doubles,
+          singles: options.hotelbedsGroupDistribution.singles,
+          triples: options.hotelbedsGroupDistribution.triples,
+        }
+      : undefined,
   };
 }
 
@@ -87,11 +96,13 @@ export async function searchHotels(
   parsed: ParsedTripInputV2,
   legIndex: number,
   ctx: SearchContext,
+  hotelbedsGroupDistribution?: QuoteGroupDistribution,
 ): Promise<TaggedQuoteItem[]> {
   const v1 = v2LegToParsedTripInput(leg, parsed, legIndex, {
     includeFlights: false,
     includeExperiences: false,
     includeHotels: true,
+    hotelbedsGroupDistribution,
   });
   const quote = await buildQuote(v1, ctx.apiOrigin ?? "", ctx.cookieHeader);
   return tagItems(quote.hotels, leg.id);

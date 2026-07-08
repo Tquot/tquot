@@ -70,6 +70,18 @@ export interface ParsedTripInput {
   includeFlights: boolean;
   /** Localizes Duffel flight search strings (baggage, cabin class). */
   locale?: DuffelLocale;
+
+  /**
+   * Cuando el usuario solicita un viaje en grupo, este payload permite a
+   * Hotelbeds consultar ocupaciones multi-habitación.
+   *
+   * Usado únicamente para búsquedas de hotelbeds (no afecta a vuelos/transfer).
+   */
+  hotelbedsGroupDistribution?: {
+    doubles: number;
+    singles: number;
+    triples: number;
+  };
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -325,6 +337,7 @@ export async function buildQuote(
             inventory,
             apiOrigin,
             cookieHeader,
+            hotelbedsGroupDistribution: input.hotelbedsGroupDistribution,
           }),
         )
       : Promise.resolve(emptySection()),
@@ -635,6 +648,11 @@ async function searchHotelsHotelbedsApi(
     children?: number;
     hotelLevel?: HotelLevel;
     agencyId?: string;
+    hotelbedsGroupDistribution?: {
+      doubles: number;
+      singles: number;
+      triples: number;
+    };
   },
   apiOrigin = "",
   cookieHeader?: string,
@@ -652,6 +670,7 @@ async function searchHotelsHotelbedsApi(
         adults: params.adults,
         children: params.children,
         hotelLevel: params.hotelLevel,
+        groupDistribution: params.hotelbedsGroupDistribution,
         agencyId: params.agencyId,
       }),
     });
@@ -1364,6 +1383,11 @@ async function fillApiHotelsSequentially(
     children?: number;
     hotelLevel?: HotelLevel;
     agencyId?: string;
+    hotelbedsGroupDistribution?: {
+      doubles: number;
+      singles: number;
+      triples: number;
+    };
   },
   nights: number,
   apiOrigin: string,
@@ -1381,7 +1405,9 @@ async function fillApiHotelsSequentially(
     appendHotelbedsToQuoteItems(items, hotelbedsHotels, nights);
   }
 
-  if (items.length < HOTEL_QUOTE_LIMIT) {
+  // Para viajes de grupo, Hotelbeds es el proveedor que soporta multi-ocupación.
+  // Evitamos mezclar con Booking para no mostrar precios incoherentes.
+  if (!hotelSearchParams.hotelbedsGroupDistribution && items.length < HOTEL_QUOTE_LIMIT) {
     const bookingHotels = await searchHotelsApi(
       hotelSearchParams,
       apiOrigin,
@@ -1404,6 +1430,7 @@ async function buildHotelsFromInventoryOrApiOrMock(params: {
   apiOrigin?: string;
   cookieHeader?: string;
   alwaysIncludeApi?: boolean;
+  hotelbedsGroupDistribution?: ParsedTripInput["hotelbedsGroupDistribution"];
 }): Promise<QuoteSectionBuildResult> {
   const {
     destination,
@@ -1428,6 +1455,7 @@ async function buildHotelsFromInventoryOrApiOrMock(params: {
     adults: pax.adults,
     children: pax.children,
     hotelLevel,
+    hotelbedsGroupDistribution: params.hotelbedsGroupDistribution,
   };
 
   if (alwaysIncludeApi) {
@@ -1880,6 +1908,7 @@ export async function rebuildHotelsSection(
     inventory,
     apiOrigin,
     alwaysIncludeApi: options?.alwaysIncludeApi,
+    hotelbedsGroupDistribution: input.hotelbedsGroupDistribution,
   });
 }
 
