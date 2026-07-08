@@ -187,7 +187,7 @@ export class ParserEngine {
     languageHint?: InputLanguageHint,
   ): Promise<TripRequest> {
     return callStructured({
-      schema: TripRequestSchema,
+      schema: TripRequestInputSchema,
       system: MERGE_SYSTEM_PROMPT,
       userMessage: MERGE_USER_PROMPT(partial, answers, languageHint),
       maxTokens: 2048,
