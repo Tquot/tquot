@@ -26,7 +26,7 @@ export function distributeRooms(input: DistributionInput): RoomDistribution {
   // - individuales: 1 adulto
   // Los "triples" se crean cuando hay niños y childrenSharing=true.
   // Cada triple resultante representa "2 adultos + 1 niño" (capacidad 3 pax).
-  let remainingAdults = Math.max(0, totalAdults - forcedSingles);
+  const remainingAdults = Math.max(0, totalAdults - forcedSingles);
   let doubles = Math.floor(remainingAdults / 2);
   let singles = forcedSingles + (remainingAdults % 2);
   let triples = 0;
