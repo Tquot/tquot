@@ -45,9 +45,18 @@ function normalizeToV1(raw: unknown): TripRequest {
     return raw as TripRequest;
   }
 
-  const legs = raw.legs as unknown[];
-  const firstLeg = isRecord(legs[0]) ? legs[0] : null;
-  const lastLeg = isRecord(legs[legs.length - 1]) ? legs[legs.length - 1] : null;
+  const legs = (
+    raw as {
+      legs?: Array<{
+        destination?: string;
+        origin?: string;
+        departureDate?: string;
+        arrivalDate?: string;
+      }>;
+    }
+  ).legs ?? [];
+  const firstLeg = legs[0] ?? null;
+  const lastLeg = legs[legs.length - 1] ?? null;
   const travelers = isRecord(raw.travelers) ? raw.travelers : null;
   const parsingGaps = Array.isArray(raw.parsingGaps) ? raw.parsingGaps : [];
 
