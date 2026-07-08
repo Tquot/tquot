@@ -6,6 +6,7 @@ import {
   type QuoteItemSource,
 } from "@/lib/quotes/build-quote";
 import { computeMICECost } from "@/lib/quote-engine/group/mice-defaults";
+import type { QuoteGroup } from "@/lib/quote-engine/types";
 import { readAgencyProfile } from "../agency/agency-profile";
 import type { DashboardTranslation } from "../translations";
 import type { Locale } from "../translations";
@@ -108,7 +109,7 @@ export function generateAgentPDF(params: {
     68,
   );
 
-  const quoteWithGroup = quote as Quote & { group?: any };
+  const quoteWithGroup = quote as Quote & { group?: QuoteGroup };
   if (quoteWithGroup.group?.distribution) {
     const { distribution, totalPax, isCorporate, mice } = quoteWithGroup.group;
     const miceCost = mice ? computeMICECost(mice) : 0;
@@ -249,7 +250,7 @@ export function generateClientPDF(params: {
     68,
   );
 
-  const quoteWithGroup = quote as Quote & { group?: any };
+  const quoteWithGroup = quote as Quote & { group?: QuoteGroup };
   if (quoteWithGroup.group?.distribution) {
     const { distribution, totalPax, mice } = quoteWithGroup.group;
     const miceCost = mice ? computeMICECost(mice) : 0;

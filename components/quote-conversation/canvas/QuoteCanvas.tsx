@@ -48,7 +48,7 @@ function QuoteSummary() {
 
 function GroupSettingsPanel() {
   const quote = useQuoteConversationStore(selectCurrentQuote) as
-    | (import("@/lib/quote-engine/types").Quote & { group?: any })
+    | import("@/lib/quote-engine/types").Quote
     | null;
   if (!quote?.group) return null;
 

@@ -7,6 +7,7 @@ import { BookingConfigProvider } from "@/lib/booking-handoff/context";
 import type { AgencyBookingConfig } from "@/lib/booking-handoff/types";
 import { useQuoteConversationStore } from "@/lib/quote-conversation/store";
 import type { Quote } from "@/lib/quotes/build-quote";
+import type { Quote as EngineQuote } from "@/lib/quote-engine/types";
 import { useDashboardLanguage } from "../dashboard-language-provider";
 import { ConversationHeader } from "./quote-conversation/ConversationHeader";
 import { ConversationPanel } from "@/components/quote-conversation/conversation/ConversationPanel";
@@ -55,6 +56,7 @@ export function QuoteConversation({ agencyConfig }: QuoteConversationProps) {
   const [compareHotel, setCompareHotel] = useState<CompareHotelState>(null);
 
   const completeQuote = isCompleteQuote(quote) ? quote : null;
+  const completeQuoteWithGroup = completeQuote as EngineQuote | null;
 
   useEffect(() => {
     if (messages.length > 0) return;
@@ -110,10 +112,10 @@ export function QuoteConversation({ agencyConfig }: QuoteConversationProps) {
   }
 
   async function handleAgentPdf() {
-    if (completeQuote?.group) {
+    if (completeQuoteWithGroup?.group) {
       // Para cotizaciones de grupo usamos PDF en memoria (la info de grupo
       // no está persistida en Supabase en este MVP).
-      generateAgentPDF({ quote: completeQuote, locale, t, agentNotes });
+      generateAgentPDF({ quote: completeQuoteWithGroup, locale, t, agentNotes });
       return;
     }
 
@@ -122,8 +124,8 @@ export function QuoteConversation({ agencyConfig }: QuoteConversationProps) {
   }
 
   async function handleClientPdf() {
-    if (completeQuote?.group) {
-      generateClientPDF({ quote: completeQuote, locale, t });
+    if (completeQuoteWithGroup?.group) {
+      generateClientPDF({ quote: completeQuoteWithGroup, locale, t });
       return;
     }
 
