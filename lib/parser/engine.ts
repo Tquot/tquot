@@ -40,6 +40,18 @@ function normalizeToV1(raw: unknown): TripRequest {
     "[normalizeToV1] has destination:",
     typeof raw === "object" && raw !== null && "destination" in raw,
   );
+  console.log(
+    "[normalizeToV1] raw input:",
+    JSON.stringify(raw, null, 2),
+  );
+  console.log(
+    "[normalizeToV1] has legs:",
+    Array.isArray((raw as any).legs),
+  );
+  console.log(
+    "[normalizeToV1] has departureDate:",
+    !!(raw as any).departureDate,
+  );
 
   if (!isRecord(raw) || !looksLikeV2(raw)) {
     return raw as TripRequest;
