@@ -85,6 +85,10 @@ export function QuoteConversation({ agencyConfig }: QuoteConversationProps) {
 
   async function persistCurrentQuote(): Promise<string | null> {
     if (!completeQuote || !parsedTripInput) {
+      console.log("[PDF] persistCurrentQuote skipped", {
+        hasQuote: Boolean(completeQuote),
+        hasTripInput: Boolean(parsedTripInput),
+      });
       return null;
     }
 
@@ -96,6 +100,7 @@ export function QuoteConversation({ agencyConfig }: QuoteConversationProps) {
         agentNotes: agentNotes || undefined,
         client: { kind: "skip" },
       });
+      console.log("[PDF] persistCurrentQuote result:", result);
       setSavedQuoteId(result.quoteId);
       return result.quoteId;
     } catch (persistError) {
@@ -112,6 +117,7 @@ export function QuoteConversation({ agencyConfig }: QuoteConversationProps) {
   }
 
   async function handleAgentPdf() {
+    console.log("[PDF] handleAgentPdf called, savedQuoteId:", savedQuoteId);
     if (completeQuoteWithGroup?.group) {
       // Para cotizaciones de grupo usamos PDF en memoria (la info de grupo
       // no está persistida en Supabase en este MVP).
@@ -120,16 +126,19 @@ export function QuoteConversation({ agencyConfig }: QuoteConversationProps) {
     }
 
     const quoteId = await persistCurrentQuote();
+    console.log("[PDF] handleAgentPdf quoteId:", quoteId);
     if (quoteId) openServerPdf(quoteId, "agent");
   }
 
   async function handleClientPdf() {
+    console.log("[PDF] handleClientPdf called, savedQuoteId:", savedQuoteId);
     if (completeQuoteWithGroup?.group) {
       generateClientPDF({ quote: completeQuoteWithGroup, locale, t });
       return;
     }
 
     const quoteId = await persistCurrentQuote();
+    console.log("[PDF] handleClientPdf quoteId:", quoteId);
     if (quoteId) openServerPdf(quoteId, "client");
   }
 
