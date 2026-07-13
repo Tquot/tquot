@@ -182,13 +182,21 @@ export async function saveQuote(
       args.clientEmail,
     );
 
-    const departureDate = new Date(args.tripInput.dates.start);
     const thirtyDaysFromNow = addDaysIso(new Date(), 30);
-    const dayAfterDeparture = addDaysIso(departureDate, 1);
+    const dayAfterDeparture = addDaysIso(
+      new Date(args.tripInput.dates.start),
+      1,
+    );
     const validUntil =
-      thirtyDaysFromNow > dayAfterDeparture
+      thirtyDaysFromNow >= dayAfterDeparture
         ? thirtyDaysFromNow
         : dayAfterDeparture;
+    console.log("[saveQuote] dates:", {
+      departure: args.tripInput.dates.start,
+      validUntil,
+      thirtyDaysFromNow,
+      dayAfterDeparture,
+    });
 
     const { data: insertedQuote, error: quoteInsertError } = await supabase
       .from("quotes")

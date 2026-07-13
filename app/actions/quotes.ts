@@ -114,13 +114,18 @@ export async function saveQuoteWithClient(input: {
   const totalMarginPercent = baseTotal > 0 ? (margin / baseTotal) * 100 : 0;
   const nights = Math.max(0, quote.summary.durationDays - 1);
 
-  const departureDate = new Date(tripInput.dates.start);
   const thirtyDaysFromNow = addDaysIso(new Date(), 30);
-  const dayAfterDeparture = addDaysIso(departureDate, 1);
+  const dayAfterDeparture = addDaysIso(new Date(tripInput.dates.start), 1);
   const validUntil =
-    thirtyDaysFromNow > dayAfterDeparture
+    thirtyDaysFromNow >= dayAfterDeparture
       ? thirtyDaysFromNow
       : dayAfterDeparture;
+  console.log("[saveQuote] dates:", {
+    departure: tripInput.dates.start,
+    validUntil,
+    thirtyDaysFromNow,
+    dayAfterDeparture,
+  });
 
   const { data: inserted, error: insErr } = await supabase
     .from("quotes")
