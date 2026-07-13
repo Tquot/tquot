@@ -70,15 +70,17 @@ async function upsertClientForQuote(
   const name = clientName?.trim();
   const email = clientEmail?.trim();
 
-  console.log("[upsertClient] input:", { name, email, userId });
+  console.log("[upsertClient] called with:", { name, email, userId });
 
   if (!name && !email) {
-    console.log("[upsertClient] result:", { data: null, error: null });
+    console.log("[upsertClient] early return: no name and no email");
+    console.log("[upsertClient] returning clientId:", null);
     return null;
   }
 
   const fullName = name || email!.split("@")[0] || "Cliente";
   const normalizedEmail = email ? email.toLowerCase().trim() : null;
+  console.log("[upsertClient] resolved:", { fullName, normalizedEmail });
 
   if (normalizedEmail) {
     const { data: existing, error: selErr } = await supabase
@@ -88,10 +90,13 @@ async function upsertClientForQuote(
       .ilike("email", normalizedEmail)
       .maybeSingle();
 
-    console.log("[upsertClient] result:", { data: existing, error: selErr });
+    console.log("[upsertClient] select by email result:", {
+      data: existing,
+      error: selErr,
+    });
 
     if (selErr) {
-      console.error("[upsertClient] Supabase error:", selErr);
+      console.error("[upsertClient] Supabase select error:", selErr);
       throw new Error(selErr.message);
     }
     if (existing?.id) {
@@ -105,14 +110,21 @@ async function upsertClientForQuote(
         .select("id")
         .single();
 
-      console.log("[upsertClient] result:", { data: updated, error: updateErr });
+      console.log("[upsertClient] update existing client result:", {
+        data: updated,
+        error: updateErr,
+      });
 
       if (updateErr) {
-        console.error("[upsertClient] Supabase error:", updateErr);
+        console.error("[upsertClient] Supabase update error:", updateErr);
         throw new Error(updateErr.message);
       }
-      return existing.id as string;
+      const clientId = existing.id as string;
+      console.log("[upsertClient] returning clientId:", clientId);
+      return clientId;
     }
+  } else {
+    console.log("[upsertClient] no email — skipping select-by-email, will insert");
   }
 
   const { data: inserted, error: insErr } = await supabase
@@ -125,15 +137,20 @@ async function upsertClientForQuote(
     .select("id")
     .single();
 
-  console.log("[upsertClient] result:", { data: inserted, error: insErr });
+  console.log("[upsertClient] insert client result:", {
+    data: inserted,
+    error: insErr,
+  });
 
   if (insErr) {
-    console.error("[upsertClient] Supabase error:", insErr);
+    console.error("[upsertClient] Supabase insert error:", insErr);
     throw new Error(insErr.message ?? "Error al guardar el cliente");
   }
   if (!inserted) throw new Error("Error al guardar el cliente");
 
-  return inserted.id as string;
+  const clientId = inserted.id as string;
+  console.log("[upsertClient] returning clientId:", clientId);
+  return clientId;
 }
 
 export async function saveQuote(
@@ -175,12 +192,18 @@ export async function saveQuote(
     const totalMarginPercent = baseTotal > 0 ? (margin / baseTotal) * 100 : 0;
     const nights = Math.max(0, args.quote.summary.durationDays - 1);
 
+    console.log("[saveQuote] calling upsertClientForQuote with:", {
+      clientName: args.clientName,
+      clientEmail: args.clientEmail,
+      userId: auth.user.id,
+    });
     const clientId = await upsertClientForQuote(
       supabase,
       userId,
       args.clientName,
       args.clientEmail,
     );
+    console.log("[saveQuote] upsertClientForQuote returned clientId:", clientId);
 
     const thirtyDaysFromNow = addDaysIso(new Date(), 30);
     const dayAfterDeparture = addDaysIso(
@@ -198,6 +221,7 @@ export async function saveQuote(
       dayAfterDeparture,
     });
 
+    console.log("[saveQuote] quote insert will use client_id:", clientId);
     const { data: insertedQuote, error: quoteInsertError } = await supabase
       .from("quotes")
       .insert({
