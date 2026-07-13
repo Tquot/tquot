@@ -182,6 +182,14 @@ export async function saveQuote(
       args.clientEmail,
     );
 
+    const departureDate = new Date(args.tripInput.dates.start);
+    const thirtyDaysFromNow = addDaysIso(new Date(), 30);
+    const dayAfterDeparture = addDaysIso(departureDate, 1);
+    const validUntil =
+      thirtyDaysFromNow > dayAfterDeparture
+        ? thirtyDaysFromNow
+        : dayAfterDeparture;
+
     const { data: insertedQuote, error: quoteInsertError } = await supabase
       .from("quotes")
       .insert({
@@ -190,7 +198,7 @@ export async function saveQuote(
         agent_id: userId,
         client_id: clientId,
         reference: `${args.quote.id}-${Date.now()}`,
-        valid_until: addDaysIso(new Date(), 30),
+        valid_until: validUntil,
         origin: args.tripInput.origin,
         destination: args.tripInput.destination,
         departure_date: args.tripInput.dates.start,
