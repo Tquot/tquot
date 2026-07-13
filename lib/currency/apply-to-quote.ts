@@ -2,7 +2,6 @@
  * Aplica la moneda base de la agencia al quote compuesto.
  * Degrada silenciosamente a EUR (sin conversión) si falla auth/API.
  */
-import "server-only";
 
 import type { Quote } from "@/lib/quotes/build-quote";
 import { convertQuoteToBaseCurrency } from "./convert";
