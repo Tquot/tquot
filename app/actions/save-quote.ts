@@ -10,6 +10,8 @@ import {
   type QuoteItemType,
 } from "@/lib/quotes/build-quote";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type SaveQuoteArgs = {
   quote: Quote;
@@ -62,11 +64,11 @@ function collectPricedItems(quote: Quote): QuoteItem[] {
 }
 
 async function upsertClientForQuote(
-  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
   userId: string,
   clientName?: string,
   clientEmail?: string,
 ): Promise<string | null> {
+  const supabase: SupabaseClient = createServiceClient();
   const name = clientName?.trim();
   const email = clientEmail?.trim();
 
@@ -82,6 +84,7 @@ async function upsertClientForQuote(
   const normalizedEmail = email ? email.toLowerCase().trim() : null;
   console.log("[upsertClient] resolved:", { fullName, normalizedEmail });
 
+  // 1) Match by email when provided
   if (normalizedEmail) {
     const { data: existing, error: selErr } = await supabase
       .from("clients")
@@ -123,10 +126,36 @@ async function upsertClientForQuote(
       console.log("[upsertClient] returning clientId:", clientId);
       return clientId;
     }
-  } else {
-    console.log("[upsertClient] no email — skipping select-by-email, will insert");
   }
 
+  // 2) Name-only: find existing client by full_name when email is empty
+  if (name && !normalizedEmail) {
+    const { data: existingByName, error: nameSelErr } = await supabase
+      .from("clients")
+      .select("id")
+      .eq("user_id", userId)
+      .ilike("full_name", name)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    console.log("[upsertClient] select by name result:", {
+      data: existingByName,
+      error: nameSelErr,
+    });
+
+    if (nameSelErr) {
+      console.error("[upsertClient] Supabase select-by-name error:", nameSelErr);
+      throw new Error(nameSelErr.message);
+    }
+    if (existingByName?.id) {
+      const clientId = existingByName.id as string;
+      console.log("[upsertClient] returning clientId (matched by name):", clientId);
+      return clientId;
+    }
+  }
+
+  // 3) Create new client
   const { data: inserted, error: insErr } = await supabase
     .from("clients")
     .insert({
@@ -198,7 +227,6 @@ export async function saveQuote(
       userId: auth.user.id,
     });
     const clientId = await upsertClientForQuote(
-      supabase,
       userId,
       args.clientName,
       args.clientEmail,
