@@ -15,16 +15,20 @@ export interface GroupedFacilities {
   other: string[];
 }
 
+/** Hotelbeds Content API facilityGroupCode → UI bucket. */
 const FACILITY_GROUPS: Record<number, keyof GroupedFacilities> = {
-  10: "rooms",
-  20: "rooms",
-  60: "food",
-  70: "building",
-  80: "business",
-  90: "family",
-  100: "wellness",
-  110: "beach",
-  120: "outdoor",
+  10: "building", // Location
+  60: "rooms", // Room facilities (Standard room)
+  61: "rooms", // Room Distribution
+  62: "rooms", // Room distribution Alternative
+  70: "building", // Facilities
+  71: "food", // Catering
+  73: "outdoor", // Entertainment
+  74: "wellness", // Health
+  80: "business", // Business
+  85: "other", // Things to keep in mind
+  90: "outdoor", // Sports
+  91: "wellness", // Healthy & Safety
 };
 
 /** Debug: inspect raw Hotelbeds Content API hotel payload. */

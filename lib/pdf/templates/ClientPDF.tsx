@@ -443,8 +443,8 @@ export function ClientPDF({ quote }: ClientPDFProps) {
         <SectionLabel variant="light">Su viaje, paso a paso</SectionLabel>
 
         {quote.lineItems.map((item, index) => (
-          <View key={item.id} wrap={false}>
-            <View style={styles.lineItem}>
+          <View key={item.id}>
+            <View style={styles.lineItem} wrap={false}>
               <Text style={styles.lineNumber}>{index + 1}</Text>
               <View style={styles.lineContent}>
                 <Text style={styles.lineCategory}>{categoryLabel(item.category)}</Text>

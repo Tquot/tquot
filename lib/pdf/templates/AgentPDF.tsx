@@ -421,8 +421,8 @@ export function AgentPDF({ quote }: AgentPDFProps) {
         <SectionLabel variant="light">Desglose por línea</SectionLabel>
 
         {quote.lineItems.map((item) => (
-          <View key={item.id} wrap={false}>
-            <View style={styles.lineItem}>
+          <View key={item.id}>
+            <View style={styles.lineItem} wrap={false}>
               <View style={styles.lineHeader}>
                 <View style={styles.lineHeaderLeft}>
                   <Text style={styles.lineCategoryBadge}>{categoryLabel(item.category)}</Text>

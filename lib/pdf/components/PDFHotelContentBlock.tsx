@@ -32,7 +32,7 @@ export function PDFHotelContentBlock({ hotel, content: contentProp }: Props) {
   const grouped = groupFacilities(content.facilities);
 
   return (
-    <View style={styles.section} wrap={false}>
+    <View style={styles.section}>
       {content.descriptionLong ? (
         <>
           <Text style={styles.h3}>Sobre el hotel</Text>
@@ -50,6 +50,7 @@ export function PDFHotelContentBlock({ hotel, content: contentProp }: Props) {
             <FacilityGroupBlock label="Gastronomía" items={grouped.food} />
             <FacilityGroupBlock label="Negocios" items={grouped.business} />
             <FacilityGroupBlock label="Familia" items={grouped.family} />
+            <FacilityGroupBlock label="Otros" items={grouped.other} />
           </View>
         </>
       ) : null}

@@ -145,6 +145,7 @@ function FacilitiesGrid({
     { label: "Familia", items: grouped.family },
     { label: "Playa", items: grouped.beach },
     { label: "Exterior", items: grouped.outdoor },
+    { label: "Otros", items: grouped.other },
   ].filter((s) => s.items.length > 0);
 
   if (sections.length === 0) return null;
