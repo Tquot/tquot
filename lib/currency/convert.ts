@@ -1,5 +1,3 @@
-import "server-only";
-
 import type { Quote, QuoteItem } from "@/lib/quotes/build-quote";
 import { syncQuotePricing } from "@/lib/quotes/build-quote";
 import type { BoardOption } from "@/lib/quote-engine/types";

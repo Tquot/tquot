@@ -1,5 +1,3 @@
-import "server-only";
-
 const EXCHANGE_API_URL =
   process.env.EXCHANGE_RATE_API_URL ?? "https://open.er-api.com/v6/latest";
 
