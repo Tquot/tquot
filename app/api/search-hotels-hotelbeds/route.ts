@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import type { HotelOption } from "@/app/api/search-hotels/route";
+import type { HotelOption } from "@/lib/hotels/search-booking";
 import { getAuthenticatedUserAndAgency } from "@/lib/auth/agency-context";
 import {
   buildHotelbedsContentHeaders,
@@ -15,6 +15,7 @@ import {
 } from "@/lib/connectors/storage";
 import { fetchWithTimeout } from "@/lib/connectors/utils";
 import { resolveCity } from "@/lib/airports/search";
+import { enrichHotelOptionsWithContentBounded } from "@/lib/providers/hotelbeds/content-enrich";
 import { passesApiHotelLevelFilter } from "@/lib/quotes/hotel-level-filter";
 import type { HotelLevel } from "@/lib/quotes/build-quote";
 
@@ -236,6 +237,8 @@ function toHotelOption(hotel: {
     netPrice: number;
     pricePerNight: number;
     providerRoomCode: string;
+    rawData?: unknown;
+    currency?: string;
   }>;
 }): HotelOption | null {
   if (!Array.isArray(hotel.rooms) || hotel.rooms.length === 0) return null;
@@ -246,6 +249,11 @@ function toHotelOption(hotel: {
 
   const cheapest = sorted[0];
   if (!cheapest) return null;
+
+  const cancellationPolicies = extractCancellationPolicies(
+    cheapest.rawData,
+    cheapest.currency ?? "EUR",
+  );
 
   return {
     name: hotel.name,
@@ -262,7 +270,31 @@ function toHotelOption(hotel: {
     ...(cheapest.providerRoomCode
       ? { rateKey: cheapest.providerRoomCode }
       : {}),
+    ...(cancellationPolicies.length > 0 ? { cancellationPolicies } : {}),
   };
+}
+
+function extractCancellationPolicies(
+  rawData: unknown,
+  fallbackCurrency: string,
+): import("@/lib/providers/hotelbeds/content-types").CancellationPolicy[] {
+  if (!rawData || typeof rawData !== "object") return [];
+  const rate = rawData as {
+    cancellationPolicies?: Array<{
+      from?: string;
+      amount?: string | number;
+      currency?: string;
+    }>;
+  };
+  if (!Array.isArray(rate.cancellationPolicies)) return [];
+
+  return rate.cancellationPolicies
+    .filter((cp) => typeof cp.from === "string" && cp.from.trim())
+    .map((cp) => ({
+      amount: Number(cp.amount ?? 0),
+      currency: cp.currency ?? fallbackCurrency,
+      from: cp.from!.trim(),
+    }));
 }
 
 function logHotelbedsFallback(
@@ -382,7 +414,12 @@ export async function POST(request: NextRequest) {
         hotelLevel ? passesApiHotelLevelFilter(h.stars, hotelLevel as HotelLevel) : true
       );
 
-    return NextResponse.json({ hotels });
+    const enriched = await enrichHotelOptionsWithContentBounded(
+      hotels,
+      connectionData.credentials,
+    );
+
+    return NextResponse.json({ hotels: enriched });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unexpected Hotelbeds search error.";

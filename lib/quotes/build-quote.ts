@@ -130,6 +130,8 @@ export type QuoteItemHotelDetails = {
   currency?: string;
   /** ISO timestamp when this price was captured at quote build time. */
   fetchedAt?: string;
+  /** Hotelbeds Content API snapshot (optional; also cached in hotelbeds_content). */
+  content?: import("@/lib/providers/hotelbeds/content-types").HotelContent;
 };
 
 export type QuoteItemExperienceDetails = {
@@ -788,6 +790,7 @@ function buildHotelDetails(
     ...(hotel.rateKey ? { rateKey: hotel.rateKey } : {}),
     ...(Number.isFinite(hotel.netPrice) ? { netPrice: hotel.netPrice } : {}),
     ...(provider ? { provider } : {}),
+    ...(hotel.content ? { content: hotel.content } : {}),
     currency: "EUR",
     fetchedAt: new Date().toISOString(),
   };
@@ -814,6 +817,10 @@ function mapApiHotelToQuoteItem(
   }
 
   const hotelDetails = buildHotelDetails(hotel, providerId, providerLabel);
+  const description =
+    hotel.description ??
+    hotel.content?.descriptionShort ??
+    hotel.content?.descriptionLong;
 
   return draftItem({
     id,
@@ -825,6 +832,7 @@ function mapApiHotelToQuoteItem(
     alternative,
     ...(hotelDetails ? { hotelDetails } : {}),
     ...(hotel.imageUrl ? { imageUrl: hotel.imageUrl } : {}),
+    ...(description ? { description } : {}),
   });
 }
 

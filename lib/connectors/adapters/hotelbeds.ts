@@ -85,7 +85,11 @@ interface HotelbedsRawRate {
   rateKey?: string;
   boardCode?: string;
   rateClass?: string;
-  cancellationPolicies?: Array<{ from?: string }>;
+  cancellationPolicies?: Array<{
+    from?: string;
+    amount?: string | number;
+    currency?: string;
+  }>;
   net?: string | number;
   sellingRate?: string | number;
   commission?: string | number;

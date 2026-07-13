@@ -8,6 +8,7 @@
 
 import type { PriceSource } from "./theme";
 import type { Recommendation } from "@/lib/recommendations/types";
+import type { HotelContent } from "@/lib/providers/hotelbeds/content-types";
 
 // ─────────────────────────────────────────────────────────────
 // Agencia
@@ -61,6 +62,11 @@ export interface QuoteLineItem {
   // Detalle por viajero (si aplica)
   perPerson: boolean;
   paxCount: number;
+
+  /** Código Hotelbeds para rehidratar content en PDF. */
+  hotelCode?: string | null;
+  /** Snapshot opcional de Content API (o rellenado al cargar desde caché). */
+  hotelContent?: HotelContent | null;
 }
 
 // ─────────────────────────────────────────────────────────────

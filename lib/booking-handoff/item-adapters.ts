@@ -43,6 +43,9 @@ export function quoteItemToHotel(item: QuoteItem, legId = DEFAULT_TRIP_LEG_ID): 
     hotelCode: item.hotelDetails?.hotelCode,
     rateKey: item.hotelDetails?.rateKey,
     totalForGroup: item.price,
+    imageUrl: item.imageUrl,
+    description: item.description,
+    content: item.hotelDetails?.content,
   };
 }
 

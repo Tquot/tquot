@@ -166,6 +166,8 @@ export async function saveQuoteWithClient(input: {
       internal_notes: null,
       per_person: false,
       pax_count: 1,
+      hotel_code:
+        item.type === "hotel" ? (item.hotelDetails?.hotelCode ?? null) : null,
     }));
 
     const { error: lineItemsError } = await supabase

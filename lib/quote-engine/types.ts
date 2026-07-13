@@ -20,6 +20,10 @@ export interface Hotel {
   hotelCode?: string;
   rateKey?: string;
   totalForGroup?: number;
+  imageUrl?: string;
+  description?: string;
+  /** Hotelbeds Content API payload (descripciones, facilities, imágenes). */
+  content?: import("@/lib/providers/hotelbeds/content-types").HotelContent;
 }
 
 export interface Flight {

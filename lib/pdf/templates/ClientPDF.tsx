@@ -18,6 +18,7 @@ import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
 import { colors, fonts, fontSize, fontWeight, spacing, page } from "../theme";
 import { AgencyLogo } from "../components/AgencyLogo";
 import { RecommendationsBlock } from "../components/RecommendationsBlock";
+import { PDFHotelContentBlock } from "../components/PDFHotelContentBlock";
 import { GoldRule, SectionLabel } from "../components/Decoration";
 import {
   formatCurrency,
@@ -442,16 +443,21 @@ export function ClientPDF({ quote }: ClientPDFProps) {
         <SectionLabel variant="light">Su viaje, paso a paso</SectionLabel>
 
         {quote.lineItems.map((item, index) => (
-          <View key={item.id} style={styles.lineItem} wrap={false}>
-            <Text style={styles.lineNumber}>{index + 1}</Text>
-            <View style={styles.lineContent}>
-              <Text style={styles.lineCategory}>{categoryLabel(item.category)}</Text>
-              <Text style={styles.lineDescription}>{item.description}</Text>
-              {item.subtitle && <Text style={styles.lineSubtitle}>{item.subtitle}</Text>}
+          <View key={item.id} wrap={false}>
+            <View style={styles.lineItem}>
+              <Text style={styles.lineNumber}>{index + 1}</Text>
+              <View style={styles.lineContent}>
+                <Text style={styles.lineCategory}>{categoryLabel(item.category)}</Text>
+                <Text style={styles.lineDescription}>{item.description}</Text>
+                {item.subtitle && <Text style={styles.lineSubtitle}>{item.subtitle}</Text>}
+              </View>
+              <Text style={styles.linePrice}>
+                {formatCurrency(item.publicPrice, quote.totals.currency)}
+              </Text>
             </View>
-            <Text style={styles.linePrice}>
-              {formatCurrency(item.publicPrice, quote.totals.currency)}
-            </Text>
+            {item.category === "hotel" && item.hotelContent ? (
+              <PDFHotelContentBlock content={item.hotelContent} />
+            ) : null}
           </View>
         ))}
 

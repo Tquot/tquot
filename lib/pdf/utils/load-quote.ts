@@ -20,6 +20,7 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Quote, QuoteLineItem } from "../types";
 import type { PriceSource } from "../theme";
+import { getCachedHotelContent } from "@/lib/providers/hotelbeds/content-cache";
 
 function supabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -54,6 +55,7 @@ type QuoteLineItemRow = {
   supplier?: string | null;
   per_person?: boolean | null;
   pax_count?: number | string | null;
+  hotel_code?: string | null;
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -88,21 +90,33 @@ export async function loadQuoteForPdf(quoteId: string): Promise<Quote | null> {
   // ─── Mapeo a Quote ───
   // Renombra los campos según tu esquema real. Esto es solo una plantilla.
 
-  const lineItems: QuoteLineItem[] = ((data.line_items ?? []) as QuoteLineItemRow[]).map((li) => ({
-    id: li.id,
-    category: li.category,
-    description: li.description,
-    subtitle: li.subtitle ?? null,
-    netCost: Number(li.net_cost ?? 0),
-    margin: Number(li.margin ?? 0),
-    marginPercent: Number(li.margin_percent ?? 0),
-    publicPrice: Number(li.public_price ?? 0),
-    source: mapSource(li.source),
-    internalNotes: li.internal_notes ?? null,
-    supplier: li.supplier ?? null,
-    perPerson: Boolean(li.per_person ?? false),
-    paxCount: Number(li.pax_count ?? 1),
-  }));
+  const lineItems: QuoteLineItem[] = await Promise.all(
+    ((data.line_items ?? []) as QuoteLineItemRow[]).map(async (li) => {
+      const hotelCode = li.hotel_code ?? null;
+      const hotelContent =
+        li.category === "hotel" && hotelCode
+          ? await getCachedHotelContent(hotelCode)
+          : null;
+
+      return {
+        id: li.id,
+        category: li.category,
+        description: li.description,
+        subtitle: li.subtitle ?? null,
+        netCost: Number(li.net_cost ?? 0),
+        margin: Number(li.margin ?? 0),
+        marginPercent: Number(li.margin_percent ?? 0),
+        publicPrice: Number(li.public_price ?? 0),
+        source: mapSource(li.source),
+        internalNotes: li.internal_notes ?? null,
+        supplier: li.supplier ?? null,
+        perPerson: Boolean(li.per_person ?? false),
+        paxCount: Number(li.pax_count ?? 1),
+        hotelCode,
+        hotelContent,
+      };
+    }),
+  );
 
   const quote: Quote = {
     id: data.id,

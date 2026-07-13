@@ -22,6 +22,7 @@ import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
 import { colors, fonts, fontSize, fontWeight, spacing, page } from "../theme";
 import { AgencyLogo } from "../components/AgencyLogo";
 import { RecommendationsBlock } from "../components/RecommendationsBlock";
+import { PDFHotelContentBlock } from "../components/PDFHotelContentBlock";
 import { SectionLabel } from "../components/Decoration";
 import { SourceBadge } from "../components/SourceBadge";
 import {
@@ -420,56 +421,61 @@ export function AgentPDF({ quote }: AgentPDFProps) {
         <SectionLabel variant="light">Desglose por línea</SectionLabel>
 
         {quote.lineItems.map((item) => (
-          <View key={item.id} style={styles.lineItem} wrap={false}>
-            <View style={styles.lineHeader}>
-              <View style={styles.lineHeaderLeft}>
-                <Text style={styles.lineCategoryBadge}>{categoryLabel(item.category)}</Text>
-                <Text style={styles.lineDescription}>{item.description}</Text>
+          <View key={item.id} wrap={false}>
+            <View style={styles.lineItem}>
+              <View style={styles.lineHeader}>
+                <View style={styles.lineHeaderLeft}>
+                  <Text style={styles.lineCategoryBadge}>{categoryLabel(item.category)}</Text>
+                  <Text style={styles.lineDescription}>{item.description}</Text>
+                </View>
+                <SourceBadge source={item.source} />
               </View>
-              <SourceBadge source={item.source} />
-            </View>
 
-            {item.subtitle && <Text style={styles.lineSubtitle}>{item.subtitle}</Text>}
+              {item.subtitle && <Text style={styles.lineSubtitle}>{item.subtitle}</Text>}
 
-            {/* Desglose económico */}
-            <View style={styles.costGrid}>
-              <View style={styles.costCell}>
-                <Text style={styles.costLabel}>Coste neto</Text>
-                <Text style={styles.costValue}>
-                  {formatCurrency(item.netCost, quote.totals.currency)}
-                </Text>
-              </View>
-              <View style={styles.costCell}>
-                <Text style={styles.costLabel}>Margen</Text>
-                <Text style={styles.costValue}>
-                  {formatCurrency(item.margin, quote.totals.currency)}
-                </Text>
-              </View>
-              <View style={styles.costCell}>
-                <Text style={styles.costLabel}>Margen %</Text>
-                <Text style={styles.costValue}>{formatPercent(item.marginPercent)}</Text>
-              </View>
-              <View style={styles.costCell}>
-                <Text style={styles.costLabel}>PVP</Text>
-                <Text style={styles.costValuePublic}>
-                  {formatCurrency(item.publicPrice, quote.totals.currency)}
-                </Text>
-              </View>
-              {item.supplier && (
+              {/* Desglose económico */}
+              <View style={styles.costGrid}>
                 <View style={styles.costCell}>
-                  <Text style={styles.costLabel}>Proveedor</Text>
-                  <Text style={styles.costValue}>{item.supplier}</Text>
+                  <Text style={styles.costLabel}>Coste neto</Text>
+                  <Text style={styles.costValue}>
+                    {formatCurrency(item.netCost, quote.totals.currency)}
+                  </Text>
+                </View>
+                <View style={styles.costCell}>
+                  <Text style={styles.costLabel}>Margen</Text>
+                  <Text style={styles.costValue}>
+                    {formatCurrency(item.margin, quote.totals.currency)}
+                  </Text>
+                </View>
+                <View style={styles.costCell}>
+                  <Text style={styles.costLabel}>Margen %</Text>
+                  <Text style={styles.costValue}>{formatPercent(item.marginPercent)}</Text>
+                </View>
+                <View style={styles.costCell}>
+                  <Text style={styles.costLabel}>PVP</Text>
+                  <Text style={styles.costValuePublic}>
+                    {formatCurrency(item.publicPrice, quote.totals.currency)}
+                  </Text>
+                </View>
+                {item.supplier && (
+                  <View style={styles.costCell}>
+                    <Text style={styles.costLabel}>Proveedor</Text>
+                    <Text style={styles.costValue}>{item.supplier}</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Nota interna por línea */}
+              {item.internalNotes && (
+                <View style={styles.internalNote}>
+                  <Text style={styles.internalNoteLabel}>Nota interna</Text>
+                  <Text style={styles.internalNoteText}>{item.internalNotes}</Text>
                 </View>
               )}
             </View>
-
-            {/* Nota interna por línea */}
-            {item.internalNotes && (
-              <View style={styles.internalNote}>
-                <Text style={styles.internalNoteLabel}>Nota interna</Text>
-                <Text style={styles.internalNoteText}>{item.internalNotes}</Text>
-              </View>
-            )}
+            {item.category === "hotel" && item.hotelContent ? (
+              <PDFHotelContentBlock content={item.hotelContent} />
+            ) : null}
           </View>
         ))}
 

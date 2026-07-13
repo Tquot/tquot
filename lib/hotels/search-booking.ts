@@ -22,6 +22,9 @@ export type HotelOption = {
   imageUrl?: string;
   /** Hotelbeds (and similar) bookable rate id from availability search. */
   rateKey?: string;
+  description?: string;
+  content?: import("@/lib/providers/hotelbeds/content-types").HotelContent;
+  cancellationPolicies?: import("@/lib/providers/hotelbeds/content-types").CancellationPolicy[];
 };
 
 export type SearchBookingHotelsInput = {
