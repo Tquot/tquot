@@ -450,7 +450,7 @@ export function ClientPDF({ quote }: ClientPDFProps) {
               {item.subtitle && <Text style={styles.lineSubtitle}>{item.subtitle}</Text>}
             </View>
             <Text style={styles.linePrice}>
-              {formatCurrency(item.publicPrice, quote.totals.currency)}
+              {formatCurrency(item.publicPrice, quote.totals.currency as "EUR" | "USD" | "GBP")}
             </Text>
           </View>
         ))}
@@ -459,7 +459,7 @@ export function ClientPDF({ quote }: ClientPDFProps) {
         <View style={styles.totalBlock} wrap={false}>
           <Text style={styles.totalLabel}>Total propuesta</Text>
           <Text style={styles.totalValue}>
-            {formatCurrency(quote.totals.publicPrice, quote.totals.currency)}
+            {formatCurrency(quote.totals.publicPrice, quote.totals.currency as "EUR" | "USD" | "GBP")}
           </Text>
           <Text style={styles.totalCaption}>
             Precio total para{" "}

@@ -436,13 +436,13 @@ export function AgentPDF({ quote }: AgentPDFProps) {
               <View style={styles.costCell}>
                 <Text style={styles.costLabel}>Coste neto</Text>
                 <Text style={styles.costValue}>
-                  {formatCurrency(item.netCost, quote.totals.currency)}
+                  {formatCurrency(item.netCost, quote.totals.currency as "EUR" | "USD" | "GBP")}
                 </Text>
               </View>
               <View style={styles.costCell}>
                 <Text style={styles.costLabel}>Margen</Text>
                 <Text style={styles.costValue}>
-                  {formatCurrency(item.margin, quote.totals.currency)}
+                  {formatCurrency(item.margin, quote.totals.currency as "EUR" | "USD" | "GBP")}
                 </Text>
               </View>
               <View style={styles.costCell}>
@@ -452,7 +452,7 @@ export function AgentPDF({ quote }: AgentPDFProps) {
               <View style={styles.costCell}>
                 <Text style={styles.costLabel}>PVP</Text>
                 <Text style={styles.costValuePublic}>
-                  {formatCurrency(item.publicPrice, quote.totals.currency)}
+                  {formatCurrency(item.publicPrice, quote.totals.currency as "EUR" | "USD" | "GBP")}
                 </Text>
               </View>
               {item.supplier && (
@@ -478,13 +478,13 @@ export function AgentPDF({ quote }: AgentPDFProps) {
           <View style={styles.totalsRow}>
             <Text style={styles.totalsLabel}>Coste neto total</Text>
             <Text style={styles.totalsValue}>
-              {formatCurrency(quote.totals.netCost, quote.totals.currency)}
+              {formatCurrency(quote.totals.netCost, quote.totals.currency as "EUR" | "USD" | "GBP")}
             </Text>
           </View>
           <View style={styles.totalsRow}>
             <Text style={styles.totalsLabel}>Margen total</Text>
             <Text style={styles.totalsValue}>
-              {formatCurrency(quote.totals.margin, quote.totals.currency)}
+              {formatCurrency(quote.totals.margin, quote.totals.currency as "EUR" | "USD" | "GBP")}
               {"  "}
               <Text style={{ color: colors.gold }}>
                 ({formatPercent(quote.totals.marginPercent)})
@@ -494,7 +494,7 @@ export function AgentPDF({ quote }: AgentPDFProps) {
           <View style={styles.totalsBigRow}>
             <Text style={styles.totalsBigLabel}>PVP final al cliente</Text>
             <Text style={styles.totalsBigValue}>
-              {formatCurrency(quote.totals.publicPrice, quote.totals.currency)}
+              {formatCurrency(quote.totals.publicPrice, quote.totals.currency as "EUR" | "USD" | "GBP")}
             </Text>
           </View>
         </View>
