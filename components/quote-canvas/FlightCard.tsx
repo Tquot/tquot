@@ -1,4 +1,5 @@
 import { BookingHandoffButton } from "@/components/booking-handoff/BookingHandoffButton";
+import { MoneyDisplay } from "@/components/currency/MoneyDisplay";
 import type { BookingHandoff } from "@/lib/booking-handoff/types";
 import type { Flight } from "@/lib/quote-engine/types";
 
@@ -22,7 +23,14 @@ export function FlightCard({ flight, handoff }: Props) {
 
       <footer className="mt-3 flex items-center justify-between">
         <div className="text-sm font-semibold">
-          {flight.price} {flight.currency}
+          <MoneyDisplay
+            amount={flight.price}
+            currency={flight.currency}
+            originalAmount={flight.originalPrice}
+            originalCurrency={flight.originalCurrency}
+            exchangeRate={flight.exchangeRate}
+            rateAt={flight.rateAt}
+          />
         </div>
         {handoff && <BookingHandoffButton handoff={handoff} />}
       </footer>

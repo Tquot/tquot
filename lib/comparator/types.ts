@@ -29,6 +29,12 @@ export interface ComparatorEntry {
   bookingUrl?: string;
   /** Si la búsqueda live falló */
   error?: string;
+  /** Bloque F */
+  originalPricePerNight?: number;
+  originalTotalPrice?: number;
+  originalCurrency?: string;
+  exchangeRate?: number;
+  rateAt?: string;
 }
 
 export interface ComparatorHotelSnapshot {

@@ -244,3 +244,21 @@ export function composeQuote(
   syncQuotePricing(quote);
   return quote;
 }
+
+/**
+ * Bloque F — compose + conversión a moneda base (async).
+ * Preferido frente a composeQuote cuando hay contexto de agencia.
+ */
+export async function composeQuoteWithCurrency(
+  ...args: Parameters<typeof composeQuote>
+): Promise<Quote> {
+  const quote = composeQuote(...args);
+  try {
+    const { applyAgencyBaseCurrency } = await import(
+      "@/lib/currency/apply-to-quote"
+    );
+    return await applyAgencyBaseCurrency(quote);
+  } catch {
+    return quote;
+  }
+}

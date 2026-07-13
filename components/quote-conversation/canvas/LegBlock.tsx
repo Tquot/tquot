@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { MoneyDisplay } from "@/components/currency/MoneyDisplay";
 import type { SectionStatus } from "@/lib/quote-conversation/types";
 import { useQuoteConversationStore, selectCurrentQuote } from "@/lib/quote-conversation/store";
 import type { TripLeg } from "@/lib/quote-engine/schemas-v2";
@@ -116,7 +117,15 @@ function FlightsForLeg({
         <ul className="space-y-2 text-sm">
           {flights.map((flight) => (
             <li key={flight.id}>
-              {flight.title} — {flight.price} €
+              {flight.title} —{" "}
+              <MoneyDisplay
+                amount={flight.price}
+                currency={flight.currency ?? "EUR"}
+                originalAmount={flight.originalPrice}
+                originalCurrency={flight.originalCurrency}
+                exchangeRate={flight.exchangeRate}
+                rateAt={flight.rateAt}
+              />
             </li>
           ))}
         </ul>
@@ -143,7 +152,15 @@ function HotelsForLeg({
         <ul className="space-y-2 text-sm">
           {hotels.map((hotel) => (
             <li key={hotel.id}>
-              {hotel.title} — {hotel.price} €
+              {hotel.title} —{" "}
+              <MoneyDisplay
+                amount={hotel.price}
+                currency={hotel.currency ?? "EUR"}
+                originalAmount={hotel.originalPrice}
+                originalCurrency={hotel.originalCurrency}
+                exchangeRate={hotel.exchangeRate}
+                rateAt={hotel.rateAt}
+              />
             </li>
           ))}
         </ul>
@@ -174,7 +191,15 @@ function ExperiencesForLeg({
         <ul className="space-y-2 text-sm">
           {experiences.map((item) => (
             <li key={item.id}>
-              {item.title} — {item.price} €
+              {item.title} —{" "}
+              <MoneyDisplay
+                amount={item.price}
+                currency={item.currency ?? "EUR"}
+                originalAmount={item.originalPrice}
+                originalCurrency={item.originalCurrency}
+                exchangeRate={item.exchangeRate}
+                rateAt={item.rateAt}
+              />
             </li>
           ))}
         </ul>
@@ -201,7 +226,15 @@ function TransfersForLeg({
         <ul className="space-y-2 text-sm">
           {transfers.map((item) => (
             <li key={item.id}>
-              {item.title} — {item.price} €
+              {item.title} —{" "}
+              <MoneyDisplay
+                amount={item.price}
+                currency={item.currency ?? "EUR"}
+                originalAmount={item.originalPrice}
+                originalCurrency={item.originalCurrency}
+                exchangeRate={item.exchangeRate}
+                rateAt={item.rateAt}
+              />
             </li>
           ))}
         </ul>

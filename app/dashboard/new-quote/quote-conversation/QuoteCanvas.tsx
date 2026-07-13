@@ -260,11 +260,13 @@ export function QuoteCanvas({
               label={t.baseTotal}
               value={completeQuote.pricing.baseTotal}
               locale={locale}
+              currency={completeQuote.pricing.currency}
             />
             <TotalCard
               label={t.margin}
               value={completeQuote.pricing.margin}
               locale={locale}
+              currency={completeQuote.pricing.currency}
             />
             <TotalCard
               label={formatMessage(t.finalTotal, {
@@ -273,6 +275,7 @@ export function QuoteCanvas({
               value={completeQuote.pricing.finalTotal}
               highlight
               locale={locale}
+              currency={completeQuote.pricing.currency}
             />
           </div>
         ) : null}

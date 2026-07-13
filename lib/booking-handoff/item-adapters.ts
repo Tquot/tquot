@@ -35,7 +35,7 @@ export function quoteItemToHotel(item: QuoteItem, legId = DEFAULT_TRIP_LEG_ID): 
     legId,
     name: context.name || item.title.split("—")[0]?.trim() || item.title,
     netPrice: Math.round(item.price / nights),
-    currency: item.hotelDetails?.currency ?? "EUR",
+    currency: item.currency ?? item.hotelDetails?.currency ?? "EUR",
     nights,
     stars: context.stars ? Number.parseInt(context.stars, 10) || 0 : 0,
     provider,
@@ -49,6 +49,10 @@ export function quoteItemToHotel(item: QuoteItem, legId = DEFAULT_TRIP_LEG_ID): 
     boardOptions: item.hotelDetails?.boardOptions,
     content: item.hotelDetails?.content,
     connectionId: item.hotelDetails?.connectionId,
+    originalPrice: item.originalPrice,
+    originalCurrency: item.originalCurrency,
+    exchangeRate: item.exchangeRate,
+    rateAt: item.rateAt,
   };
 }
 
@@ -77,10 +81,14 @@ export function quoteItemToFlight(item: QuoteItem, legId = DEFAULT_TRIP_LEG_ID):
     carrier,
     carrierName: fd?.airline ?? item.provider,
     price: item.price,
-    currency: "EUR",
+    currency: item.currency ?? "EUR",
     origin: fd?.originIata ?? fd?.originCity,
     destination: fd?.destinationIata ?? fd?.destinationCity,
     offerId: fd?.selectedOfferId ?? fd?.primaryOfferId,
+    originalPrice: item.originalPrice,
+    originalCurrency: item.originalCurrency,
+    exchangeRate: item.exchangeRate,
+    rateAt: item.rateAt,
     slices: fd
       ? [
           {

@@ -160,6 +160,13 @@ export interface QuoteItem {
   markup: number;
   finalPrice: number;
   source: QuoteItemSource;
+  /** Display currency (agency base after conversion). */
+  currency?: string;
+  /** Provider amount before FX conversion. */
+  originalPrice?: number;
+  originalCurrency?: string;
+  exchangeRate?: number;
+  rateAt?: string;
   /** Optional detail (e.g. inventory experience notes). */
   description?: string;
   /** Rich flight display data from API search results. */
@@ -205,7 +212,7 @@ export interface QuotePricing {
   baseTotal: number;
   margin: number;
   finalTotal: number;
-  currency: "EUR";
+  currency: string;
 }
 
 export type QuoteDataSource = "real" | "mock";
@@ -400,7 +407,7 @@ export async function buildQuote(
   const hotelsSource = quoteSectionSource(hotels);
   const experiencesSource = quoteSectionSource(experiences);
 
-  return {
+  const quote: Quote = {
     id: buildQuoteId(input, origin, destination),
     summary: {
       route: `${origin} → ${destination}`,
@@ -440,6 +447,16 @@ export async function buildQuote(
         : {}),
     },
   };
+
+  // Bloque F — moneda base agencia
+  try {
+    const { applyAgencyBaseCurrency } = await import(
+      "@/lib/currency/apply-to-quote"
+    );
+    return await applyAgencyBaseCurrency(quote);
+  } catch {
+    return quote;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -797,7 +814,7 @@ function buildHotelDetails(
       : {}),
     ...(provider ? { provider } : {}),
     ...(hotel.content ? { content: hotel.content } : {}),
-    currency: "EUR",
+    currency: hotel.currency ?? "EUR",
     fetchedAt: new Date().toISOString(),
   };
 }

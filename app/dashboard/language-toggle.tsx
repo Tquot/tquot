@@ -93,6 +93,11 @@ export function LanguageToggle({ email, recentQuotes }: LanguageToggleProps) {
     },
     { href: "/dashboard/margins", label: t.margins, className: quickLinkClass },
     { href: "/dashboard/agency", label: t.agency, className: quickLinkClass },
+    {
+      href: "/dashboard/settings/general",
+      label: "Moneda",
+      className: quickLinkClass,
+    },
   ];
 
   return (

@@ -3,12 +3,20 @@
 import type { Quote, QuoteDataSource, QuoteItem } from "@/lib/quotes/build-quote";
 import type { Locale } from "../translations";
 
-export function formatCurrency(value: number, locale: Locale) {
-  return new Intl.NumberFormat(locale === "es" ? "es-ES" : "en-US", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 0,
-  }).format(value);
+export function formatCurrency(
+  value: number,
+  locale: Locale,
+  currency = "EUR",
+) {
+  try {
+    return new Intl.NumberFormat(locale === "es" ? "es-ES" : "en-US", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(value);
+  } catch {
+    return `${Math.round(value)} ${currency}`;
+  }
 }
 
 export function allQuoteItems(quote: Quote): QuoteItem[] {
@@ -54,11 +62,13 @@ export function TotalCard({
   value,
   highlight,
   locale,
+  currency = "EUR",
 }: {
   label: string;
   value: number;
   highlight?: boolean;
   locale: Locale;
+  currency?: string;
 }) {
   return (
     <div
@@ -74,7 +84,7 @@ export function TotalCard({
           highlight ? "text-tquot-teal" : "text-tquot-text"
         }`}
       >
-        {formatCurrency(value, locale)}
+        {formatCurrency(value, locale, currency)}
       </p>
     </div>
   );

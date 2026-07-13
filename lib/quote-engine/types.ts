@@ -30,6 +30,11 @@ export interface Hotel {
   boardOptions?: BoardOption[];
   /** Hotelbeds Content API payload (descripciones, facilities, imágenes). */
   content?: import("@/lib/providers/hotelbeds/content-types").HotelContent;
+  /** Bloque F — monto original del proveedor antes de FX. */
+  originalPrice?: number;
+  originalCurrency?: string;
+  exchangeRate?: number;
+  rateAt?: string;
 }
 
 export type BoardCode = "RO" | "BB" | "HB" | "FB" | "AI" | string;
@@ -59,6 +64,10 @@ export interface Flight {
   destination?: string;
   offerId?: string;
   locator?: string;
+  originalPrice?: number;
+  originalCurrency?: string;
+  exchangeRate?: number;
+  rateAt?: string;
   slices?: Array<{
     departureDate: string;
     segments: Array<{
@@ -96,6 +105,10 @@ export interface Experience {
   price: number;
   currency: string;
   provider?: string;
+  originalPrice?: number;
+  originalCurrency?: string;
+  exchangeRate?: number;
+  rateAt?: string;
 }
 
 export interface Transfer {
@@ -106,4 +119,8 @@ export interface Transfer {
   provider?: string;
   pickupLocation?: string;
   dropoffLocation?: string;
+  originalPrice?: number;
+  originalCurrency?: string;
+  exchangeRate?: number;
+  rateAt?: string;
 }

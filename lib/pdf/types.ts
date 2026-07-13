@@ -108,7 +108,7 @@ export interface Quote {
     margin: number;
     marginPercent: number;
     publicPrice: number;
-    currency: "EUR" | "USD" | "GBP";
+    currency: "EUR" | "USD" | "GBP" | string;
   };
 
   // Notas

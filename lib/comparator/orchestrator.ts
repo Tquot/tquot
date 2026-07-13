@@ -176,9 +176,49 @@ export async function buildComparison(
     };
   });
 
+  // Bloque F — normalizar entradas a moneda base de la agencia
+  const { loadAgencyCurrency } = await import("@/lib/currency/loader");
+  const { convertAmountSafe } = await import("@/lib/currency/convert");
+  const baseCurrency = await loadAgencyCurrency();
+
+  const entries = await Promise.all(
+    [snapshotEntry, ...liveEntries].map(async (entry) => {
+      if (!entry.available || entry.totalPrice == null) return entry;
+      if (entry.currency.toUpperCase() === baseCurrency.toUpperCase()) {
+        return entry;
+      }
+      const total = await convertAmountSafe(
+        entry.totalPrice,
+        entry.currency,
+        baseCurrency,
+      );
+      const perNight =
+        entry.pricePerNight != null
+          ? await convertAmountSafe(
+              entry.pricePerNight,
+              entry.currency,
+              baseCurrency,
+            )
+          : null;
+
+      return {
+        ...entry,
+        totalPrice: total.amount,
+        pricePerNight: perNight?.amount ?? entry.pricePerNight,
+        currency: total.currency,
+        originalTotalPrice: total.originalAmount ?? entry.totalPrice,
+        originalPricePerNight:
+          perNight?.originalAmount ?? entry.pricePerNight,
+        originalCurrency: total.originalCurrency ?? entry.currency,
+        exchangeRate: total.exchangeRate,
+        rateAt: total.rateAt,
+      };
+    }),
+  );
+
   return {
     hotelName: hotel.name,
-    entries: [snapshotEntry, ...liveEntries],
+    entries,
     generatedAt: new Date().toISOString(),
   };
 }

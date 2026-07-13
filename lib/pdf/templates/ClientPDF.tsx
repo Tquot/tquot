@@ -505,6 +505,16 @@ export function ClientPDF({ quote }: ClientPDFProps) {
             />
           </View>
           <Text style={styles.footerDisclaimer}>{disclaimer}</Text>
+          <Text style={[styles.footerDisclaimer, { marginTop: 4 }]}>
+            Importes en {quote.totals.currency}. Tipos de cambio orientativos
+            del{" "}
+            {new Date().toLocaleDateString("es-ES", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })}
+            .
+          </Text>
         </View>
       </Page>
     </Document>

@@ -9,6 +9,7 @@ export type HotelOption = {
   name: string;
   pricePerNight: string;
   netPrice?: number;
+  currency?: string;
   stars: number | string;
   rating: number | string;
   address: string;

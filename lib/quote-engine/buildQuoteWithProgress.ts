@@ -198,5 +198,7 @@ export async function buildQuoteWithProgress(
     };
   }
 
-  return quote;
+  // Bloque F — convertir a moneda base de la agencia
+  const { applyAgencyBaseCurrency } = await import("@/lib/currency/apply-to-quote");
+  return (await applyAgencyBaseCurrency(quote)) as import("./types").Quote;
 }

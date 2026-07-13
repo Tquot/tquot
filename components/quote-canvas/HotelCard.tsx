@@ -4,6 +4,7 @@ import { useState } from "react";
 import { BookingHandoffButton } from "@/components/booking-handoff/BookingHandoffButton";
 import { BoardChips } from "@/components/quote-canvas/BoardChips";
 import { HotelDetailExpanded } from "@/components/quote-canvas/HotelDetailExpanded";
+import { MoneyDisplay } from "@/components/currency/MoneyDisplay";
 import type { BookingHandoff } from "@/lib/booking-handoff/types";
 import type { BoardCode, Hotel } from "@/lib/quote-engine/types";
 
@@ -31,6 +32,11 @@ export function HotelCard({ hotel, handoff, onBoardUpdated }: Props) {
   const canExpand =
     hotel.provider === "hotelbeds" && Boolean(hotel.hotelCode || hotel.content);
   const hasBoards = (hotel.boardOptions?.length ?? 0) > 0;
+  const nights = Math.max(1, hotel.nights);
+  const originalPerNight =
+    hotel.originalPrice != null
+      ? Math.round(hotel.originalPrice / nights)
+      : undefined;
 
   return (
     <article className="rounded-lg border border-neutral-200 bg-white p-4">
@@ -81,10 +87,26 @@ export function HotelCard({ hotel, handoff, onBoardUpdated }: Props) {
             {hotel.nights} {hotel.nights === 1 ? "noche" : "noches"}
           </div>
           <div className="text-sm font-semibold">
-            {Math.round(displayed.netPrice)} {hotel.currency}/noche
+            <MoneyDisplay
+              amount={displayed.netPrice}
+              currency={hotel.currency}
+              originalAmount={originalPerNight}
+              originalCurrency={hotel.originalCurrency}
+              exchangeRate={hotel.exchangeRate}
+              rateAt={hotel.rateAt}
+              suffix="/noche"
+            />
           </div>
           <div className="text-xs text-neutral-600">
-            Total {Math.round(displayed.totalPrice)} {hotel.currency}
+            Total{" "}
+            <MoneyDisplay
+              amount={displayed.totalPrice}
+              currency={hotel.currency}
+              originalAmount={hotel.originalPrice}
+              originalCurrency={hotel.originalCurrency}
+              exchangeRate={hotel.exchangeRate}
+              rateAt={hotel.rateAt}
+            />
           </div>
         </div>
       </div>
