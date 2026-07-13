@@ -13,6 +13,7 @@ import {
 } from "@/lib/quotes/build-quote";
 import type { HotelDetails } from "@/lib/quote-engine/types";
 import type { ComparatorResultRow } from "@/lib/comparator";
+import { persistQuoteSnapshotMutation } from "@/lib/versioning/persist-mutation";
 import type { DashboardTranslation } from "../translations";
 import {
   quoteItemToHotelDetails,
@@ -27,15 +28,35 @@ type UseQuoteItemHandlersParams = {
   setCompareHotel: (state: CompareHotelState) => void;
   compareHotel: CompareHotelState;
   t: DashboardTranslation;
+  /** When set, board/refresh mutations also version + update quotes.snapshot. */
+  persistedQuoteId?: string | null;
 };
+
+async function versionIfPersisted(
+  quoteId: string | null | undefined,
+  newSnapshot: Quote,
+  changeKind: "board_change" | "snapshot_refresh",
+  changeSummary: string,
+) {
+  if (!quoteId) return;
+  try {
+    await persistQuoteSnapshotMutation({
+      quoteId,
+      newSnapshot,
+      changeKind,
+      changeSummary,
+    });
+  } catch (error) {
+    console.error("[versionIfPersisted]", changeKind, error);
+  }
+}
 
 export function useQuoteItemHandlers({
   quote,
-  tripInput,
   updateQuote,
   setCompareHotel,
   compareHotel,
-  t,
+  persistedQuoteId,
 }: UseQuoteItemHandlersParams) {
   const handleSelectQuoteItem = useCallback(
     (itemId: string) => {
@@ -134,7 +155,6 @@ export function useQuoteItemHandlers({
 
   const handleSelectComparatorPrice = useCallback(
     (_row: ComparatorResultRow) => {
-      // Price selection is handled via explicit refresh in HotelCompareModal.
       if (!compareHotel) return;
       setCompareHotel(null);
     },
@@ -161,8 +181,14 @@ export function useQuoteItemHandlers({
       syncQuotePricing(next);
       updateQuote(next);
       setCompareHotel({ itemId: compareHotel.itemId, hotel: refreshed });
+      void versionIfPersisted(
+        persistedQuoteId,
+        next,
+        "snapshot_refresh",
+        `Refresco de precio: ${item.title}`,
+      );
     },
-    [compareHotel, quote, updateQuote, setCompareHotel],
+    [compareHotel, quote, updateQuote, setCompareHotel, persistedQuoteId],
   );
 
   const handleHotelBoardChange = useCallback(
@@ -193,8 +219,14 @@ export function useQuoteItemHandlers({
       applyItemMargin(item, getItemMarginPercent(item));
       syncQuotePricing(next);
       updateQuote(next);
+      void versionIfPersisted(
+        persistedQuoteId,
+        next,
+        "board_change",
+        `Cambio de régimen a ${update.boardCode}: ${item.title}`,
+      );
     },
-    [quote, updateQuote],
+    [quote, updateQuote, persistedQuoteId],
   );
 
   return {

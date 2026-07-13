@@ -9,6 +9,7 @@ interface Props {
   quote: Quote;
   tripInput: ParsedTripInput;
   agentNotes?: string;
+  existingQuoteId?: string | null;
   onSaved: (result: { quoteId: string; clientId: string | null }) => void;
   onClose: () => void;
 }
@@ -17,6 +18,7 @@ export function ClientSaveForm({
   quote,
   tripInput,
   agentNotes,
+  existingQuoteId,
   onSaved,
   onClose,
 }: Props) {
@@ -36,6 +38,7 @@ export function ClientSaveForm({
           quote,
           tripInput,
           agentNotes,
+          existingQuoteId: existingQuoteId ?? undefined,
           client:
             mode === "new"
               ? {
@@ -124,6 +127,7 @@ export function ClientSaveForm({
                   quote,
                   tripInput,
                   agentNotes,
+                  existingQuoteId: existingQuoteId ?? undefined,
                   client: { kind: "skip" },
                 });
                 onSaved(result);

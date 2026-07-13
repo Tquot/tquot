@@ -10,6 +10,7 @@ import {
 import { useDashboardLanguage } from "./dashboard-language-provider";
 import { LocaleToggleButtons } from "./locale-toggle-buttons";
 import { type Locale, translations } from "./translations";
+import { STATUS_LABELS, type QuoteStatus } from "@/lib/quote-status/transitions";
 
 export type RecentQuoteRow = {
   id: string;
@@ -20,6 +21,7 @@ export type RecentQuoteRow = {
   total_public_price: number;
   currency: string;
   created_at: string;
+  status?: string | null;
 };
 
 type LanguageToggleProps = {
@@ -194,9 +196,12 @@ export function LanguageToggle({ email, recentQuotes }: LanguageToggleProps) {
                     <p className="mt-1 text-sm text-tquot-muted">
                       {quote.reference} ·{" "}
                       {formatQuoteDate(quote.departure_date, locale)}
+                      {quote.status
+                        ? ` · ${STATUS_LABELS[quote.status as QuoteStatus] ?? quote.status}`
+                        : ""}
                     </p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-4">
+                  <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-4">
                     <p className="text-lg font-semibold tabular-nums text-tquot-teal">
                       {formatQuotePrice(
                         quote.total_public_price,

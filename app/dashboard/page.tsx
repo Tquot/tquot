@@ -15,7 +15,7 @@ export default async function DashboardPage() {
   const { data: recentQuotes } = await supabase
     .from("quotes")
     .select(
-      "id, reference, origin, destination, departure_date, total_public_price, currency, created_at",
+      "id, reference, origin, destination, departure_date, total_public_price, currency, created_at, status",
     )
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })

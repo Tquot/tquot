@@ -38,8 +38,9 @@ export interface ChangeBoardResult {
 /**
  * Valida el rateKey del régimen elegido con checkRates y devuelve precios.
  *
- * Adaptación TQuot: no hay quotes.snapshot jsonb. El cliente aplica el
- * resultado al quote en memoria (mismo patrón que refreshHotelSnapshot).
+ * Adaptación TQuot: el cliente aplica el resultado al quote en memoria.
+ * Si la cotización ya está guardada, el handler debe llamar a
+ * `persistQuoteSnapshotMutation` con changeKind `board_change`.
  */
 export async function changeHotelBoard(
   input: ChangeBoardInput,

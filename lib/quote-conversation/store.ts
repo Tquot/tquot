@@ -21,6 +21,8 @@ import { syncQuotePricing } from "@/lib/quotes/build-quote";
 interface QuoteConversationStore {
   state: ConversationState;
   messages: Message[];
+  /** Supabase quotes.id once the canvas quote has been persisted (Block E). */
+  persistedQuoteId: string | null;
 
   dispatch: (action: ConversationAction) => void;
 
@@ -35,6 +37,7 @@ interface QuoteConversationStore {
   finalizeAssistantMessage: (id: string) => void;
   addSystemEvent: (type: SystemEventType, payload?: Record<string, unknown>) => string;
   updateQuote: (quote: Quote) => void;
+  setPersistedQuoteId: (quoteId: string | null) => void;
 
   reset: () => void;
 }
@@ -44,6 +47,7 @@ export const useQuoteConversationStore = create<QuoteConversationStore>()(
     subscribeWithSelector((set) => ({
       state: initialState,
       messages: [],
+      persistedQuoteId: null,
 
       dispatch: (action) =>
         set(
@@ -159,8 +163,15 @@ export const useQuoteConversationStore = create<QuoteConversationStore>()(
         );
       },
 
+      setPersistedQuoteId: (quoteId) =>
+        set({ persistedQuoteId: quoteId }, false, "quote/setPersistedId"),
+
       reset: () =>
-        set({ state: initialState, messages: [] }, false, "store/reset"),
+        set(
+          { state: initialState, messages: [], persistedQuoteId: null },
+          false,
+          "store/reset",
+        ),
     })),
     { name: "quote-conversation" },
   ),

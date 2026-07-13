@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { applyClientRefinement } from "@/lib/quote-engine/refine-client";
+import { persistRefinementSnapshot } from "@/lib/quote-engine/apply-refinement";
 import { useQuoteConversationStore } from "@/lib/quote-conversation/store";
 import { isServerRefinementAction } from "@/lib/quotes/refine/utils";
 import type { RefineApplyResult } from "@/lib/quotes/refine/types";
@@ -22,6 +23,9 @@ export function useRefinement() {
     (store) => store.addAssistantMessage,
   );
   const addSystemEvent = useQuoteConversationStore((store) => store.addSystemEvent);
+  const persistedQuoteId = useQuoteConversationStore(
+    (store) => store.persistedQuoteId,
+  );
   const appliedRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -35,6 +39,7 @@ export function useRefinement() {
     appliedRef.current = operationId;
 
     const { quote, parsed, operation } = state;
+    const quoteId = persistedQuoteId;
 
     void (async () => {
       try {
@@ -105,6 +110,25 @@ export function useRefinement() {
           }
         }
 
+        if (
+          quoteId &&
+          nextQuote !== quote &&
+          refineAction.action !== "explain" &&
+          refineAction.action !== "unknown" &&
+          refineAction.action !== "search_web"
+        ) {
+          try {
+            await persistRefinementSnapshot({
+              quoteId,
+              previousSnapshot: quote,
+              newSnapshot: nextQuote,
+              operation: refineAction,
+            });
+          } catch (persistError) {
+            console.error("[useRefinement] persist version failed:", persistError);
+          }
+        }
+
         dispatch({
           type: "REFINE_COMPLETE",
           quote: nextQuote,
@@ -132,5 +156,5 @@ export function useRefinement() {
         });
       }
     })();
-  }, [state, dispatch, addAssistantMessage, addSystemEvent]);
+  }, [state, dispatch, addAssistantMessage, addSystemEvent, persistedQuoteId]);
 }

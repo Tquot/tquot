@@ -1,9 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Modal } from "@/components/ui/Modal";
+import { ShareLinkButton } from "@/components/quote-detail/ShareLinkButton";
+import { StatusSelector } from "@/components/quote-detail/StatusSelector";
+import { VersionHistoryModal } from "@/components/quote-detail/VersionHistoryModal";
+import type { QuoteStatus } from "@/lib/quote-status/transitions";
 import type { ParsedTripInput, Quote } from "@/lib/quotes/build-quote";
+import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useDashboardLanguage } from "../../dashboard-language-provider";
 import { formatMessage } from "../../format-message";
 import { LocaleToggleButtons } from "../../locale-toggle-buttons";
@@ -14,6 +19,7 @@ type ConversationHeaderProps = {
   tripInput: ParsedTripInput | null;
   agentNotes?: string;
   isSavingQuote: boolean;
+  savedQuoteId: string | null;
   onReset: () => void;
   onQuoteSaved: (result: { quoteId: string; clientId: string | null }) => void;
   onAgentPdf: () => void;
@@ -25,6 +31,7 @@ export function ConversationHeader({
   tripInput,
   agentNotes,
   isSavingQuote,
+  savedQuoteId,
   onReset,
   onQuoteSaved,
   onAgentPdf,
@@ -35,6 +42,32 @@ export function ConversationHeader({
     quote && "pricing" in quote && quote.pricing ? (quote as Quote) : null;
 
   const [clientSaveModalOpen, setClientSaveModalOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [quoteStatus, setQuoteStatus] = useState<QuoteStatus>("draft");
+
+  useEffect(() => {
+    if (!savedQuoteId) {
+      setQuoteStatus("draft");
+      return;
+    }
+
+    let cancelled = false;
+    void (async () => {
+      const supabase = createBrowserSupabaseClient();
+      const { data } = await supabase
+        .from("quotes")
+        .select("status")
+        .eq("id", savedQuoteId)
+        .maybeSingle();
+      if (!cancelled && data?.status) {
+        setQuoteStatus(data.status as QuoteStatus);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [savedQuoteId]);
 
   return (
     <>
@@ -114,6 +147,24 @@ export function ConversationHeader({
             </button>
           </div>
         </div>
+
+        {savedQuoteId ? (
+          <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-tquot-border/60 pt-3">
+            <StatusSelector
+              quoteId={savedQuoteId}
+              currentStatus={quoteStatus}
+              onStatusChange={setQuoteStatus}
+            />
+            <ShareLinkButton quoteId={savedQuoteId} />
+            <button
+              type="button"
+              onClick={() => setHistoryOpen(true)}
+              className="rounded-xl border border-tquot-border bg-tquot-surface px-4 py-2 text-sm font-semibold text-tquot-text hover:bg-tquot-bg"
+            >
+              Ver historial
+            </button>
+          </div>
+        ) : null}
       </header>
 
       <Modal
@@ -127,6 +178,7 @@ export function ConversationHeader({
             quote={completeQuote}
             tripInput={tripInput}
             agentNotes={agentNotes}
+            existingQuoteId={savedQuoteId}
             onSaved={(result) => {
               setClientSaveModalOpen(false);
               onQuoteSaved(result);
@@ -135,6 +187,13 @@ export function ConversationHeader({
           />
         ) : null}
       </Modal>
+
+      {historyOpen && savedQuoteId ? (
+        <VersionHistoryModal
+          quoteId={savedQuoteId}
+          onClose={() => setHistoryOpen(false)}
+        />
+      ) : null}
     </>
   );
 }

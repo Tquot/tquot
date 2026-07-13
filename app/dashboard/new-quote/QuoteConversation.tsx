@@ -49,11 +49,17 @@ export function QuoteConversation({ agencyConfig }: QuoteConversationProps) {
   const addAssistantMessage = useQuoteConversationStore(
     (store) => store.addAssistantMessage,
   );
+  const persistedQuoteId = useQuoteConversationStore(
+    (store) => store.persistedQuoteId,
+  );
+  const setPersistedQuoteId = useQuoteConversationStore(
+    (store) => store.setPersistedQuoteId,
+  );
 
   const [agentNotes, setAgentNotes] = useState(t.defaultAgentNotes);
-  const [savedQuoteId, setSavedQuoteId] = useState<string | null>(null);
   const [isSavingQuote, setIsSavingQuote] = useState(false);
   const [compareHotel, setCompareHotel] = useState<CompareHotelState>(null);
+  const savedQuoteId = persistedQuoteId;
 
   const completeQuote = isCompleteQuote(quote) ? quote : null;
   const completeQuoteWithGroup = completeQuote as EngineQuote | null;
@@ -81,6 +87,7 @@ export function QuoteConversation({ agencyConfig }: QuoteConversationProps) {
     setCompareHotel,
     compareHotel,
     t,
+    persistedQuoteId: savedQuoteId,
   });
 
   async function persistCurrentQuote(): Promise<string | null> {
@@ -99,9 +106,10 @@ export function QuoteConversation({ agencyConfig }: QuoteConversationProps) {
         tripInput: parsedTripInput,
         agentNotes: agentNotes || undefined,
         client: { kind: "skip" },
+        existingQuoteId: savedQuoteId ?? undefined,
       });
       console.log("[PDF] persistCurrentQuote result:", result);
-      setSavedQuoteId(result.quoteId);
+      setPersistedQuoteId(result.quoteId);
       return result.quoteId;
     } catch (persistError) {
       console.error("[persistCurrentQuote] error", persistError);
@@ -112,7 +120,7 @@ export function QuoteConversation({ agencyConfig }: QuoteConversationProps) {
   }
 
   function handleQuoteSaved(result: { quoteId: string; clientId: string | null }) {
-    setSavedQuoteId(result.quoteId);
+    setPersistedQuoteId(result.quoteId);
     openServerPdf(result.quoteId, "client");
   }
 
@@ -144,7 +152,7 @@ export function QuoteConversation({ agencyConfig }: QuoteConversationProps) {
 
   function handleReset() {
     reset();
-    setSavedQuoteId(null);
+    setPersistedQuoteId(null);
     setCompareHotel(null);
   }
 
@@ -161,6 +169,7 @@ export function QuoteConversation({ agencyConfig }: QuoteConversationProps) {
         tripInput={parsedTripInput}
         agentNotes={agentNotes}
         isSavingQuote={isSavingQuote}
+        savedQuoteId={savedQuoteId}
         onReset={handleReset}
         onQuoteSaved={handleQuoteSaved}
         onAgentPdf={() => void handleAgentPdf()}

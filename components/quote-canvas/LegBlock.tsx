@@ -25,6 +25,7 @@ import {
   type QuoteItem,
 } from "@/lib/quotes/build-quote";
 import { cloneQuote } from "@/app/dashboard/new-quote/quote-shared";
+import { persistQuoteSnapshotMutation } from "@/lib/versioning/persist-mutation";
 
 interface Props {
   leg: TripLeg;
@@ -37,6 +38,7 @@ export function LegBlock({ leg, legIndex, totalLegs, agencyConfig }: Props) {
   const quote = useQuoteConversationStore(selectCurrentQuote);
   const parsedInput = useQuoteConversationStore(selectParsedTripInput);
   const updateQuote = useQuoteConversationStore((s) => s.updateQuote);
+  const persistedQuoteId = useQuoteConversationStore((s) => s.persistedQuoteId);
 
   if (!quote || !parsedInput) return null;
 
@@ -98,6 +100,16 @@ export function LegBlock({ leg, legIndex, totalLegs, agencyConfig }: Props) {
               applyItemMargin(item, getItemMarginPercent(item));
               syncQuotePricing(next);
               updateQuote(next);
+              if (persistedQuoteId) {
+                void persistQuoteSnapshotMutation({
+                  quoteId: persistedQuoteId,
+                  newSnapshot: next,
+                  changeKind: "board_change",
+                  changeSummary: `Cambio de régimen a ${update.boardCode}: ${item.title}`,
+                }).catch((error) =>
+                  console.error("[LegBlock] version board_change failed", error),
+                );
+              }
             }}
           />
         );

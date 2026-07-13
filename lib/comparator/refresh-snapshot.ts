@@ -10,8 +10,10 @@ import type {
 /**
  * Re-busca el proveedor original y devuelve precios nuevos.
  *
- * Adaptación TQuot: no hay `quotes.snapshot` jsonb. El cliente aplica el
- * resultado al quote en memoria vía `onHotelRefreshed`.
+ * Adaptación TQuot: el cliente aplica el resultado al quote en memoria vía
+ * `onHotelRefreshed`. Si la cotización ya está guardada, el handler de UI
+ * debe llamar a `persistQuoteSnapshotMutation` con changeKind
+ * `snapshot_refresh` (ver use-quote-item-handlers).
  */
 export async function refreshHotelSnapshot(
   input: RefreshSnapshotInput,

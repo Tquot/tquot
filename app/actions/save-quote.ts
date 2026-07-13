@@ -225,6 +225,7 @@ export async function saveQuote(
         client_message: null,
         payment_terms: null,
         cancellation_policy: null,
+        snapshot: args.quote,
       })
       .select("id")
       .single();
@@ -242,6 +243,21 @@ export async function saveQuote(
     }
 
     const quoteId = insertedQuote.id as string;
+
+    try {
+      const { createQuoteVersion } = await import(
+        "@/lib/versioning/snapshot-version"
+      );
+      await createQuoteVersion({
+        quoteId,
+        snapshot: args.quote,
+        changeKind: "initial",
+        changeSummary: "Versión inicial al guardar",
+      });
+    } catch (versionError) {
+      console.error("[saveQuote] version create failed:", versionError);
+    }
+
     const pricedItems = collectPricedItems(args.quote);
 
     if (pricedItems.length > 0) {

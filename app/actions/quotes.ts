@@ -76,6 +76,8 @@ export async function saveQuoteWithClient(input: {
   tripInput: ParsedTripInput;
   agentNotes?: string;
   client: ClientSelection;
+  /** If set, update this quote (with versioning) instead of inserting a new one. */
+  existingQuoteId?: string;
 }): Promise<{ quoteId: string; clientId: string | null }> {
   const parsed = SaveQuoteSchema.safeParse(input);
   if (!parsed.success) {
@@ -93,6 +95,7 @@ export async function saveQuoteWithClient(input: {
     tripInput: ParsedTripInput;
     agentNotes?: string;
   };
+  const existingQuoteId = input.existingQuoteId;
 
   let clientId: string | null = null;
 
@@ -127,40 +130,91 @@ export async function saveQuoteWithClient(input: {
     dayAfterDeparture,
   });
 
-  const { data: inserted, error: insErr } = await supabase
-    .from("quotes")
-    .insert({
-      user_id: userId,
-      agency_id: agencyId,
-      agent_id: userId,
-      client_id: clientId,
-      reference: `${quote.id}-${Date.now()}`,
-      valid_until: validUntil,
-      origin: tripInput.origin,
-      destination: tripInput.destination,
-      departure_date: tripInput.dates.start,
-      return_date: tripInput.dates.end,
-      nights,
-      adults: tripInput.passengers.adults,
-      children: tripInput.passengers.children,
-      infants: 0,
-      purpose: "",
-      total_net_cost: baseTotal,
-      total_margin: margin,
-      total_margin_percent: totalMarginPercent,
-      total_public_price: finalTotal,
-      currency,
-      agent_notes: agentNotes ?? null,
-      client_message: null,
-      payment_terms: null,
-      cancellation_policy: null,
-    })
-    .select("id")
-    .single();
+  const quoteFields = {
+    client_id: clientId,
+    valid_until: validUntil,
+    origin: tripInput.origin,
+    destination: tripInput.destination,
+    departure_date: tripInput.dates.start,
+    return_date: tripInput.dates.end,
+    nights,
+    adults: tripInput.passengers.adults,
+    children: tripInput.passengers.children,
+    infants: 0,
+    purpose: "",
+    total_net_cost: baseTotal,
+    total_margin: margin,
+    total_margin_percent: totalMarginPercent,
+    total_public_price: finalTotal,
+    currency,
+    agent_notes: agentNotes ?? null,
+    client_message: null,
+    payment_terms: null,
+    cancellation_policy: null,
+    snapshot: quote,
+  };
 
-  if (insErr) throw new Error(`quote_insert_failed: ${insErr.message}`);
+  let quoteId: string;
 
-  const quoteId = inserted.id as string;
+  if (existingQuoteId) {
+    const { data: previous } = await supabase
+      .from("quotes")
+      .select("snapshot")
+      .eq("id", existingQuoteId)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (!previous) throw new Error("quote_not_found");
+
+    if (previous.snapshot) {
+      const { createQuoteVersion } = await import(
+        "@/lib/versioning/snapshot-version"
+      );
+      await createQuoteVersion({
+        quoteId: existingQuoteId,
+        snapshot: previous.snapshot as Quote,
+        changeKind: "manual_edit",
+        changeSummary: "Guardado de cotización actualizada",
+      });
+    }
+
+    const { error: updErr } = await supabase
+      .from("quotes")
+      .update(quoteFields)
+      .eq("id", existingQuoteId)
+      .eq("user_id", userId);
+
+    if (updErr) throw new Error(`quote_update_failed: ${updErr.message}`);
+    quoteId = existingQuoteId;
+
+    await supabase.from("quote_line_items").delete().eq("quote_id", quoteId);
+  } else {
+    const { data: inserted, error: insErr } = await supabase
+      .from("quotes")
+      .insert({
+        user_id: userId,
+        agency_id: agencyId,
+        agent_id: userId,
+        reference: `${quote.id}-${Date.now()}`,
+        ...quoteFields,
+      })
+      .select("id")
+      .single();
+
+    if (insErr) throw new Error(`quote_insert_failed: ${insErr.message}`);
+    quoteId = inserted.id as string;
+
+    const { createQuoteVersion } = await import(
+      "@/lib/versioning/snapshot-version"
+    );
+    await createQuoteVersion({
+      quoteId,
+      snapshot: quote,
+      changeKind: "initial",
+      changeSummary: "Versión inicial al guardar",
+    });
+  }
+
   const pricedItems = collectPricedItems(quote);
 
   if (pricedItems.length > 0) {
@@ -188,7 +242,9 @@ export async function saveQuoteWithClient(input: {
       .insert(lineRows);
 
     if (lineItemsError) {
-      await supabase.from("quotes").delete().eq("id", quoteId);
+      if (!existingQuoteId) {
+        await supabase.from("quotes").delete().eq("id", quoteId);
+      }
       throw new Error(`quote_line_items_failed: ${lineItemsError.message}`);
     }
   }
