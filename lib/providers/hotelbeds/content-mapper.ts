@@ -27,6 +27,16 @@ const FACILITY_GROUPS: Record<number, keyof GroupedFacilities> = {
   120: "outdoor",
 };
 
+/** Debug: inspect raw Hotelbeds Content API hotel payload. */
+export function logRawHotelContentPayload(hotelData: Record<string, unknown>) {
+  console.log("[content-mapper] raw hotel data keys:", Object.keys(hotelData));
+  console.log(
+    "[content-mapper] facilities:",
+    Array.isArray(hotelData.facilities) ? hotelData.facilities.length : undefined,
+  );
+  console.log("[content-mapper] description:", !!hotelData.description);
+}
+
 export function groupFacilities(facilities: HotelFacility[]): GroupedFacilities {
   const empty: GroupedFacilities = {
     rooms: [],

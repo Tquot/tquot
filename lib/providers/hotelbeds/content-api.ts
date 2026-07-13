@@ -13,6 +13,7 @@ import type {
   HotelFacility,
   HotelImage,
 } from "./content-types";
+import { logRawHotelContentPayload } from "./content-mapper";
 
 export type {
   CancellationPolicy,
@@ -90,6 +91,8 @@ export async function fetchHotelContentRaw(
 
 function mapHotelContent(hotelRaw: unknown): HotelContent {
   const hotel = asRecord(hotelRaw);
+  logRawHotelContentPayload(hotel);
+
   const coordinates = asRecord(hotel.coordinates);
   const lat = Number(coordinates.latitude);
   const lng = Number(coordinates.longitude);
