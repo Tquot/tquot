@@ -9,10 +9,10 @@ import {
   inferTypicalGroupSize,
   type ClientQuoteRow,
 } from "@/lib/clients/aggregate";
-import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useDashboardLanguage } from "../dashboard-language-provider";
 import { formatMessage } from "../format-message";
 import { LocaleToggleButtons } from "../locale-toggle-buttons";
+import { getClientsWithQuotes } from "./actions";
 
 type ClientRow = {
   id: string;
@@ -62,49 +62,25 @@ export function ClientsClient() {
     setIsLoading(true);
     setError("");
 
-    const supabase = createBrowserSupabaseClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // Same pattern as inventory: server action + createServerSupabaseClient (cookie session)
+    const { clients: clientRows, quotes: quoteRows, error: loadError } =
+      await getClientsWithQuotes();
 
-    if (!user) {
-      setError("Not authenticated.");
-      setIsLoading(false);
-      return;
-    }
-
-    const [{ data: clientRows, error: clientsError }, { data: quoteRows, error: quotesError }] =
-      await Promise.all([
-        supabase
-          .from("clients")
-          .select("id, full_name, email, created_at")
-          .eq("user_id", user.id)
-          .order("full_name"),
-        supabase
-          .from("quotes")
-          .select(
-            "id, client_id, destination, departure_date, return_date, adults, children, total_public_price, currency, created_at, reference",
-          )
-          .eq("user_id", user.id)
-          .not("client_id", "is", null)
-          .order("created_at", { ascending: false }),
-      ]);
-
-    if (clientsError || quotesError) {
-      setError(clientsError?.message ?? quotesError?.message ?? "Error loading clients");
+    if (loadError) {
+      setError(loadError);
       setIsLoading(false);
       return;
     }
 
     const quotesByClient = new Map<string, ClientQuoteRow[]>();
-    for (const quote of (quoteRows ?? []) as ClientQuoteRow[]) {
+    for (const quote of quoteRows) {
       if (!quote.client_id) continue;
       const bucket = quotesByClient.get(quote.client_id) ?? [];
       bucket.push(quote);
       quotesByClient.set(quote.client_id, bucket);
     }
 
-    const enriched = ((clientRows ?? []) as ClientRow[]).map((client) => {
+    const enriched = clientRows.map((client) => {
       const quotes = quotesByClient.get(client.id) ?? [];
       return {
         ...client,
@@ -214,7 +190,9 @@ export function ClientsClient() {
                         <p className="text-xs uppercase tracking-wide text-tquot-muted">
                           {t.clientQuoteCount}
                         </p>
-                        <p className="font-semibold tabular-nums">{client.stats.quoteCount}</p>
+                        <p className="font-semibold tabular-nums">
+                          {client.stats.quoteCount}
+                        </p>
                       </div>
                       <div>
                         <p className="text-xs uppercase tracking-wide text-tquot-muted">
@@ -231,7 +209,10 @@ export function ClientsClient() {
                           {t.clientTotalSpent}
                         </p>
                         <p className="font-semibold tabular-nums text-tquot-teal">
-                          {formatTotalSpent(client.stats.totalSpentByCurrency, locale)}
+                          {formatTotalSpent(
+                            client.stats.totalSpentByCurrency,
+                            locale,
+                          )}
                         </p>
                       </div>
                     </div>
@@ -245,15 +226,22 @@ export function ClientsClient() {
                             {t.clientPreferences}
                           </p>
                           <p className="mt-2 text-sm text-tquot-text">
-                            <span className="font-medium">{t.clientTopDestinations}: </span>
+                            <span className="font-medium">
+                              {t.clientTopDestinations}:{" "}
+                            </span>
                             {client.topDestinations.length > 0
                               ? client.topDestinations
-                                  .map((entry) => `${entry.destination} (${entry.count})`)
+                                  .map(
+                                    (entry) =>
+                                      `${entry.destination} (${entry.count})`,
+                                  )
                                   .join(", ")
                               : "—"}
                           </p>
                           <p className="mt-2 text-sm text-tquot-text">
-                            <span className="font-medium">{t.clientTypicalGroupSize}: </span>
+                            <span className="font-medium">
+                              {t.clientTypicalGroupSize}:{" "}
+                            </span>
                             {client.typicalGroupSize
                               ? formatMessage(t.clientTravelers, {
                                   count: String(client.typicalGroupSize),
@@ -268,7 +256,9 @@ export function ClientsClient() {
                       </h3>
 
                       {client.quotes.length === 0 ? (
-                        <p className="text-sm text-tquot-muted">{t.clientsNoQuotes}</p>
+                        <p className="text-sm text-tquot-muted">
+                          {t.clientsNoQuotes}
+                        </p>
                       ) : (
                         <ul className="space-y-3">
                           {client.quotes.map((quote) => (
@@ -282,7 +272,8 @@ export function ClientsClient() {
                                 </p>
                                 <p className="mt-1 text-sm text-tquot-muted">
                                   {formatDate(quote.departure_date, locale)} –{" "}
-                                  {formatDate(quote.return_date, locale)} · {quote.reference}
+                                  {formatDate(quote.return_date, locale)} ·{" "}
+                                  {quote.reference}
                                 </p>
                               </div>
                               <div className="flex items-center gap-3">
