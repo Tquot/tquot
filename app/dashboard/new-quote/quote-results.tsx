@@ -9,12 +9,15 @@ import { useDashboardLanguage } from "../dashboard-language-provider";
 import { formatMessage } from "../format-message";
 import type { Locale } from "../translations";
 import type { DashboardTranslation } from "../translations";
+import { useEffect, useRef, useState } from "react";
+import { BoardChips } from "@/components/quote-canvas/BoardChips";
+import { getBoardShortCode } from "@/lib/providers/hotelbeds/board-mapping";
+import type { BoardCode } from "@/lib/quote-engine/types";
 import {
   parseHotelContextFromTitle,
   parseHotelNightsFromTitle,
   parseHotelRoomTypeFromTitle,
 } from "@/lib/hotels/parse-hotel-title";
-import { useEffect, useRef, useState } from "react";
 
 const sourceStyles: Record<QuoteItemSource, string> = {
   mock: "border-tquot-warm/30 bg-amber-50 text-tquot-warm",
@@ -185,6 +188,7 @@ function HotelQuoteItemExpanded({
   roomType,
   board,
   onBoardChange,
+  onBoardPriceChange,
   marginPercent,
   isSelectable,
   isIndependent,
@@ -203,6 +207,13 @@ function HotelQuoteItemExpanded({
   roomType: string | null;
   board: HotelBoardCode;
   onBoardChange: (code: HotelBoardCode) => void;
+  onBoardPriceChange?: (update: {
+    boardCode: BoardCode;
+    totalPrice: number;
+    rateKey?: string;
+    currency: string;
+    fetchedAt: string;
+  }) => void;
   marginPercent: number;
   isSelectable: boolean;
   isIndependent: boolean;
@@ -217,6 +228,8 @@ function HotelQuoteItemExpanded({
   const pricePerNight = Math.round(item.price / nights);
   const showCompareButton =
     Boolean(item.hotelDetails) && Boolean(onCompare);
+  const boardOptions = item.hotelDetails?.boardOptions ?? [];
+  const hasLiveBoards = boardOptions.length > 0;
 
   return (
     <div
@@ -243,24 +256,58 @@ function HotelQuoteItemExpanded({
         <legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-tquot-muted">
           {t.hotelBoardTitle}
         </legend>
-        <div className="flex flex-wrap gap-2">
-          {HOTEL_BOARD_CODES.map((code) => (
-            <button
-              key={code}
-              type="button"
-              title={hotelBoardLabel(code, t)}
-              onClick={() => onBoardChange(code)}
-              className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                board === code
-                  ? "border-tquot-teal bg-tquot-teal/10 text-tquot-teal"
-                  : "border-tquot-border bg-tquot-surface text-tquot-muted hover:border-tquot-teal/40 hover:text-tquot-text"
-              }`}
-            >
-              {code}
-            </button>
-          ))}
-        </div>
-        <p className="mt-1.5 text-xs text-tquot-muted">{hotelBoardLabel(board, t)}</p>
+        {hasLiveBoards ? (
+          <BoardChips
+            hotel={{
+              id: item.id,
+              boardCode: item.hotelDetails?.boardCode,
+              boardOptions,
+              netPrice: pricePerNight,
+              nights,
+              currency: item.hotelDetails?.currency ?? "EUR",
+              rateKey: item.hotelDetails?.rateKey,
+              connectionId: item.hotelDetails?.connectionId,
+            }}
+            stayTotalPrice={item.price}
+            onUpdate={(update) => {
+              onBoardPriceChange?.({
+                boardCode: update.boardCode,
+                totalPrice: update.totalPrice,
+                rateKey: update.rateKey,
+                currency: update.currency,
+                fetchedAt: update.fetchedAt,
+              });
+            }}
+          />
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-2">
+              {HOTEL_BOARD_CODES.map((code) => (
+                <button
+                  key={code}
+                  type="button"
+                  title={hotelBoardLabel(code, t)}
+                  onClick={() => onBoardChange(code)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    board === code
+                      ? "border-tquot-teal bg-tquot-teal/10 text-tquot-teal"
+                      : "border-tquot-border bg-tquot-surface text-tquot-muted hover:border-tquot-teal/40 hover:text-tquot-text"
+                  }`}
+                >
+                  {code}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1.5 text-xs text-tquot-muted">
+              {hotelBoardLabel(board, t)}
+            </p>
+          </>
+        )}
+        {hasLiveBoards && item.hotelDetails?.boardCode ? (
+          <p className="mt-1.5 text-xs text-tquot-muted">
+            {getBoardShortCode(item.hotelDetails.boardCode)} · régimen cotizado
+          </p>
+        ) : null}
       </fieldset>
 
       <dl className="mb-4 grid gap-2 text-sm sm:grid-cols-2">
@@ -373,6 +420,7 @@ function HotelQuoteItemCard({
   onToggle,
   onMarginChange,
   onCompare,
+  onBoardPriceChange,
   selectionMode = "exclusive",
 }: {
   item: QuoteItem;
@@ -380,6 +428,16 @@ function HotelQuoteItemCard({
   onToggle?: (itemId: string) => void;
   onMarginChange?: (itemId: string, marginPercent: number) => void;
   onCompare?: (itemId: string) => void;
+  onBoardPriceChange?: (
+    itemId: string,
+    update: {
+      boardCode: BoardCode;
+      totalPrice: number;
+      rateKey?: string;
+      currency: string;
+      fetchedAt: string;
+    },
+  ) => void;
   selectionMode?: "exclusive" | "independent";
 }) {
   const { locale, t } = useDashboardLanguage();
@@ -573,6 +631,11 @@ function HotelQuoteItemCard({
           roomType={roomType}
           board={board}
           onBoardChange={setBoard}
+          onBoardPriceChange={
+            onBoardPriceChange
+              ? (update) => onBoardPriceChange(item.id, update)
+              : undefined
+          }
           marginPercent={marginPercent}
           isSelectable={isSelectable}
           isIndependent={isIndependent}
@@ -995,6 +1058,7 @@ function QuoteItemCard({
   onToggle,
   onMarginChange,
   onCompare,
+  onBoardPriceChange,
   selectionMode = "exclusive",
 }: {
   item: QuoteItem;
@@ -1002,6 +1066,16 @@ function QuoteItemCard({
   onToggle?: (itemId: string) => void;
   onMarginChange?: (itemId: string, marginPercent: number) => void;
   onCompare?: (itemId: string) => void;
+  onBoardPriceChange?: (
+    itemId: string,
+    update: {
+      boardCode: BoardCode;
+      totalPrice: number;
+      rateKey?: string;
+      currency: string;
+      fetchedAt: string;
+    },
+  ) => void;
   selectionMode?: "exclusive" | "independent";
 }) {
   const { locale, t } = useDashboardLanguage();
@@ -1014,6 +1088,7 @@ function QuoteItemCard({
         onToggle={onToggle}
         onMarginChange={onMarginChange}
         onCompare={onCompare}
+        onBoardPriceChange={onBoardPriceChange}
         selectionMode={selectionMode}
       />
     );
@@ -1202,6 +1277,16 @@ type QuoteItemListProps = {
   onMarginChange?: (itemId: string, marginPercent: number) => void;
   onFlightFareSelect?: (itemId: string, offerId: string) => void;
   onCompareItem?: (itemId: string) => void;
+  onBoardPriceChange?: (
+    itemId: string,
+    update: {
+      boardCode: BoardCode;
+      totalPrice: number;
+      rateKey?: string;
+      currency: string;
+      fetchedAt: string;
+    },
+  ) => void;
   selectionMode?: "exclusive" | "independent";
   passengerCount?: number;
 };
@@ -1231,6 +1316,7 @@ function renderQuoteItemList(items: QuoteItem[], props: QuoteItemListProps) {
     onMarginChange,
     onFlightFareSelect,
     onCompareItem,
+    onBoardPriceChange,
     selectionMode = "exclusive",
     passengerCount,
   } = props;
@@ -1261,6 +1347,7 @@ function renderQuoteItemList(items: QuoteItem[], props: QuoteItemListProps) {
           onToggle={onToggleItem}
           onMarginChange={onMarginChange}
           onCompare={onCompareItem}
+          onBoardPriceChange={onBoardPriceChange}
           selectionMode={selectionMode}
         />
       ))}
@@ -1503,6 +1590,7 @@ export function QuoteItemsSection({
   onToggleItem,
   onMarginChange,
   onCompareItem,
+  onBoardPriceChange,
   selectionMode = "exclusive",
   passengerCount,
 }: {
@@ -1513,6 +1601,16 @@ export function QuoteItemsSection({
   onToggleItem?: (itemId: string) => void;
   onMarginChange?: (itemId: string, marginPercent: number) => void;
   onCompareItem?: (itemId: string) => void;
+  onBoardPriceChange?: (
+    itemId: string,
+    update: {
+      boardCode: BoardCode;
+      totalPrice: number;
+      rateKey?: string;
+      currency: string;
+      fetchedAt: string;
+    },
+  ) => void;
   selectionMode?: "exclusive" | "independent";
   passengerCount?: number;
 }) {
@@ -1528,6 +1626,7 @@ export function QuoteItemsSection({
           onToggleItem,
           onMarginChange,
           onCompareItem,
+          onBoardPriceChange,
           selectionMode,
           passengerCount,
         })}

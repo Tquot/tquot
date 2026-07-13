@@ -34,7 +34,7 @@ export function quoteItemToHotel(item: QuoteItem, legId = DEFAULT_TRIP_LEG_ID): 
     id: item.id,
     legId,
     name: context.name || item.title.split("—")[0]?.trim() || item.title,
-    netPrice: item.hotelDetails?.netPrice ?? Math.round(item.price / nights),
+    netPrice: Math.round(item.price / nights),
     currency: item.hotelDetails?.currency ?? "EUR",
     nights,
     stars: context.stars ? Number.parseInt(context.stars, 10) || 0 : 0,
@@ -45,7 +45,10 @@ export function quoteItemToHotel(item: QuoteItem, legId = DEFAULT_TRIP_LEG_ID): 
     totalForGroup: item.price,
     imageUrl: item.imageUrl,
     description: item.description,
+    boardCode: item.hotelDetails?.boardCode,
+    boardOptions: item.hotelDetails?.boardOptions,
     content: item.hotelDetails?.content,
+    connectionId: item.hotelDetails?.connectionId,
   };
 }
 

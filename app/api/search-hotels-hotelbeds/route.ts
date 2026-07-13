@@ -227,22 +227,37 @@ function buildRoomsFromGroupDistribution(params: {
   return rooms;
 }
 
-function toHotelOption(hotel: {
-  providerHotelId: string;
-  name: string;
-  category: number | null;
-  address: string | null;
-  rooms: Array<{
-    roomType: string;
-    netPrice: number;
-    pricePerNight: number;
-    providerRoomCode: string;
-    rawData?: unknown;
-    currency?: string;
-  }>;
-}): HotelOption | null {
+import { parseBoardOptionsFromRooms } from "@/lib/providers/hotelbeds/parse-board-options";
+
+function nightsBetween(checkIn: string, checkOut: string): number {
+  const start = new Date(checkIn).getTime();
+  const end = new Date(checkOut).getTime();
+  const diff = Math.max(0, end - start);
+  return Math.max(1, Math.round(diff / 86_400_000));
+}
+
+function toHotelOption(
+  hotel: {
+    providerHotelId: string;
+    name: string;
+    category: number | null;
+    address: string | null;
+    rooms: Array<{
+      roomType: string;
+      boardType?: string;
+      netPrice: number;
+      pricePerNight: number;
+      providerRoomCode: string;
+      refundable?: boolean;
+      rawData?: unknown;
+      currency?: string;
+    }>;
+  },
+  nights: number,
+): HotelOption | null {
   if (!Array.isArray(hotel.rooms) || hotel.rooms.length === 0) return null;
 
+  const boardOptions = parseBoardOptionsFromRooms(hotel.rooms, nights);
   const sorted = hotel.rooms
     .filter((room) => Number.isFinite(room.pricePerNight) && room.pricePerNight > 0)
     .sort((a, b) => a.pricePerNight - b.pricePerNight);
@@ -250,15 +265,29 @@ function toHotelOption(hotel: {
   const cheapest = sorted[0];
   if (!cheapest) return null;
 
+  const selected =
+    boardOptions[0] ??
+    ({
+      boardCode: cheapest.boardType ?? "RO",
+      rateKey: cheapest.providerRoomCode,
+      totalPrice: cheapest.netPrice,
+      netPrice: cheapest.pricePerNight,
+      currency: cheapest.currency ?? "EUR",
+    } as const);
+
   const cancellationPolicies = extractCancellationPolicies(
     cheapest.rawData,
-    cheapest.currency ?? "EUR",
+    selected.currency ?? "EUR",
   );
 
   return {
     name: hotel.name,
-    pricePerNight: `${Math.round(cheapest.pricePerNight)} EUR`,
-    ...(Number.isFinite(cheapest.netPrice) ? { netPrice: cheapest.netPrice } : {}),
+    pricePerNight: `${Math.round(selected.netPrice)} EUR`,
+    ...(Number.isFinite(selected.totalPrice)
+      ? { netPrice: selected.totalPrice }
+      : Number.isFinite(cheapest.netPrice)
+        ? { netPrice: cheapest.netPrice }
+        : {}),
     stars: hotel.category ?? "Unknown",
     rating: "Unknown",
     address: hotel.address ?? "Unknown",
@@ -267,9 +296,9 @@ function toHotelOption(hotel: {
     distanceFromCenter: "Distance unavailable",
     providerName: "Hotelbeds",
     hotelCode: hotel.providerHotelId,
-    ...(cheapest.providerRoomCode
-      ? { rateKey: cheapest.providerRoomCode }
-      : {}),
+    ...(selected.rateKey ? { rateKey: selected.rateKey } : {}),
+    ...(selected.boardCode ? { boardCode: selected.boardCode } : {}),
+    ...(boardOptions.length > 0 ? { boardOptions } : {}),
     ...(cancellationPolicies.length > 0 ? { cancellationPolicies } : {}),
   };
 }
@@ -398,9 +427,11 @@ export async function POST(request: NextRequest) {
       hotelCodes,
     );
 
+    const nights = nightsBetween(checkIn, checkOut);
+
     const hotels = result.data
       .map((hotel): HotelOption | null => {
-        const option = toHotelOption(hotel);
+        const option = toHotelOption(hotel, nights);
         if (!option) return null;
         const imageUrl = imageByCode.get(hotel.providerHotelId);
         return {

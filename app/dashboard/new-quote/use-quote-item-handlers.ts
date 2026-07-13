@@ -165,6 +165,38 @@ export function useQuoteItemHandlers({
     [compareHotel, quote, updateQuote, setCompareHotel],
   );
 
+  const handleHotelBoardChange = useCallback(
+    (
+      itemId: string,
+      update: {
+        boardCode: string;
+        totalPrice: number;
+        rateKey?: string;
+        currency: string;
+        fetchedAt: string;
+      },
+    ) => {
+      if (!quote) return;
+      const next = cloneQuote(quote);
+      const item = next.hotels.find((entry) => entry.id === itemId);
+      if (!item) return;
+
+      item.price = update.totalPrice;
+      item.hotelDetails = {
+        ...item.hotelDetails,
+        boardCode: update.boardCode,
+        netPrice: update.totalPrice,
+        rateKey: update.rateKey ?? item.hotelDetails?.rateKey,
+        currency: update.currency,
+        fetchedAt: update.fetchedAt,
+      };
+      applyItemMargin(item, getItemMarginPercent(item));
+      syncQuotePricing(next);
+      updateQuote(next);
+    },
+    [quote, updateQuote],
+  );
+
   return {
     handleSelectQuoteItem,
     handleToggleExperienceItem,
@@ -174,5 +206,6 @@ export function useQuoteItemHandlers({
     handleCompareHotel,
     handleSelectComparatorPrice,
     handleHotelRefreshed,
+    handleHotelBoardChange,
   };
 }

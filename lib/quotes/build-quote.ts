@@ -130,6 +130,8 @@ export type QuoteItemHotelDetails = {
   currency?: string;
   /** ISO timestamp when this price was captured at quote build time. */
   fetchedAt?: string;
+  boardCode?: import("@/lib/quote-engine/types").BoardCode;
+  boardOptions?: import("@/lib/quote-engine/types").BoardOption[];
   /** Hotelbeds Content API snapshot (optional; also cached in hotelbeds_content). */
   content?: import("@/lib/providers/hotelbeds/content-types").HotelContent;
 };
@@ -789,6 +791,10 @@ function buildHotelDetails(
     ...(connectionId ? { connectionId } : {}),
     ...(hotel.rateKey ? { rateKey: hotel.rateKey } : {}),
     ...(Number.isFinite(hotel.netPrice) ? { netPrice: hotel.netPrice } : {}),
+    ...(hotel.boardCode ? { boardCode: hotel.boardCode } : {}),
+    ...(hotel.boardOptions && hotel.boardOptions.length > 0
+      ? { boardOptions: hotel.boardOptions }
+      : {}),
     ...(provider ? { provider } : {}),
     ...(hotel.content ? { content: hotel.content } : {}),
     currency: "EUR",

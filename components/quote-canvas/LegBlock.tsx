@@ -17,7 +17,14 @@ import {
 } from "@/lib/quote-conversation/store";
 import type { TripLeg } from "@/lib/quote-engine/schemas-v2";
 import { toParsedTripInputV2 } from "@/lib/quote-engine/schemas-v2";
-import type { Quote, QuoteItem } from "@/lib/quotes/build-quote";
+import {
+  applyItemMargin,
+  getItemMarginPercent,
+  syncQuotePricing,
+  type Quote,
+  type QuoteItem,
+} from "@/lib/quotes/build-quote";
+import { cloneQuote } from "@/app/dashboard/new-quote/quote-shared";
 
 interface Props {
   leg: TripLeg;
@@ -29,6 +36,7 @@ interface Props {
 export function LegBlock({ leg, legIndex, totalLegs, agencyConfig }: Props) {
   const quote = useQuoteConversationStore(selectCurrentQuote);
   const parsedInput = useQuoteConversationStore(selectParsedTripInput);
+  const updateQuote = useQuoteConversationStore((s) => s.updateQuote);
 
   if (!quote || !parsedInput) return null;
 
@@ -69,7 +77,30 @@ export function LegBlock({ leg, legIndex, totalLegs, agencyConfig }: Props) {
           ? getHandoff(provider, hotel, context)
           : null;
 
-        return <HotelCard key={hotel.id} hotel={hotel} handoff={handoff} />;
+        return (
+          <HotelCard
+            key={hotel.id}
+            hotel={hotel}
+            handoff={handoff}
+            onBoardUpdated={(update) => {
+              const next = cloneQuote(quote as Quote);
+              const item = next.hotels.find((entry) => entry.id === update.hotelId);
+              if (!item) return;
+              item.price = update.totalPrice;
+              item.hotelDetails = {
+                ...item.hotelDetails,
+                boardCode: update.boardCode,
+                netPrice: update.totalPrice,
+                rateKey: update.rateKey ?? item.hotelDetails?.rateKey,
+                currency: update.currency,
+                fetchedAt: update.fetchedAt,
+              };
+              applyItemMargin(item, getItemMarginPercent(item));
+              syncQuotePricing(next);
+              updateQuote(next);
+            }}
+          />
+        );
       })}
 
       {flights.map((flight) => {

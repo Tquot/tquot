@@ -19,11 +19,33 @@ export interface Hotel {
   fetchedAt: string;
   hotelCode?: string;
   rateKey?: string;
+  /** Agency Hotelbeds connection (for checkRates / refresh). */
+  connectionId?: string;
   totalForGroup?: number;
   imageUrl?: string;
   description?: string;
+  /** Régimen actualmente seleccionado (códigos Hotelbeds: RO/BB/HB/FB/AI). */
+  boardCode?: BoardCode;
+  /** Combinaciones tarifa×régimen disponibles (Hotelbeds). */
+  boardOptions?: BoardOption[];
   /** Hotelbeds Content API payload (descripciones, facilities, imágenes). */
   content?: import("@/lib/providers/hotelbeds/content-types").HotelContent;
+}
+
+export type BoardCode = "RO" | "BB" | "HB" | "FB" | "AI" | string;
+
+export interface BoardOption {
+  boardCode: BoardCode;
+  boardLabel: string;
+  rateKey: string;
+  /** Precio por noche para esa combinación. */
+  netPrice: number;
+  /** Total estancia. */
+  totalPrice: number;
+  currency: string;
+  refundable: boolean;
+  cancellationPolicy?: string;
+  available: boolean;
 }
 
 export interface Flight {

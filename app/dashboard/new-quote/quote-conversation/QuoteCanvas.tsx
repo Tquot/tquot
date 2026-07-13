@@ -181,6 +181,7 @@ export function QuoteCanvas({
           onSelectItem={handlers.handleSelectQuoteItem}
           onMarginChange={handlers.handleQuoteItemMarginChange}
           onCompareItem={handlers.handleCompareHotel}
+          onBoardPriceChange={handlers.handleHotelBoardChange}
         />
       ),
     },
