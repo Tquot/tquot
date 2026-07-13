@@ -253,6 +253,7 @@ export async function buildQuote(
   input: ParsedTripInput,
   apiOrigin = "",
   cookieHeader?: string,
+  baseCurrency = "EUR",
 ): Promise<Quote> {
   console.log("[buildQuote] ParsedTripInput received", input);
 
@@ -426,7 +427,7 @@ export async function buildQuote(
       baseTotal,
       margin,
       finalTotal,
-      currency: "EUR",
+      currency: baseCurrency.toUpperCase() || "EUR",
     },
     _meta: {
       flightsSource,
@@ -448,17 +449,9 @@ export async function buildQuote(
     },
   };
 
-  // Bloque F — moneda base agencia (cargar currency en server, luego convertir)
-  try {
-    const { loadAgencyCurrency } = await import("@/lib/currency/loader");
-    const { applyBaseCurrencyToQuote } = await import(
-      "@/lib/currency/apply-to-quote"
-    );
-    const baseCurrency = await loadAgencyCurrency();
-    return await applyBaseCurrencyToQuote(quote, baseCurrency);
-  } catch {
-    return quote;
-  }
+  // FX conversion is applied by server callers (buildQuoteWithProgress / API)
+  // via applyBaseCurrencyToQuote — this module must stay client-safe.
+  return quote;
 }
 
 // ─────────────────────────────────────────────────────────────

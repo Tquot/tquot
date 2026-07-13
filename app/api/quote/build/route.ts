@@ -53,11 +53,15 @@ export async function POST(req: NextRequest) {
       }, 15_000);
 
       try {
+        const { loadAgencyCurrency } = await import("@/lib/currency/loader");
+        const baseCurrency = await loadAgencyCurrency();
+
         await buildQuoteWithProgress(parsed.data, {
           signal: abort.signal,
           onEvent: send,
           apiOrigin: req.nextUrl.origin,
           cookieHeader,
+          baseCurrency,
         });
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") {

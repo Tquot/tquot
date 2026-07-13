@@ -113,6 +113,9 @@ export async function POST(req: NextRequest) {
 
         send({ type: "build.started", ts: Date.now() });
 
+        const { loadAgencyCurrency } = await import("@/lib/currency/loader");
+        const baseCurrency = await loadAgencyCurrency();
+
         const quote = await buildQuoteWithProgress(parsed.data, {
           signal: abort.signal,
           onEvent: (event) => {
@@ -132,6 +135,7 @@ export async function POST(req: NextRequest) {
           },
           apiOrigin: req.nextUrl.origin,
           cookieHeader,
+          baseCurrency,
         });
 
         send({ type: "build.done", quote, ts: Date.now() });

@@ -15,6 +15,8 @@ import {
 export interface SearchContext {
   apiOrigin?: string;
   cookieHeader?: string;
+  /** Agency base currency (ISO). Loaded on the server; never via next/headers here. */
+  baseCurrency?: string;
 }
 
 export type TaggedQuoteItem = QuoteItem & { legId: string };
@@ -104,7 +106,12 @@ export async function searchHotels(
     includeHotels: true,
     hotelbedsGroupDistribution,
   });
-  const quote = await buildQuote(v1, ctx.apiOrigin ?? "", ctx.cookieHeader);
+  const quote = await buildQuote(
+    v1,
+    ctx.apiOrigin ?? "",
+    ctx.cookieHeader,
+    ctx.baseCurrency ?? "EUR",
+  );
   return tagItems(quote.hotels, leg.id);
 }
 
@@ -119,7 +126,12 @@ export async function searchExperiences(
     includeHotels: false,
     includeExperiences: true,
   });
-  const quote = await buildQuote(v1, ctx.apiOrigin ?? "", ctx.cookieHeader);
+  const quote = await buildQuote(
+    v1,
+    ctx.apiOrigin ?? "",
+    ctx.cookieHeader,
+    ctx.baseCurrency ?? "EUR",
+  );
   return tagItems(quote.experiences, leg.id);
 }
 
@@ -134,7 +146,12 @@ export async function searchTransfers(
     includeHotels: false,
     includeExperiences: false,
   });
-  const quote = await buildQuote(v1, ctx.apiOrigin ?? "", ctx.cookieHeader);
+  const quote = await buildQuote(
+    v1,
+    ctx.apiOrigin ?? "",
+    ctx.cookieHeader,
+    ctx.baseCurrency ?? "EUR",
+  );
   return tagItems(quote.transfers, leg.id);
 }
 
@@ -169,7 +186,12 @@ export async function searchFlights(
     includeFlights: true,
     locale: "es",
   };
-  const quote = await buildQuote(v1, ctx.apiOrigin ?? "", ctx.cookieHeader);
+  const quote = await buildQuote(
+    v1,
+    ctx.apiOrigin ?? "",
+    ctx.cookieHeader,
+    ctx.baseCurrency ?? "EUR",
+  );
   return tagItems(quote.flights, legId);
 }
 
@@ -246,21 +268,15 @@ export function composeQuote(
 }
 
 /**
- * Bloque F — compose + conversión a moneda base (async).
- * Preferido frente a composeQuote cuando hay contexto de agencia.
+ * Bloque F — compose + stamp base currency (no FX / no server imports).
+ * Full FX conversion is done in buildQuoteWithProgress on the server.
  */
 export async function composeQuoteWithCurrency(
-  ...args: Parameters<typeof composeQuote>
+  parsed: Parameters<typeof composeQuote>[0],
+  sections: Parameters<typeof composeQuote>[1],
+  baseCurrency = "EUR",
 ): Promise<Quote> {
-  const quote = composeQuote(...args);
-  try {
-    const { loadAgencyCurrency } = await import("@/lib/currency/loader");
-    const { applyBaseCurrencyToQuote } = await import(
-      "@/lib/currency/apply-to-quote"
-    );
-    const baseCurrency = await loadAgencyCurrency();
-    return await applyBaseCurrencyToQuote(quote, baseCurrency);
-  } catch {
-    return quote;
-  }
+  const quote = composeQuote(parsed, sections);
+  quote.pricing.currency = baseCurrency.toUpperCase() || "EUR";
+  return quote;
 }

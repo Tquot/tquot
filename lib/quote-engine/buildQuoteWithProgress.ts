@@ -18,6 +18,8 @@ interface Options {
   onEvent: (event: BuildEvent) => void;
   apiOrigin?: string;
   cookieHeader?: string;
+  /** Agency base currency — loaded by the API route, not here. */
+  baseCurrency?: string;
 }
 
 interface LegResults {
@@ -29,9 +31,15 @@ interface LegResults {
 
 export async function buildQuoteWithProgress(
   parsed: ParsedTripInputV2,
-  { signal, onEvent, apiOrigin = "", cookieHeader }: Options,
+  {
+    signal,
+    onEvent,
+    apiOrigin = "",
+    cookieHeader,
+    baseCurrency = "EUR",
+  }: Options,
 ): Promise<import("./types").Quote> {
-  const searchCtx = { apiOrigin, cookieHeader };
+  const searchCtx = { apiOrigin, cookieHeader, baseCurrency };
   const resultsByLeg = new Map<string, LegResults>();
 
   const groupDetection = detectGroup(parsed);
@@ -198,12 +206,10 @@ export async function buildQuoteWithProgress(
     };
   }
 
-  // Bloque F — convertir a moneda base de la agencia
-  const { loadAgencyCurrency } = await import("@/lib/currency/loader");
+  // Bloque F — FX a moneda base (solo server; API pasó baseCurrency)
   const { applyBaseCurrencyToQuote } = await import(
     "@/lib/currency/apply-to-quote"
   );
-  const baseCurrency = await loadAgencyCurrency();
   return (await applyBaseCurrencyToQuote(
     quote,
     baseCurrency,
