@@ -28,7 +28,7 @@ export function quoteItemToHotelDetails(item: QuoteItem): HotelDetails | null {
     details.provider ??
     (slug === "booking" || slug === "expedia" ? slug : "hotelbeds");
 
-  const netPrice = details.netPrice ?? item.price;
+  const netPrice = item.price;
   if (!Number.isFinite(netPrice) || netPrice <= 0) return null;
 
   const name = item.title.split(" — ")[0]?.trim() || item.title;
