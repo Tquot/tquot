@@ -448,12 +448,14 @@ export async function buildQuote(
     },
   };
 
-  // Bloque F — moneda base agencia
+  // Bloque F — moneda base agencia (cargar currency en server, luego convertir)
   try {
-    const { applyAgencyBaseCurrency } = await import(
+    const { loadAgencyCurrency } = await import("@/lib/currency/loader");
+    const { applyBaseCurrencyToQuote } = await import(
       "@/lib/currency/apply-to-quote"
     );
-    return await applyAgencyBaseCurrency(quote);
+    const baseCurrency = await loadAgencyCurrency();
+    return await applyBaseCurrencyToQuote(quote, baseCurrency);
   } catch {
     return quote;
   }

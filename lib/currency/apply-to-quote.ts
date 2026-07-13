@@ -1,18 +1,19 @@
 /**
- * Aplica la moneda base de la agencia al quote compuesto.
- * Degrada silenciosamente a EUR (sin conversión) si falla auth/API.
+ * Aplica una moneda base al quote compuesto.
+ * La moneda se carga en el caller (server) — este módulo no toca next/headers.
  */
 
 import type { Quote } from "@/lib/quotes/build-quote";
 import { convertQuoteToBaseCurrency } from "./convert";
-import { loadAgencyCurrency } from "./loader";
 
-export async function applyAgencyBaseCurrency(quote: Quote): Promise<Quote> {
+export async function applyBaseCurrencyToQuote(
+  quote: Quote,
+  baseCurrency: string = "EUR",
+): Promise<Quote> {
   try {
-    const baseCurrency = await loadAgencyCurrency();
     return await convertQuoteToBaseCurrency(quote, baseCurrency);
   } catch (err) {
-    console.warn("[applyAgencyBaseCurrency] skipped:", err);
+    console.warn("[applyBaseCurrencyToQuote] skipped:", err);
     return quote;
   }
 }

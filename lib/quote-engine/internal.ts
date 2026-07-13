@@ -254,10 +254,12 @@ export async function composeQuoteWithCurrency(
 ): Promise<Quote> {
   const quote = composeQuote(...args);
   try {
-    const { applyAgencyBaseCurrency } = await import(
+    const { loadAgencyCurrency } = await import("@/lib/currency/loader");
+    const { applyBaseCurrencyToQuote } = await import(
       "@/lib/currency/apply-to-quote"
     );
-    return await applyAgencyBaseCurrency(quote);
+    const baseCurrency = await loadAgencyCurrency();
+    return await applyBaseCurrencyToQuote(quote, baseCurrency);
   } catch {
     return quote;
   }

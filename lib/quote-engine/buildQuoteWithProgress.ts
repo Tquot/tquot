@@ -199,6 +199,13 @@ export async function buildQuoteWithProgress(
   }
 
   // Bloque F — convertir a moneda base de la agencia
-  const { applyAgencyBaseCurrency } = await import("@/lib/currency/apply-to-quote");
-  return (await applyAgencyBaseCurrency(quote)) as import("./types").Quote;
+  const { loadAgencyCurrency } = await import("@/lib/currency/loader");
+  const { applyBaseCurrencyToQuote } = await import(
+    "@/lib/currency/apply-to-quote"
+  );
+  const baseCurrency = await loadAgencyCurrency();
+  return (await applyBaseCurrencyToQuote(
+    quote,
+    baseCurrency,
+  )) as import("./types").Quote;
 }
