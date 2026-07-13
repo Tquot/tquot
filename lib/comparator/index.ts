@@ -310,3 +310,16 @@ function summarize(results: ComparatorResultRow[]) {
     noResults: results.filter((r) => r.status === "no_results").length,
   };
 }
+
+// Bloque A — tipos del comparador coherente (snapshot vs live).
+// Runtime: importar desde ./orchestrator y ./refresh-snapshot (server-only).
+export type {
+  ComparatorEntry,
+  ComparatorRequest,
+  ComparatorResponse,
+  ComparatorHotelSnapshot,
+  ComparatorSearchContext,
+  ProviderKey,
+  RefreshSnapshotInput,
+  RefreshSnapshotResult,
+} from "./types";

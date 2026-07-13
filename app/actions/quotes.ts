@@ -213,33 +213,33 @@ export async function refreshHotelPrice({
     "netPrice" | "rateKey" | "fetchedAt" | "currency"
   >
 > {
-  const { queryHotelbedsPrice } = await import("@/lib/providers/hotelbeds");
-  const { queryBookingPrice } = await import("@/lib/providers/booking");
+  const { refreshHotelSnapshot } = await import(
+    "@/lib/comparator/refresh-snapshot"
+  );
 
-  const params = {
-    hotelName: hotel.name,
-    destination: searchContext.destination,
-    checkIn: searchContext.checkIn,
-    checkOut: searchContext.checkOut,
-    guests: searchContext.guests,
-  };
+  const result = await refreshHotelSnapshot({
+    hotel: {
+      id: hotel.id,
+      name: hotel.name,
+      provider: hotel.provider,
+      netPrice: hotel.netPrice,
+      currency: hotel.currency,
+      fetchedAt: hotel.fetchedAt,
+      hotelCode: hotel.hotelCode,
+      rateKey: hotel.rateKey,
+      connectionId: hotel.connectionId,
+    },
+    searchContext,
+  });
 
-  const fresh =
-    hotel.provider === "hotelbeds"
-      ? await queryHotelbedsPrice(params, {
-          connectionId: hotel.connectionId,
-          hotelCode: hotel.hotelCode,
-        })
-      : hotel.provider === "booking"
-        ? await queryBookingPrice(params)
-        : (() => {
-            throw new Error("provider_refresh_not_supported");
-          })();
+  if (!result.success || result.newPrice == null) {
+    throw new Error(result.error ?? "refresh_failed");
+  }
 
   return {
-    netPrice: fresh.netPrice,
-    rateKey: fresh.rateKey,
-    fetchedAt: new Date().toISOString(),
-    currency: fresh.currency,
+    netPrice: result.newPrice,
+    rateKey: result.rateKey,
+    fetchedAt: result.fetchedAt ?? new Date().toISOString(),
+    currency: result.currency ?? hotel.currency,
   };
 }

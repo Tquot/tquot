@@ -2,15 +2,21 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { getAuthenticatedUserAndAgency } from "@/lib/auth/agency-context";
 import { getConnectionWithCredentials } from "@/lib/connectors/storage";
-import { queryBookingPrice } from "@/lib/providers/booking";
-import { queryExpediaPrice } from "@/lib/providers/expedia";
-import type { HotelPriceQuote, HotelProvider } from "@/lib/quote-engine/types";
-import type { ProviderSearchParams } from "@/lib/providers/types";
+import { buildComparison } from "@/lib/comparator/orchestrator";
+import type { ProviderKey } from "@/lib/comparator/types";
 
 export const runtime = "nodejs";
 
+const ProviderSchema = z.enum([
+  "hotelbeds",
+  "booking",
+  "expedia",
+  "ratehawk",
+  "own",
+]);
+
 const RequestSchema = z.object({
-  hotelName: z.string(),
+  hotelName: z.string().optional(),
   destination: z.string(),
   checkIn: z.string(),
   checkOut: z.string(),
@@ -20,19 +26,24 @@ const RequestSchema = z.object({
       children: z.number().optional(),
     }),
   ),
-  excludeProvider: z.enum(["hotelbeds", "booking", "expedia"]),
-  additionalProviders: z.array(z.enum(["hotelbeds", "booking", "expedia"])),
+  excludeProvider: ProviderSchema.optional(),
+  additionalProviders: z.array(ProviderSchema).default([]),
+  /** Snapshot del hotel en la cotización abierta (fuente de verdad del original). */
+  hotel: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      provider: ProviderSchema,
+      netPrice: z.number(),
+      currency: z.string(),
+      fetchedAt: z.string(),
+      hotelCode: z.string().optional(),
+      rateKey: z.string().optional(),
+      connectionId: z.string().optional(),
+      nights: z.number().optional(),
+    })
+    .optional(),
 });
-
-type ProviderQuerier = (
-  params: ProviderSearchParams,
-  context?: Record<string, string>,
-) => Promise<{
-  netPrice: number;
-  currency: string;
-  rateKey?: string;
-  meta?: Record<string, unknown>;
-}>;
 
 async function resolveBookingKey(agencyId: string): Promise<string | undefined> {
   const { createServerSupabaseClient } = await import("@/lib/supabase/server");
@@ -64,47 +75,79 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const { excludeProvider, additionalProviders, ...searchParams } = parsed.data;
-  const targets = additionalProviders.filter((provider) => provider !== excludeProvider);
-  const bookingKey = await resolveBookingKey(auth.agencyId);
+  const {
+    excludeProvider,
+    additionalProviders,
+    hotel: hotelBody,
+    hotelName,
+    destination,
+    checkIn,
+    checkOut,
+    guests,
+  } = parsed.data;
 
-  const PROVIDER_QUERIERS: Record<HotelProvider, ProviderQuerier> = {
-    booking: (params) => queryBookingPrice(params, bookingKey),
-    expedia: (params) => queryExpediaPrice(params),
-    hotelbeds: () => {
-      throw new Error("use snapshot");
-    },
+  if (!hotelBody && !hotelName) {
+    return new Response(JSON.stringify({ error: "hotel_required" }), {
+      status: 400,
+    });
+  }
+
+  const bookingApiKey = await resolveBookingKey(auth.agencyId);
+
+  const hotel = hotelBody ?? {
+    id: "unknown",
+    name: hotelName!,
+    provider: (excludeProvider ?? "hotelbeds") as ProviderKey,
+    netPrice: 0,
+    currency: "EUR",
+    fetchedAt: new Date().toISOString(),
   };
 
-  const results = await Promise.allSettled(
-    targets.map(async (provider): Promise<HotelPriceQuote> => {
-      const result = await PROVIDER_QUERIERS[provider](searchParams);
-      return {
-        provider,
-        netPrice: result.netPrice,
-        currency: result.currency,
-        rateKey: result.rateKey,
-        fetchedAt: new Date().toISOString(),
-        source: "live",
-        meta: result.meta,
-      };
-    }),
-  );
+  const providers = (
+    additionalProviders.length > 0
+      ? additionalProviders
+      : (["hotelbeds", "booking", "expedia"] as ProviderKey[])
+  ).filter((p) => p !== (excludeProvider ?? hotel.provider));
 
-  const prices: HotelPriceQuote[] = [];
-  const errors: { provider: HotelProvider; message: string }[] = [];
+  try {
+    const comparison = await buildComparison({
+      hotelId: hotel.id,
+      hotel,
+      searchContext: { destination, checkIn, checkOut, guests },
+      providers,
+      bookingApiKey,
+    });
 
-  results.forEach((result, idx) => {
-    if (result.status === "fulfilled") {
-      prices.push(result.value);
-    } else {
-      errors.push({
-        provider: targets[idx],
-        message:
-          result.reason instanceof Error ? result.reason.message : "unknown",
-      });
-    }
-  });
+    // Compatibilidad con HotelCompareModal legacy (prices/errors) + formato Block A.
+    const prices = comparison.entries
+      .filter((e) => e.source === "live" && e.available && e.totalPrice != null)
+      .map((e) => ({
+        provider: e.provider,
+        netPrice: e.totalPrice!,
+        currency: e.currency,
+        rateKey: e.rateKey,
+        fetchedAt: e.fetchedAt,
+        source: "live" as const,
+      }));
 
-  return Response.json({ prices, errors });
+    const errors = comparison.entries
+      .filter((e) => e.source === "live" && !e.available)
+      .map((e) => ({
+        provider: e.provider,
+        message: e.error ?? "not_found",
+      }));
+
+    return Response.json({
+      ...comparison,
+      prices,
+      errors,
+    });
+  } catch (err) {
+    return new Response(
+      JSON.stringify({
+        error: err instanceof Error ? err.message : "unknown",
+      }),
+      { status: 500 },
+    );
+  }
 }
