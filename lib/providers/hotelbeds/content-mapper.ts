@@ -33,10 +33,14 @@ const FACILITY_GROUPS: Record<number, keyof GroupedFacilities> = {
 
 /** Debug: inspect raw Hotelbeds Content API hotel payload. */
 export function logRawHotelContentPayload(hotelData: Record<string, unknown>) {
+  const facilities = Array.isArray(hotelData.facilities)
+    ? hotelData.facilities
+    : undefined;
   console.log("[content-mapper] raw hotel data keys:", Object.keys(hotelData));
+  console.log("[content-mapper] facilities count:", facilities?.length);
   console.log(
-    "[content-mapper] facilities:",
-    Array.isArray(hotelData.facilities) ? hotelData.facilities.length : undefined,
+    "[content-mapper] first 3 facilities:",
+    JSON.stringify(facilities?.slice(0, 3)),
   );
   console.log("[content-mapper] description:", !!hotelData.description);
 }
