@@ -8,6 +8,8 @@ import { getCityIATA } from "@/lib/airports";
 export const DUFFEL_OFFER_REQUESTS_URL =
   "https://api.duffel.com/air/offer_requests";
 export const DUFFEL_API_VERSION = "v2";
+/** Duffel offer_requests allow at most 9 passengers per search. */
+export const DUFFEL_MAX_PASSENGERS = 9;
 
 export type DuffelLocale = "es" | "en";
 
@@ -368,12 +370,58 @@ function compareFlightOptions(left: FlightOption, right: FlightOption): number {
   return left.priceNumeric - right.priceNumeric;
 }
 
+export function capDuffelAdults(adults: number): number {
+  if (!Number.isFinite(adults) || adults < 1) return 1;
+  return Math.min(Math.floor(adults), DUFFEL_MAX_PASSENGERS);
+}
+
+function currencyFromPriceLabel(price: string, fallback = "EUR"): string {
+  const token = price.trim().split(/\s+/)[0];
+  return token && /^[A-Z]{3}$/i.test(token) ? token.toUpperCase() : fallback;
+}
+
+/**
+ * When the agent requested more adults than Duffel allows, scale offer totals
+ * pro-rata from the capped search (searchAdults = min(requested, 9)).
+ */
+export function scaleFlightsForRequestedAdults(
+  flights: FlightOption[],
+  requestedAdults: number,
+): FlightOption[] {
+  const searchAdults = capDuffelAdults(requestedAdults);
+  if (requestedAdults <= searchAdults) return flights;
+
+  const scale = requestedAdults / searchAdults;
+  const note = `Precio estimado para ${requestedAdults} pasajeros (Duffel máx. ${DUFFEL_MAX_PASSENGERS} por búsqueda)`;
+
+  return flights.map((flight) => {
+    const currency = currencyFromPriceLabel(flight.price);
+    const priceNumeric = Math.round(flight.priceNumeric * scale);
+    return {
+      ...flight,
+      priceNumeric,
+      price: `${currency} ${priceNumeric}`,
+      groupPriceNote: note,
+      fareOptions: flight.fareOptions?.map((fare) => {
+        const fareCurrency = currencyFromPriceLabel(fare.price, currency);
+        const farePriceNumeric = Math.round(fare.priceNumeric * scale);
+        return {
+          ...fare,
+          priceNumeric: farePriceNumeric,
+          price: `${fareCurrency} ${farePriceNumeric}`,
+        };
+      }),
+    };
+  });
+}
+
 export async function requestDuffelOfferSearch(
   apiKey: string,
   params: DuffelSearchParams,
 ) {
   const origin = getCityIATA(params.origin.trim()).toUpperCase();
   const destination = getCityIATA(params.destination.trim()).toUpperCase();
+  const adults = capDuffelAdults(params.adults);
 
   const response = await fetch(DUFFEL_OFFER_REQUESTS_URL, {
     method: "POST",
@@ -392,7 +440,7 @@ export async function requestDuffelOfferSearch(
             departure_date: params.date.trim(),
           },
         ],
-        passengers: Array.from({ length: params.adults }, () => ({
+        passengers: Array.from({ length: adults }, () => ({
           type: "adult",
         })),
         cabin_class: "economy",
@@ -406,6 +454,8 @@ export async function requestDuffelOfferSearch(
     ok: response.ok,
     status: response.status,
     bodyText,
+    searchAdults: adults,
+    requestedAdults: params.adults,
   };
 }
 

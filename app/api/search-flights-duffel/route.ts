@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import type { FlightOption } from "@/app/api/search-flights/route";
 import {
+  DUFFEL_MAX_PASSENGERS,
   normalizeDuffelFlights,
   parseDuffelPayload,
   requestDuffelOfferSearch,
+  scaleFlightsForRequestedAdults,
 } from "@/lib/duffel/flights";
 import { resolveDuffelLocale } from "@/lib/i18n/resolve-duffel-locale";
 
@@ -107,6 +109,9 @@ export async function POST(request: Request) {
       status: result.status,
       ok: result.ok,
       locale,
+      requestedAdults: adultCount,
+      searchAdults: result.searchAdults,
+      capped: adultCount > DUFFEL_MAX_PASSENGERS,
       bodyPreview: result.bodyText.slice(0, 500),
     });
 
@@ -136,7 +141,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: message }, { status: result.status });
     }
 
-    const flights: FlightOption[] = normalizeDuffelFlights(payload, locale);
+    const normalized: FlightOption[] = normalizeDuffelFlights(payload, locale);
+    const flights = scaleFlightsForRequestedAdults(normalized, adultCount);
 
     if (flights.length === 0) {
       console.error("[search-flights-duffel] Duffel returned no flight options", {
@@ -149,7 +155,18 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ flights });
+    return NextResponse.json({
+      flights,
+      ...(adultCount > DUFFEL_MAX_PASSENGERS
+        ? {
+            passengerCap: {
+              requestedAdults: adultCount,
+              searchAdults: result.searchAdults,
+              maxPerSearch: DUFFEL_MAX_PASSENGERS,
+            },
+          }
+        : {}),
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unexpected Duffel flight search error.";

@@ -749,6 +749,9 @@ function mapApiFlightToQuoteItem(
     source: "api",
     flightDetails: flightDetailsFromOption(flight),
     alternative,
+    ...(flight.groupPriceNote
+      ? { description: flight.groupPriceNote }
+      : {}),
   });
 }
 

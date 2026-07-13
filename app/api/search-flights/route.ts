@@ -53,6 +53,8 @@ export type FlightOption = {
   offerId?: string;
   fareName?: string;
   fareOptions?: FlightFareOption[];
+  /** Present when price was scaled from a capped Duffel passenger search. */
+  groupPriceNote?: string;
 };
 
 function parsePriceNumeric(price: string): number {
