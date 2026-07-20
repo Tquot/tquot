@@ -1,10 +1,12 @@
 "use client";
 
-import { useQuoteConversationStore, selectStatus } from "@/lib/quote-conversation/store";
+import { useTransition } from "react";
+import { generateItinerary } from "@/lib/itinerary/generator";
+import { useQuoteConversationStore, selectStatus, selectCurrentQuote } from "@/lib/quote-conversation/store";
 import { toParsedTripInputV2 } from "@/lib/quote-engine/schemas-v2";
 import type { ParsedTripInput } from "@/lib/quotes/build-quote";
 import { LegBlock } from "./LegBlock";
-import { selectCurrentQuote } from "@/lib/quote-conversation/store";
+import type { Quote as EngineQuote } from "@/lib/quote-engine/types";
 
 function ParsingPreview({
   state,
@@ -33,8 +35,26 @@ function QuoteSummary() {
   const quote = useQuoteConversationStore((s) =>
     s.state.status === "complete" ? s.state.quote : null,
   );
+  const persistedQuoteId = useQuoteConversationStore((s) => s.persistedQuoteId);
+  const updateQuote = useQuoteConversationStore((s) => s.updateQuote);
+  const [pending, startTransition] = useTransition();
 
   if (!quote) return null;
+
+  const engineQuote = quote as EngineQuote;
+
+  const handleRegenerate = () => {
+    if (!persistedQuoteId) return;
+    startTransition(async () => {
+      const itinerary = await generateItinerary({
+        quoteId: persistedQuoteId,
+        force: true,
+      });
+      if (itinerary) {
+        updateQuote({ ...quote, itinerary } as typeof quote);
+      }
+    });
+  };
 
   return (
     <section className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
@@ -42,6 +62,21 @@ function QuoteSummary() {
       <p className="mt-1 text-sm text-neutral-700">
         Total: {quote.pricing.finalTotal} {quote.pricing.currency}
       </p>
+      {engineQuote.itinerary ? (
+        <p className="mt-1 text-xs text-neutral-500">
+          Itinerario: {engineQuote.itinerary.days.length} días
+        </p>
+      ) : null}
+      {persistedQuoteId ? (
+        <button
+          type="button"
+          onClick={handleRegenerate}
+          disabled={pending}
+          className="mt-3 rounded-md bg-neutral-100 px-3 py-1.5 text-sm hover:bg-neutral-200 disabled:opacity-50"
+        >
+          {pending ? "Generando…" : "Regenerar itinerario"}
+        </button>
+      ) : null}
     </section>
   );
 }

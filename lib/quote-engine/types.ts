@@ -1,10 +1,12 @@
 export * from "@/lib/quote-conversation/types";
+import type { Itinerary } from "@/lib/itinerary/types";
 import type { Recommendation } from "@/lib/recommendations/types";
 import type { Quote as BuildQuote } from "@/lib/quotes/build-quote";
 
 export type Quote = BuildQuote &
   QuoteWithGroup & {
     recommendations?: Recommendation[];
+    itinerary?: Itinerary;
   };
 
 export interface Hotel {

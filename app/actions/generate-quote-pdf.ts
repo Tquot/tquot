@@ -14,8 +14,7 @@
  */
 
 import { getAuthenticatedUser } from "@/app/api/parser/_auth";
-import { renderQuotePdf } from "@/lib/pdf/render";
-import { loadQuoteForPdf } from "@/lib/pdf/utils/load-quote";
+import { generateQuotePDF } from "@/lib/pdf/generate";
 import type { PdfVariant } from "@/lib/pdf/types";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -60,15 +59,22 @@ export async function generateQuotePdf(
       return { ok: false, error: "Sin permisos para esta cotización" };
     }
 
-    const quote = await loadQuoteForPdf(args.quoteId);
-    if (!quote) return { ok: false, error: "Cotización no encontrada" };
+    const buffer = await generateQuotePDF({
+      quoteId: args.quoteId,
+      variant: args.variant,
+    });
 
-    const buffer = await renderQuotePdf(quote, args.variant);
+    const { data: refRow } = await supabase
+      .from("quotes")
+      .select("reference")
+      .eq("id", args.quoteId)
+      .single();
+    const reference = refRow?.reference ?? args.quoteId;
 
     const filename =
       args.variant === "agent"
-        ? `${quote.reference}-interna.pdf`
-        : `${quote.reference}-propuesta.pdf`;
+        ? `${reference}-interna.pdf`
+        : `${reference}-propuesta.pdf`;
 
     return {
       ok: true,

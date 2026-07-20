@@ -49,18 +49,29 @@ export async function resolveShare(token: string): Promise<ResolveResult> {
   }
 
   const { data: brandingRow } = await supabase
+    .from("agency_branding")
+    .select("*")
+    .eq("agency_id", quoteRow.agency_id)
+    .maybeSingle();
+
+  const { data: agencyRow } = await supabase
     .from("agencies")
-    .select("name, logo_url, legal_name, email, phone, website")
+    .select("id, name, logo_url, legal_name, email, phone, website, address")
     .eq("id", quoteRow.agency_id)
     .maybeSingle();
 
   void supabase.rpc("increment_share_view", { p_token: token });
 
   const snapshot = quoteRow.snapshot as Quote | null;
+  const branding =
+    agencyRow != null
+      ? mapAgencyBranding(agencyRow, brandingRow, String(agencyRow.id))
+      : undefined;
+
   if (snapshot) {
     return {
       quote: snapshot,
-      branding: brandingRow ? mapAgencyBranding(brandingRow) : undefined,
+      branding,
       shareExpired: false,
       shareRevoked: false,
     };
@@ -94,7 +105,7 @@ export async function resolveShare(token: string): Promise<ResolveResult> {
 
   return {
     quote: fallbackQuote,
-    branding: brandingRow ? mapAgencyBranding(brandingRow) : undefined,
+    branding,
     shareExpired: false,
     shareRevoked: false,
   };

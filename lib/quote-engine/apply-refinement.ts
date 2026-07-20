@@ -78,10 +78,13 @@ export async function persistRefinementSnapshot(
     changeSummary: summarizeRefinement(input.operation, previous),
   });
 
+  const snapshotToSave = { ...input.newSnapshot };
+  delete snapshotToSave.itinerary;
+
   const { error: updateError } = await supabase
     .from("quotes")
     .update({
-      snapshot: input.newSnapshot,
+      snapshot: snapshotToSave,
       total_net_cost: input.newSnapshot.pricing.baseTotal,
       total_margin: input.newSnapshot.pricing.margin,
       total_public_price: input.newSnapshot.pricing.finalTotal,
@@ -105,5 +108,7 @@ export async function applyRefinement(input: PersistRefinementInput) {
   if (!result.success) {
     throw new Error(result.error ?? "apply_refinement_failed");
   }
-  return { quote: input.newSnapshot };
+  const quote = { ...input.newSnapshot };
+  delete quote.itinerary;
+  return { quote };
 }

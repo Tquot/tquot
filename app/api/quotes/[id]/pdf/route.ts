@@ -13,10 +13,9 @@
 
 import { NextRequest } from "next/server";
 import { getAuthenticatedUser } from "@/app/api/parser/_auth";
-import { renderQuotePdf, pdfResponse } from "@/lib/pdf/render";
-import { loadQuoteForPdf } from "@/lib/pdf/utils/load-quote";
-import type { PdfVariant } from "@/lib/pdf/types";
+import { generateQuotePDF, pdfResponse } from "@/lib/pdf/render";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import type { PdfVariant } from "@/lib/pdf/types";
 
 export const runtime = "nodejs"; // @react-pdf/renderer no es compatible con edge runtime
 
@@ -24,7 +23,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  let step: "loadQuoteForPdf" | "renderQuotePdf" = "loadQuoteForPdf";
+  let step: "renderQuotePdf" = "renderQuotePdf";
 
   try {
     const { id } = await params;
@@ -69,21 +68,27 @@ export async function GET(
       userId: auth.user.id,
     });
 
-    step = "loadQuoteForPdf";
-    const quote = await loadQuoteForPdf(id);
-    if (!quote) {
-      return new Response(JSON.stringify({ error: "Cotización no encontrada" }), {
-        status: 404,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    const regenerateItinerary =
+      url.searchParams.get("regenerateItinerary") === "1";
 
     step = "renderQuotePdf";
-    const buffer = await renderQuotePdf(quote, variant);
+    const buffer = await generateQuotePDF({
+      quoteId: id,
+      variant,
+      regenerateItinerary,
+    });
+
+    const { data: refRow } = await supabase
+      .from("quotes")
+      .select("reference")
+      .eq("id", id)
+      .single();
+    const reference = refRow?.reference ?? id;
+
     const filename =
       variant === "agent"
-        ? `${quote.reference}-interna.pdf`
-        : `${quote.reference}-propuesta.pdf`;
+        ? `${reference}-interna.pdf`
+        : `${reference}-propuesta.pdf`;
 
     return pdfResponse(buffer, filename, { inline });
   } catch (err) {

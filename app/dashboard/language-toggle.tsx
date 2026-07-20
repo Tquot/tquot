@@ -98,6 +98,11 @@ export function LanguageToggle({ email, recentQuotes }: LanguageToggleProps) {
       label: "Moneda",
       className: quickLinkClass,
     },
+    {
+      href: "/dashboard/settings/branding",
+      label: "Identidad PDF",
+      className: quickLinkClass,
+    },
   ];
 
   return (

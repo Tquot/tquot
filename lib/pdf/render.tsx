@@ -18,7 +18,6 @@ export async function renderQuotePdf(
   quote: Quote,
   variant: PdfVariant
 ): Promise<Buffer> {
-  // Las fuentes se registran una sola vez por proceso
   registerFonts();
 
   const element =
@@ -26,6 +25,9 @@ export async function renderQuotePdf(
 
   return await renderToBuffer(element);
 }
+
+export { generateQuotePDF } from "./generate";
+export type { GenerateQuotePdfInput } from "./generate";
 
 /**
  * Helper para devolver el PDF como Response de Next.js.
