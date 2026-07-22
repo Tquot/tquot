@@ -1,4 +1,5 @@
 import { View, Text, Image } from "@react-pdf/renderer";
+import type { Style } from "@react-pdf/types";
 import type { AgencyBranding } from "@/lib/branding/types";
 import type { PremiumPdfHotel } from "../premium-types";
 
@@ -6,7 +7,7 @@ interface Props {
   hotel: PremiumPdfHotel;
   variant: "agent" | "client";
   branding: AgencyBranding;
-  styles: any;
+  styles: Record<string, Style>;
 }
 
 export function PDFHotelBlock({ hotel, variant, branding, styles }: Props) {

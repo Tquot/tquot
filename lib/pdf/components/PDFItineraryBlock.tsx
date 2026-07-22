@@ -1,11 +1,12 @@
 import { View, Text } from "@react-pdf/renderer";
+import type { Style } from "@react-pdf/types";
 import type { AgencyBranding } from "@/lib/branding/types";
 import type { Itinerary } from "@/lib/itinerary/types";
 
 interface Props {
   itinerary: Itinerary;
   branding: AgencyBranding;
-  styles: any;
+  styles: Record<string, Style>;
 }
 
 export function PDFItineraryBlock({ itinerary, branding, styles }: Props) {

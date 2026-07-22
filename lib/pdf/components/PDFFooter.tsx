@@ -1,9 +1,10 @@
 import { View, Text } from "@react-pdf/renderer";
+import type { Style } from "@react-pdf/types";
 import type { AgencyBranding } from "@/lib/branding/types";
 
 interface Props {
   branding: AgencyBranding;
-  styles: any;
+  styles: Record<string, Style>;
   pageLabel: string;
 }
 
