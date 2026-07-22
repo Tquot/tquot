@@ -32,7 +32,7 @@ export function PDFCover({ quote, branding, styles }: Props) {
             width: "100%",
             height: "100%",
             objectFit: "cover",
-          }}
+          } as const}
         />
       ) : null}
       <View
