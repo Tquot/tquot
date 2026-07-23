@@ -24,7 +24,7 @@ export function PDFCover({ quote, branding, styles }: Props) {
         <Image
           src={heroImage}
           style={{
-            position: "absolute",
+            position: "absolute" as const,
             top: 0,
             left: 0,
             right: 0,
@@ -32,7 +32,7 @@ export function PDFCover({ quote, branding, styles }: Props) {
             width: "100%",
             height: "100%",
             objectFit: "cover",
-          } as const}
+          }}
         />
       ) : null}
       <View
