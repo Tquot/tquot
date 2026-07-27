@@ -23,7 +23,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  let step: "renderQuotePdf" = "renderQuotePdf";
+  let step = "renderQuotePdf" as const;
 
   try {
     const { id } = await params;
