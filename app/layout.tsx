@@ -1,18 +1,15 @@
 import type { Metadata } from "next";
-import { Outfit, Plus_Jakarta_Sans } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
+import { Fraunces } from "next/font/google";
 import { SiteLanguageProvider } from "./language-provider";
 import "./globals.css";
 
-const jakarta = Plus_Jakarta_Sans({
-  variable: "--font-jakarta",
+const fraunces = Fraunces({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const outfit = Outfit({
-  variable: "--font-outfit",
-  subsets: ["latin"],
-  weight: ["500", "600", "700", "800"],
+  variable: "--font-fraunces",
+  display: "swap",
+  axes: ["opsz", "SOFT", "WONK"],
 });
 
 export const metadata: Metadata = {
@@ -34,10 +31,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${jakarta.variable} ${outfit.variable} min-h-screen antialiased`}
-      >
+    <html
+      lang="es"
+      className={`${GeistSans.variable} ${GeistMono.variable} ${fraunces.variable}`}
+    >
+      <body className="min-h-screen bg-paper font-sans text-text antialiased">
         <SiteLanguageProvider>{children}</SiteLanguageProvider>
       </body>
     </html>
