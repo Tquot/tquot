@@ -11,6 +11,8 @@ import {
   buildQuote,
   syncQuotePricing,
 } from "@/lib/quotes/build-quote";
+import { profileFromAccessibilityTokens } from "@/lib/accessibility/match";
+import type { AccessibilityProfile } from "@/lib/accessibility/types";
 
 export interface SearchContext {
   apiOrigin?: string;
@@ -59,6 +61,10 @@ export function v2LegToParsedTripInput(
     ...leg.legPreferences,
   };
 
+  const accessibilityProfile: AccessibilityProfile | undefined =
+    mergedPrefs.accessibilityProfile ??
+    profileFromAccessibilityTokens(mergedPrefs.accessibility ?? []);
+
   return {
     origin,
     destination: leg.destination,
@@ -73,7 +79,10 @@ export function v2LegToParsedTripInput(
     preferences: {
       hotelLevel: hotelLevelFromBudget(parsed.budget),
       directFlights: mergedPrefs.themes.some((t) => /vuelos directos/i.test(t)),
-      accessibility: mergedPrefs.accessibility.length > 0,
+      accessibility:
+        mergedPrefs.accessibility.length > 0 ||
+        Boolean(accessibilityProfile?.required.hotel.length),
+      ...(accessibilityProfile ? { accessibilityProfile } : {}),
     },
     includeHotels: options.includeHotels ?? leg.needsAccommodation,
     includeExperiences: options.includeExperiences ?? true,

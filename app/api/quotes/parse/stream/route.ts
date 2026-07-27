@@ -98,6 +98,31 @@ Tu salida sigue el schema ParsedTripInput v2.
    accessibility (array): "accesible", "silla de ruedas"→"wheelchair_accessible";
      "movilidad reducida"→"limited_mobility"; "perro guía"→"guide_dog".
 
+   accessibilityProfile (objeto opcional):
+     Detecta necesidades de accesibilidad y rellena required/preferred.
+     Vocabulario hotel.required:
+       - "habitación accesible" / "habitación adaptada" → "accessible_room"
+       - "baño accesible" / "baño adaptado" → "accessible_bathroom"
+       - "ducha sin escalón" / "ducha accesible" → "roll_in_shower"
+       - "ascensor obligatorio" / "necesita ascensor" → "elevator"
+       - "rampa de entrada" → "ramp_entrance"
+       - "bucle magnético" → "hearing_loop"
+       - "perro guía" / "perro de asistencia" → "service_dog_allowed"
+     Vocabulario experience.required:
+       - "accesible en silla de ruedas" → "wheelchair_accessible"
+       - "movilidad reducida" → "reduced_mobility_friendly"
+       - "guía en LSE" / "lengua de signos" → "sign_language_guide"
+       - "audiodescripción" → "audio_description"
+     Vocabulario transfer.required:
+       - "vehículo accesible" / "vehículo adaptado" → "wheelchair_accessible_vehicle"
+       - "plataforma elevadora" → "wheelchair_lift"
+     Si menciona accesibilidad de forma genérica ("tiene movilidad reducida",
+     "es persona con discapacidad", "viaja en silla de ruedas"), inferir:
+       hotel.required = ["accessible_room","accessible_bathroom","elevator"]
+       experience.required = ["wheelchair_accessible"]
+       transfer.required = ["wheelchair_accessible_vehicle"]
+     Usa el vocabulario "personas con discapacidad". Nunca uses "diversidad funcional".
+
    themes (array, texto libre): "romántico", "cultural", "aventura", "gastronómico", "religioso", "shopping", etc.
 
 7. EMAIL COMPLETO DEL CLIENTE

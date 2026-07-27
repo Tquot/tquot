@@ -28,6 +28,10 @@ export type HotelOption = {
   description?: string;
   content?: import("@/lib/providers/hotelbeds/content-types").HotelContent;
   cancellationPolicies?: import("@/lib/providers/hotelbeds/content-types").CancellationPolicy[];
+  /** Bloque G */
+  accessibility?: import("@/lib/accessibility/types").AccessibilityInfo<
+    import("@/lib/accessibility/types").HotelFeatures
+  >;
 };
 
 export type SearchBookingHotelsInput = {

@@ -130,7 +130,23 @@ export function toParsedTripInputV2(parsed: ParsedTripInput): ParsedTripInputV2 
       locationPriorities: [],
       locationLandmarks: [],
       amenities: [],
-      accessibility: parsed.preferences.accessibility ? ["wheelchair_accessible"] : [],
+      accessibility: parsed.preferences.accessibility
+        ? ["wheelchair_accessible"]
+        : [],
+      ...(parsed.preferences.accessibilityProfile
+        ? { accessibilityProfile: parsed.preferences.accessibilityProfile }
+        : parsed.preferences.accessibility
+          ? {
+              accessibilityProfile: {
+                required: {
+                  hotel: ["accessible_room", "accessible_bathroom", "elevator"],
+                  experience: ["wheelchair_accessible"],
+                  transfer: ["wheelchair_accessible_vehicle"],
+                },
+                preferred: { hotel: [], experience: [], transfer: [] },
+              },
+            }
+          : {}),
     },
     rawInput: "",
     parsingGaps: childCount > 0 ? ["missing_children_ages"] : [],

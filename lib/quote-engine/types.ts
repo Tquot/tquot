@@ -32,6 +32,10 @@ export interface Hotel {
   boardOptions?: BoardOption[];
   /** Hotelbeds Content API payload (descripciones, facilities, imágenes). */
   content?: import("@/lib/providers/hotelbeds/content-types").HotelContent;
+  /** Bloque G — características de accesibilidad. */
+  accessibility?: import("@/lib/accessibility/types").AccessibilityInfo<
+    import("@/lib/accessibility/types").HotelFeatures
+  >;
   /** Bloque F — monto original del proveedor antes de FX. */
   originalPrice?: number;
   originalCurrency?: string;
@@ -107,6 +111,9 @@ export interface Experience {
   price: number;
   currency: string;
   provider?: string;
+  accessibility?: import("@/lib/accessibility/types").AccessibilityInfo<
+    import("@/lib/accessibility/types").ExperienceFeatures
+  >;
   originalPrice?: number;
   originalCurrency?: string;
   exchangeRate?: number;
@@ -121,6 +128,12 @@ export interface Transfer {
   provider?: string;
   pickupLocation?: string;
   dropoffLocation?: string;
+  accessibility?: import("@/lib/accessibility/types").AccessibilityInfo<
+    import("@/lib/accessibility/types").TransferFeatures
+  >;
+  /** Display name when available. */
+  name?: string;
+  description?: string;
   originalPrice?: number;
   originalCurrency?: string;
   exchangeRate?: number;

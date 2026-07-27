@@ -48,6 +48,7 @@ export function quoteItemToHotel(item: QuoteItem, legId = DEFAULT_TRIP_LEG_ID): 
     boardCode: item.hotelDetails?.boardCode,
     boardOptions: item.hotelDetails?.boardOptions,
     content: item.hotelDetails?.content,
+    accessibility: item.hotelDetails?.accessibility,
     connectionId: item.hotelDetails?.connectionId,
     originalPrice: item.originalPrice,
     originalCurrency: item.originalCurrency,

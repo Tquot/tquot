@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AccessibilityProfileSchema } from "@/lib/accessibility/types";
 
 // ─── Travelers ──────────────────────────────────────────
 
@@ -78,6 +79,8 @@ export const PreferencesSchema = z.object({
   themes: z.array(z.string()).default([]),
   amenities: z.array(z.string()).default([]),
   accessibility: z.array(z.string()).default([]),
+  /** Bloque G — perfil estructurado de necesidades de accesibilidad. */
+  accessibilityProfile: AccessibilityProfileSchema.optional(),
 });
 export type TravelPreferences = z.infer<typeof PreferencesSchema>;
 

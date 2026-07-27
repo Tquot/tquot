@@ -5,6 +5,7 @@ import { saveQuoteWithClient } from "@/app/actions/quotes";
 import { useQuoteConversation } from "@/hooks/useQuoteConversation";
 import { BookingConfigProvider } from "@/lib/booking-handoff/context";
 import type { AgencyBookingConfig } from "@/lib/booking-handoff/types";
+import { AccessibilityProfileProvider } from "@/components/accessibility/AccessibilityProfileContext";
 import { useQuoteConversationStore } from "@/lib/quote-conversation/store";
 import type { Quote } from "@/lib/quotes/build-quote";
 import type { Quote as EngineQuote } from "@/lib/quote-engine/types";
@@ -171,6 +172,9 @@ export function QuoteConversation({
 
   return (
     <BookingConfigProvider config={agencyConfig}>
+    <AccessibilityProfileProvider
+      initial={parsedTripInput?.preferences?.accessibilityProfile}
+    >
     <div className="flex min-h-screen flex-col bg-tquot-bg text-tquot-text">
       <ConversationHeader
         quote={headerQuote}
@@ -252,6 +256,7 @@ export function QuoteConversation({
         </div>
       ) : null}
     </div>
+    </AccessibilityProfileProvider>
     </BookingConfigProvider>
   );
 }

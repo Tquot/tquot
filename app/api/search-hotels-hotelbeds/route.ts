@@ -16,6 +16,7 @@ import {
 import { fetchWithTimeout } from "@/lib/connectors/utils";
 import { resolveCity } from "@/lib/airports/search";
 import { enrichHotelOptionsWithContentBounded } from "@/lib/providers/hotelbeds/content-enrich";
+import { enrichHotelsWithAccessibility } from "@/lib/accessibility/loader";
 import { passesApiHotelLevelFilter } from "@/lib/quotes/hotel-level-filter";
 import type { HotelLevel } from "@/lib/quotes/build-quote";
 
@@ -450,7 +451,12 @@ export async function POST(request: NextRequest) {
       connectionData.credentials,
     );
 
-    return NextResponse.json({ hotels: enriched });
+    const withAccessibility = await enrichHotelsWithAccessibility(
+      enriched,
+      destination,
+    );
+
+    return NextResponse.json({ hotels: withAccessibility });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unexpected Hotelbeds search error.";

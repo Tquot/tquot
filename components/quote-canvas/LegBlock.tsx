@@ -1,5 +1,7 @@
 "use client";
 
+import { useAccessibilityProfile } from "@/components/accessibility/AccessibilityProfileContext";
+import { matchesHotel } from "@/lib/accessibility/match";
 import { FlightCard } from "@/components/quote-canvas/FlightCard";
 import { HotelCard } from "@/components/quote-canvas/HotelCard";
 import { useBookingConfig } from "@/lib/booking-handoff/context";
@@ -39,10 +41,15 @@ export function LegBlock({ leg, legIndex, totalLegs, agencyConfig }: Props) {
   const parsedInput = useQuoteConversationStore(selectParsedTripInput);
   const updateQuote = useQuoteConversationStore((s) => s.updateQuote);
   const persistedQuoteId = useQuoteConversationStore((s) => s.persistedQuoteId);
+  const { profile: accessibilityProfile } = useAccessibilityProfile();
 
   if (!quote || !parsedInput) return null;
 
   const parsed = toParsedTripInputV2(parsedInput);
+  const profile =
+    accessibilityProfile ??
+    parsedInput.preferences.accessibilityProfile ??
+    parsed.preferences.accessibilityProfile;
   const handoffQuote = quote as Quote & { group?: { distribution: { doubles: number; singles: number; triples: number; totalRooms: number } } };
   const context = { agencyConfig, quote: handoffQuote, parsed };
 
@@ -51,7 +58,12 @@ export function LegBlock({ leg, legIndex, totalLegs, agencyConfig }: Props) {
 
   const hotels = selectedItems(quote.hotels)
     .map((item) => quoteItemToHotel(item, leg.id))
-    .filter((hotel): hotel is NonNullable<typeof hotel> => hotel !== null);
+    .filter((hotel): hotel is NonNullable<typeof hotel> => hotel !== null)
+    .sort((a, b) => {
+      const scoreA = matchesHotel(profile, a.accessibility).score;
+      const scoreB = matchesHotel(profile, b.accessibility).score;
+      return scoreB - scoreA;
+    });
 
   const flights = selectedItems(quote.flights)
     .map((item) => quoteItemToFlight(item, leg.id))
@@ -84,6 +96,7 @@ export function LegBlock({ leg, legIndex, totalLegs, agencyConfig }: Props) {
             key={hotel.id}
             hotel={hotel}
             handoff={handoff}
+            accessibilityProfile={profile}
             onBoardUpdated={(update) => {
               const next = cloneQuote(quote as Quote);
               const item = next.hotels.find((entry) => entry.id === update.hotelId);

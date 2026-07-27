@@ -25,6 +25,9 @@ export interface PremiumPdfQuote {
     duration?: string;
     price: number;
     currency: string;
+    accessibility?: import("@/lib/accessibility/types").AccessibilityInfo<
+      import("@/lib/accessibility/types").ExperienceFeatures
+    >;
   }>;
   transfers: Array<{
     id: string;
@@ -33,6 +36,9 @@ export interface PremiumPdfQuote {
     destination?: string;
     price: number;
     currency: string;
+    accessibility?: import("@/lib/accessibility/types").AccessibilityInfo<
+      import("@/lib/accessibility/types").TransferFeatures
+    >;
   }>;
   pricing: {
     baseTotal: number;

@@ -1,12 +1,13 @@
 "use client";
 
 import { AirportPicker } from "@/components/AirportPicker";
+import { AccessibilityProfileEditor } from "@/components/accessibility/AccessibilityProfileEditor";
+import { useAccessibilityProfile } from "@/components/accessibility/AccessibilityProfileContext";
 import {
   airportChoicesForBuild,
   isAirportSelectionComplete,
   type AirportChoicesState,
 } from "@/lib/quote-engine/airport-selection";
-import type { EnrichedTripRequest } from "@/lib/parser/airport-resolution";
 import { useQuoteConversation } from "@/hooks/useQuoteConversation";
 import { useState, useEffect } from "react";
 import { MessageList } from "./MessageList";
@@ -27,7 +28,9 @@ export function ConversationPanel({
     needsInput,
     awaitingAirports,
     confirmAirports,
+    parsedTripInput,
   } = useQuoteConversation();
+  const { profile, setProfile } = useAccessibilityProfile();
 
   const [airportChoices, setAirportChoices] = useState<AirportChoicesState>({
     origin: null,
@@ -39,6 +42,13 @@ export function ConversationPanel({
       setAirportChoices({ origin: null, destination: null });
     }
   }, [awaitingAirports]);
+
+  useEffect(() => {
+    const fromParsed = parsedTripInput?.preferences?.accessibilityProfile;
+    if (fromParsed && !profile) {
+      setProfile(fromParsed);
+    }
+  }, [parsedTripInput, profile, setProfile]);
 
   const handleSubmit = (input: string) => {
     if (status === "idle" || status === "error" || status === "needs_input") {
@@ -115,6 +125,11 @@ export function ConversationPanel({
         ) : null}
 
         <RefinementConfirmation />
+
+        <AccessibilityProfileEditor
+          profile={profile ?? parsedTripInput?.preferences?.accessibilityProfile}
+          onChange={setProfile}
+        />
       </div>
       <MessageInput
         onSubmit={handleSubmit}

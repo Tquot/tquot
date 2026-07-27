@@ -11,3 +11,6 @@ export {
 } from "./content-enrich";
 
 export { parseBoardOptions, parseBoardOptionsFromRooms } from "./parse-board-options";
+
+export { enrichHotelsWithAccessibility } from "@/lib/accessibility/loader";
+export { deriveFromHotelbedsContent } from "@/lib/accessibility/tur4all-connector";

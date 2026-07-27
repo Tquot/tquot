@@ -61,6 +61,8 @@ export interface ParsedTripInput {
     hotelLevel: HotelLevel;
     directFlights: boolean;
     accessibility: boolean;
+    /** Bloque G — perfil estructurado (opcional; además del boolean legacy). */
+    accessibilityProfile?: import("@/lib/accessibility/types").AccessibilityProfile;
   };
   agencyMargins?: AgencyMargins;
   enrichedTrip?: EnrichedTripRequest;
@@ -134,6 +136,10 @@ export type QuoteItemHotelDetails = {
   boardOptions?: import("@/lib/quote-engine/types").BoardOption[];
   /** Hotelbeds Content API snapshot (optional; also cached in hotelbeds_content). */
   content?: import("@/lib/providers/hotelbeds/content-types").HotelContent;
+  /** Bloque G — accesibilidad del hotel. */
+  accessibility?: import("@/lib/accessibility/types").AccessibilityInfo<
+    import("@/lib/accessibility/types").HotelFeatures
+  >;
 };
 
 export type QuoteItemExperienceDetails = {
@@ -809,6 +815,7 @@ function buildHotelDetails(
       : {}),
     ...(provider ? { provider } : {}),
     ...(hotel.content ? { content: hotel.content } : {}),
+    ...(hotel.accessibility ? { accessibility: hotel.accessibility } : {}),
     currency: hotel.currency ?? "EUR",
     fetchedAt: new Date().toISOString(),
   };

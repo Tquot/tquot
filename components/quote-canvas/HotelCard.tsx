@@ -1,16 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import { AccessibilityBadge } from "@/components/accessibility/AccessibilityBadge";
+import { AccessibilityFeatureList } from "@/components/accessibility/AccessibilityFeatureList";
 import { BookingHandoffButton } from "@/components/booking-handoff/BookingHandoffButton";
 import { BoardChips } from "@/components/quote-canvas/BoardChips";
 import { HotelDetailExpanded } from "@/components/quote-canvas/HotelDetailExpanded";
 import { MoneyDisplay } from "@/components/currency/MoneyDisplay";
+import { matchesHotel } from "@/lib/accessibility/match";
+import type { AccessibilityProfile } from "@/lib/accessibility/types";
 import type { BookingHandoff } from "@/lib/booking-handoff/types";
 import type { BoardCode, Hotel } from "@/lib/quote-engine/types";
 
 interface Props {
   hotel: Hotel;
   handoff: BookingHandoff | null;
+  accessibilityProfile?: AccessibilityProfile;
   onBoardUpdated?: (update: {
     hotelId: string;
     boardCode: BoardCode;
@@ -22,7 +27,12 @@ interface Props {
   }) => void;
 }
 
-export function HotelCard({ hotel, handoff, onBoardUpdated }: Props) {
+export function HotelCard({
+  hotel,
+  handoff,
+  accessibilityProfile,
+  onBoardUpdated,
+}: Props) {
   const [expanded, setExpanded] = useState(false);
   const [displayed, setDisplayed] = useState({
     netPrice: hotel.netPrice,
@@ -37,9 +47,15 @@ export function HotelCard({ hotel, handoff, onBoardUpdated }: Props) {
     hotel.originalPrice != null
       ? Math.round(hotel.originalPrice / nights)
       : undefined;
+  const match = matchesHotel(accessibilityProfile, hotel.accessibility);
+  const dimmed = Boolean(match && !match.matches);
 
   return (
-    <article className="rounded-lg border border-neutral-200 bg-white p-4">
+    <article
+      className={`rounded-lg border border-neutral-200 bg-white p-4 ${
+        dimmed ? "opacity-60" : ""
+      }`}
+    >
       <div className="flex gap-3">
         {hotel.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -51,7 +67,10 @@ export function HotelCard({ hotel, handoff, onBoardUpdated }: Props) {
           />
         ) : null}
         <div className="min-w-0 flex-1">
-          <h4 className="font-semibold text-neutral-900">{hotel.name}</h4>
+          <div className="flex flex-wrap items-center gap-2">
+            <h4 className="font-semibold text-neutral-900">{hotel.name}</h4>
+            <AccessibilityBadge info={hotel.accessibility} match={match} />
+          </div>
           {hotel.stars > 0 ? (
             <p className="mt-1 text-sm text-neutral-500">
               {"★".repeat(hotel.stars)}
@@ -125,7 +144,35 @@ export function HotelCard({ hotel, handoff, onBoardUpdated }: Props) {
         </button>
       ) : null}
 
-      {expanded ? <HotelDetailExpanded hotel={hotel} /> : null}
+      {expanded ? (
+        <div className="mt-3 space-y-3">
+          {hotel.accessibility ? (
+            <div className="rounded-md bg-neutral-50 p-3">
+              <h4 className="mb-2 text-xs font-semibold">Accesibilidad</h4>
+              <AccessibilityFeatureList
+                features={hotel.accessibility.features}
+                itemType="hotel"
+              />
+              {hotel.accessibility.notes ? (
+                <p className="mt-2 text-xs italic text-neutral-600">
+                  {hotel.accessibility.notes}
+                </p>
+              ) : null}
+              {hotel.accessibility.sourceUrl ? (
+                <a
+                  href={hotel.accessibility.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-block text-xs text-blue-600 hover:underline"
+                >
+                  Ver ficha completa ↗
+                </a>
+              ) : null}
+            </div>
+          ) : null}
+          <HotelDetailExpanded hotel={hotel} />
+        </div>
+      ) : null}
     </article>
   );
 }

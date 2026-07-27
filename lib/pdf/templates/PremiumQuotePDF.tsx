@@ -5,6 +5,10 @@ import { PDFCover } from "../components/PDFCover";
 import { PDFHotelBlock } from "../components/PDFHotelBlock";
 import { PDFItineraryBlock } from "../components/PDFItineraryBlock";
 import { PDFFooter } from "../components/PDFFooter";
+import {
+  hasAccessibilityInfo,
+  PDFAccessibilityBlock,
+} from "../components/PDFAccessibilityBlock";
 import { RecommendationsBlock } from "../components/RecommendationsBlock";
 import type { PremiumPdfFlight, PremiumPdfQuote } from "../premium-types";
 
@@ -72,6 +76,10 @@ export function PremiumQuotePDF({ quote, branding, variant }: Props) {
       <Page size="A4" style={styles.page}>
         <Text style={styles.h1}>Resumen económico</Text>
         <SummaryBlockPdf quote={quote} variant={variant} styles={styles} branding={branding} />
+
+        {hasAccessibilityInfo(quote) ? (
+          <PDFAccessibilityBlock quote={quote} />
+        ) : null}
 
         {variant === "agent" && quote.recommendations ? (
           <RecommendationsBlock

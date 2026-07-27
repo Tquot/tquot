@@ -10,6 +10,10 @@ import { formatMessage } from "../format-message";
 import type { Locale } from "../translations";
 import type { DashboardTranslation } from "../translations";
 import { useEffect, useRef, useState } from "react";
+import { AccessibilityBadge } from "@/components/accessibility/AccessibilityBadge";
+import { AccessibilityFeatureList } from "@/components/accessibility/AccessibilityFeatureList";
+import { useAccessibilityProfile } from "@/components/accessibility/AccessibilityProfileContext";
+import { matchesHotel } from "@/lib/accessibility/match";
 import { BoardChips } from "@/components/quote-canvas/BoardChips";
 import { getBoardShortCode } from "@/lib/providers/hotelbeds/board-mapping";
 import type { BoardCode } from "@/lib/quote-engine/types";
@@ -441,6 +445,11 @@ function HotelQuoteItemCard({
   selectionMode?: "exclusive" | "independent";
 }) {
   const { locale, t } = useDashboardLanguage();
+  const { profile: accessibilityProfile } = useAccessibilityProfile();
+  const a11yMatch = matchesHotel(
+    accessibilityProfile,
+    item.hotelDetails?.accessibility,
+  );
   const [expanded, setExpanded] = useState(false);
   const [board, setBoard] = useState<HotelBoardCode>("SA");
   const [aiDescription, setAiDescription] = useState<string | null>(null);
@@ -541,7 +550,9 @@ function HotelQuoteItemCard({
         isSelected,
         isSelectable,
         isInteractive: true,
-        extra: `${sourceLeftAccent[item.source]}${expanded ? " border-l-4 border-l-tquot-teal/60" : ""}`,
+        extra: `${sourceLeftAccent[item.source]}${expanded ? " border-l-4 border-l-tquot-teal/60" : ""}${
+          a11yMatch && !a11yMatch.matches ? " opacity-60" : ""
+        }`,
       })}
     >
       <div className="mb-3 overflow-hidden rounded-lg border border-tquot-border bg-tquot-bg">
@@ -611,9 +622,25 @@ function HotelQuoteItemCard({
             >
               {sourceLabels[item.source]}
             </span>
+            <AccessibilityBadge
+              info={item.hotelDetails?.accessibility}
+              match={a11yMatch}
+            />
           </div>
           <h4 className="font-semibold text-tquot-text">{item.title}</h4>
           <p className="mt-1 text-sm text-tquot-muted">{item.provider}</p>
+          {item.hotelDetails?.accessibility && expanded ? (
+            <div
+              className="mt-3 rounded-md bg-neutral-50 p-3"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <h5 className="mb-2 text-xs font-semibold">Accesibilidad</h5>
+              <AccessibilityFeatureList
+                features={item.hotelDetails.accessibility.features}
+                itemType="hotel"
+              />
+            </div>
+          ) : null}
         </div>
         <p
           className={`text-xl font-black ${isSelected || !isSelectable ? "text-tquot-teal" : "text-tquot-muted"}`}
