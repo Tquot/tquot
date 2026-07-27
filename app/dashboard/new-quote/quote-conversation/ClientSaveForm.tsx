@@ -10,6 +10,7 @@ interface Props {
   tripInput: ParsedTripInput;
   agentNotes?: string;
   existingQuoteId?: string | null;
+  prefillClient?: { id: string; name: string; email?: string };
   onSaved: (result: { quoteId: string; clientId: string | null }) => void;
   onClose: () => void;
 }
@@ -19,13 +20,16 @@ export function ClientSaveForm({
   tripInput,
   agentNotes,
   existingQuoteId,
+  prefillClient,
   onSaved,
   onClose,
 }: Props) {
   const { t } = useDashboardLanguage();
-  const [mode, setMode] = useState<"new" | "skip">("new");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [mode, setMode] = useState<"new" | "existing" | "skip">(
+    prefillClient ? "existing" : "new",
+  );
+  const [name, setName] = useState(prefillClient?.name ?? "");
+  const [email, setEmail] = useState(prefillClient?.email ?? "");
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -40,16 +44,18 @@ export function ClientSaveForm({
           agentNotes,
           existingQuoteId: existingQuoteId ?? undefined,
           client:
-            mode === "new"
-              ? {
-                  kind: "new",
-                  data: {
-                    name,
-                    email: email || null,
-                    phone: phone || null,
-                  },
-                }
-              : { kind: "skip" },
+            mode === "existing" && prefillClient
+              ? { kind: "existing", id: prefillClient.id }
+              : mode === "new"
+                ? {
+                    kind: "new",
+                    data: {
+                      name,
+                      email: email || null,
+                      phone: phone || null,
+                    },
+                  }
+                : { kind: "skip" },
         });
         onSaved(result);
       } catch (err) {
@@ -60,6 +66,12 @@ export function ClientSaveForm({
 
   return (
     <div className="space-y-4">
+      {prefillClient ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
+          Se asociará a <strong>{prefillClient.name}</strong>
+          {prefillClient.email ? ` (${prefillClient.email})` : ""}.
+        </div>
+      ) : null}
       <label className="block">
         <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-neutral-500">
           {t.clientName} *
@@ -67,9 +79,13 @@ export function ClientSaveForm({
         <input
           type="text"
           value={name}
-          onChange={(event) => setName(event.target.value)}
-          autoFocus
-          className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+          onChange={(event) => {
+            setMode("new");
+            setName(event.target.value);
+          }}
+          autoFocus={!prefillClient}
+          disabled={mode === "existing" && Boolean(prefillClient)}
+          className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:opacity-70"
         />
       </label>
       <label className="block">
@@ -110,7 +126,11 @@ export function ClientSaveForm({
           <button
             type="button"
             onClick={submit}
-            disabled={pending || (mode === "new" && !name.trim())}
+            disabled={
+              pending ||
+              (mode === "new" && !name.trim()) ||
+              (mode === "existing" && !prefillClient)
+            }
             className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
           >
             {pending ? "Guardando…" : t.saveAndGeneratePdf}

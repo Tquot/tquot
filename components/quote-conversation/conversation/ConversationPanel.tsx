@@ -13,7 +13,11 @@ import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { RefinementConfirmation } from "./RefinementConfirmation";
 
-export function ConversationPanel() {
+export function ConversationPanel({
+  prefillText,
+}: {
+  prefillText?: string;
+}) {
   const {
     status,
     messages,
@@ -116,6 +120,7 @@ export function ConversationPanel() {
         onSubmit={handleSubmit}
         disabled={isLocked || planPending || Boolean(awaitingAirports)}
         placeholder={placeholder}
+        initialValue={prefillText}
       />
     </div>
   );

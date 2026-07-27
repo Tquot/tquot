@@ -6,15 +6,31 @@ interface Props {
   onSubmit: (input: string) => void;
   disabled: boolean;
   placeholder: string;
+  /** Prefill the textarea once (agent can edit before sending). */
+  initialValue?: string;
 }
 
-export function MessageInput({ onSubmit, disabled, placeholder }: Props) {
-  const [value, setValue] = useState("");
+export function MessageInput({
+  onSubmit,
+  disabled,
+  placeholder,
+  initialValue,
+}: Props) {
+  const [value, setValue] = useState(initialValue ?? "");
   const ref = useRef<HTMLTextAreaElement>(null);
+  const seededRef = useRef(false);
 
   useEffect(() => {
     if (!disabled) ref.current?.focus();
   }, [disabled]);
+
+  useEffect(() => {
+    if (seededRef.current) return;
+    if (initialValue) {
+      setValue(initialValue);
+      seededRef.current = true;
+    }
+  }, [initialValue]);
 
   const submit = () => {
     const trimmed = value.trim();
@@ -32,7 +48,7 @@ export function MessageInput({ onSubmit, disabled, placeholder }: Props) {
   };
 
   return (
-    <div className="border-t border-neutral-200 p-3 bg-white">
+    <div className="border-t border-neutral-200 bg-white p-3">
       <div className="flex items-end gap-2">
         <textarea
           ref={ref}
@@ -41,7 +57,7 @@ export function MessageInput({ onSubmit, disabled, placeholder }: Props) {
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
-          rows={2}
+          rows={initialValue ? 4 : 2}
           className="flex-1 resize-none rounded-md border border-neutral-300 px-3 py-2 text-sm placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-neutral-50 disabled:text-neutral-400"
         />
         <button

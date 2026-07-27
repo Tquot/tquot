@@ -1,6 +1,8 @@
 "use server";
 
 import { z } from "zod";
+import { recomputeClientPreferences } from "@/lib/clients/recompute";
+import { upsertClientFromQuote } from "@/lib/clients/upsert-from-quote";
 import { getCurrentAgencyId, getCurrentUserId } from "@/lib/auth";
 import {
   itemsForPricing,
@@ -78,6 +80,10 @@ export async function saveQuoteWithClient(input: {
   client: ClientSelection;
   /** If set, update this quote (with versioning) instead of inserting a new one. */
   existingQuoteId?: string;
+  /** Auto-asociación por email cuando client.kind === "skip". */
+  clientEmail?: string;
+  clientName?: string;
+  clientPhone?: string;
 }): Promise<{ quoteId: string; clientId: string | null }> {
   const parsed = SaveQuoteSchema.safeParse(input);
   if (!parsed.success) {
@@ -111,6 +117,14 @@ export async function saveQuoteWithClient(input: {
   } else if (client.kind === "new") {
     const result = await upsertClient(client.data);
     clientId = result.id;
+  } else if (input.clientEmail?.trim()) {
+    // Auto-asociación: skip + email → buscar/crear cliente
+    const upsert = await upsertClientFromQuote({
+      email: input.clientEmail,
+      name: input.clientName,
+      phone: input.clientPhone,
+    });
+    clientId = upsert.clientId;
   }
 
   const { baseTotal, margin, finalTotal, currency } = quote.pricing;
@@ -152,6 +166,7 @@ export async function saveQuoteWithClient(input: {
     payment_terms: null,
     cancellation_policy: null,
     snapshot: quote,
+    parsed: tripInput,
   };
 
   let quoteId: string;
@@ -246,6 +261,14 @@ export async function saveQuoteWithClient(input: {
         await supabase.from("quotes").delete().eq("id", quoteId);
       }
       throw new Error(`quote_line_items_failed: ${lineItemsError.message}`);
+    }
+  }
+
+  if (clientId) {
+    try {
+      await recomputeClientPreferences(clientId);
+    } catch (prefsError) {
+      console.error("[saveQuoteWithClient] preferences recompute failed:", prefsError);
     }
   }
 

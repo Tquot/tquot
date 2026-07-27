@@ -27,9 +27,15 @@ function isCompleteQuote(quote: Partial<Quote> | Quote | null): quote is Quote {
 
 type QuoteConversationProps = {
   agencyConfig: AgencyBookingConfig;
+  prefillText?: string;
+  prefillClient?: { id: string; name: string; email?: string };
 };
 
-export function QuoteConversation({ agencyConfig }: QuoteConversationProps) {
+export function QuoteConversation({
+  agencyConfig,
+  prefillText,
+  prefillClient,
+}: QuoteConversationProps) {
   const { locale, t } = useDashboardLanguage();
   const {
     status,
@@ -105,7 +111,9 @@ export function QuoteConversation({ agencyConfig }: QuoteConversationProps) {
         quote: completeQuote,
         tripInput: parsedTripInput,
         agentNotes: agentNotes || undefined,
-        client: { kind: "skip" },
+        client: prefillClient
+          ? { kind: "existing", id: prefillClient.id }
+          : { kind: "skip" },
         existingQuoteId: savedQuoteId ?? undefined,
       });
       console.log("[PDF] persistCurrentQuote result:", result);
@@ -170,6 +178,7 @@ export function QuoteConversation({ agencyConfig }: QuoteConversationProps) {
         agentNotes={agentNotes}
         isSavingQuote={isSavingQuote}
         savedQuoteId={savedQuoteId}
+        prefillClient={prefillClient}
         onReset={handleReset}
         onQuoteSaved={handleQuoteSaved}
         onAgentPdf={() => void handleAgentPdf()}
@@ -193,7 +202,7 @@ export function QuoteConversation({ agencyConfig }: QuoteConversationProps) {
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <aside className="flex min-h-[42vh] flex-col border-b border-tquot-border bg-white lg:min-h-0 lg:w-2/5 lg:border-b-0 lg:border-r">
-          <ConversationPanel />
+          <ConversationPanel prefillText={prefillText} />
         </aside>
 
         <main className="min-h-[50vh] flex-1 bg-tquot-surface lg:min-h-0 lg:w-3/5">

@@ -20,6 +20,7 @@ type ConversationHeaderProps = {
   agentNotes?: string;
   isSavingQuote: boolean;
   savedQuoteId: string | null;
+  prefillClient?: { id: string; name: string; email?: string };
   onReset: () => void;
   onQuoteSaved: (result: { quoteId: string; clientId: string | null }) => void;
   onAgentPdf: () => void;
@@ -32,6 +33,7 @@ export function ConversationHeader({
   agentNotes,
   isSavingQuote,
   savedQuoteId,
+  prefillClient,
   onReset,
   onQuoteSaved,
   onAgentPdf,
@@ -179,6 +181,7 @@ export function ConversationHeader({
             tripInput={tripInput}
             agentNotes={agentNotes}
             existingQuoteId={savedQuoteId}
+            prefillClient={prefillClient}
             onSaved={(result) => {
               setClientSaveModalOpen(false);
               onQuoteSaved(result);

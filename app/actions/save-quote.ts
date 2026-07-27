@@ -1,6 +1,8 @@
 "use server";
 
 import { getAuthenticatedUser } from "@/app/api/parser/_auth";
+import { recomputeClientPreferences } from "@/lib/clients/recompute";
+import { upsertClientFromQuote } from "@/lib/clients/upsert-from-quote";
 import {
   itemsForPricing,
   type ParsedTripInput,
@@ -19,6 +21,8 @@ type SaveQuoteArgs = {
   agentNotes?: string;
   clientName?: string;
   clientEmail?: string;
+  clientPhone?: string;
+  clientId?: string;
 };
 
 type SaveQuoteSuccess = { ok: true; quoteId: string };
@@ -226,11 +230,32 @@ export async function saveQuote(
       clientEmail: args.clientEmail,
       userId: auth.user.id,
     });
-    const clientId = await upsertClientForQuote(
-      userId,
-      args.clientName,
-      args.clientEmail,
-    );
+
+    let clientId: string | null = args.clientId ?? null;
+
+    if (!clientId && args.clientEmail?.trim()) {
+      try {
+        const upsert = await upsertClientFromQuote({
+          email: args.clientEmail,
+          name: args.clientName,
+          phone: args.clientPhone,
+        });
+        clientId = upsert.clientId;
+      } catch (upsertError) {
+        console.error("[saveQuote] upsertClientFromQuote failed, falling back:", upsertError);
+        clientId = await upsertClientForQuote(
+          userId,
+          args.clientName,
+          args.clientEmail,
+        );
+      }
+    } else if (!clientId) {
+      clientId = await upsertClientForQuote(
+        userId,
+        args.clientName,
+        args.clientEmail,
+      );
+    }
     console.log("[saveQuote] upsertClientForQuote returned clientId:", clientId);
 
     const thirtyDaysFromNow = addDaysIso(new Date(), 30);
@@ -278,6 +303,7 @@ export async function saveQuote(
         payment_terms: null,
         cancellation_policy: null,
         snapshot: args.quote,
+        parsed: args.tripInput,
       })
       .select("id")
       .single();
@@ -339,6 +365,14 @@ export async function saveQuote(
       if (lineItemsError) {
         await supabase.from("quotes").delete().eq("id", quoteId);
         return { ok: false, error: lineItemsError.message };
+      }
+    }
+
+    if (clientId) {
+      try {
+        await recomputeClientPreferences(clientId);
+      } catch (prefsError) {
+        console.error("[saveQuote] preferences recompute failed:", prefsError);
       }
     }
 
