@@ -3,12 +3,36 @@
 import { useEffect, useRef, useState } from "react";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 
-interface DemoStep {
-  kind: "user" | "agent" | "progress" | "flight" | "hotel";
-  content?: string;
-  data?: any;
-  delay: number;
+type ProgressStatus = "searching" | "pending" | "done";
+
+interface ProgressItem {
+  key: string;
+  label: string;
+  status: ProgressStatus;
+  count?: number;
 }
+
+interface FlightData {
+  carrier: string;
+  depTime: string;
+  arrTime: string;
+  price: number;
+}
+
+interface HotelData {
+  name: string;
+  stars: number;
+  price: number;
+  source: string;
+  image: string;
+}
+
+type DemoStep =
+  | { kind: "user"; content: string; delay: number }
+  | { kind: "agent"; content: string; delay: number }
+  | { kind: "progress"; data: ProgressItem[]; delay: number }
+  | { kind: "flight"; data: FlightData; delay: number }
+  | { kind: "hotel"; data: HotelData; delay: number };
 
 const DEMO_SCRIPT: DemoStep[] = [
   {
@@ -169,20 +193,31 @@ export function LiveDemo() {
         <div className="grid max-w-[920px] grid-cols-1 gap-4 lg:grid-cols-[380px_1fr]">
           <div className="min-h-[460px] space-y-3 rounded-lg border border-border-1 bg-paper p-4 shadow-soft">
             {visible
-              .filter((item) => item.kind === "user" || item.kind === "agent")
+              .filter(
+                (item): item is Extract<DemoStep, { kind: "user" | "agent" }> =>
+                  item.kind === "user" || item.kind === "agent",
+              )
               .map((item, index) => (
                 <DemoMsg key={index} step={item} />
               ))}
           </div>
           <div className="min-h-[460px] space-y-3 rounded-lg border border-border-1 bg-paper p-4 shadow-soft">
-            {lastProgress ? <DemoProgress data={lastProgress.data} /> : null}
+            {lastProgress?.kind === "progress" ? (
+              <DemoProgress data={lastProgress.data} />
+            ) : null}
             {visible
-              .filter((item) => item.kind === "flight")
+              .filter(
+                (item): item is Extract<DemoStep, { kind: "flight" }> =>
+                  item.kind === "flight",
+              )
               .map((item, index) => (
                 <DemoFlight key={index} data={item.data} />
               ))}
             {visible
-              .filter((item) => item.kind === "hotel")
+              .filter(
+                (item): item is Extract<DemoStep, { kind: "hotel" }> =>
+                  item.kind === "hotel",
+              )
               .map((item, index) => (
                 <DemoHotel key={index} data={item.data} />
               ))}
@@ -193,7 +228,11 @@ export function LiveDemo() {
   );
 }
 
-function DemoMsg({ step }: { step: DemoStep }) {
+function DemoMsg({
+  step,
+}: {
+  step: Extract<DemoStep, { kind: "user" | "agent" }>;
+}) {
   if (step.kind === "user") {
     return (
       <div className="flex justify-end animate-slide-up-fade">
@@ -212,7 +251,7 @@ function DemoMsg({ step }: { step: DemoStep }) {
   );
 }
 
-function DemoProgress({ data }: { data: any[] }) {
+function DemoProgress({ data }: { data: ProgressItem[] }) {
   return (
     <div className="mb-2 space-y-1.5 animate-slide-up-fade">
       {data.map((item) => (
@@ -249,7 +288,7 @@ function DemoProgress({ data }: { data: any[] }) {
   );
 }
 
-function DemoFlight({ data }: { data: any }) {
+function DemoFlight({ data }: { data: FlightData }) {
   return (
     <div className="flex items-center gap-3 rounded-md border border-border-1 p-3 animate-slide-up-fade">
       <div className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-ink font-mono text-mono-sm font-semibold text-paper">
@@ -270,7 +309,7 @@ function DemoFlight({ data }: { data: any }) {
   );
 }
 
-function DemoHotel({ data }: { data: any }) {
+function DemoHotel({ data }: { data: HotelData }) {
   return (
     <div className="overflow-hidden rounded-md border border-border-1 animate-slide-up-fade">
       <div className="relative aspect-[16/8] overflow-hidden bg-paper-3">
