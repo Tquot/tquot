@@ -67,6 +67,27 @@ export interface QuoteLineItem {
   hotelCode?: string | null;
   /** Snapshot opcional de Content API (o rellenado al cargar desde caché). */
   hotelContent?: HotelContent | null;
+
+  /** Detalle de vuelo (desde snapshot.flightDetails o parseado de description/subtitle). */
+  flightDetails?: PdfFlightDetails | null;
+}
+
+/** Campos de vuelo usados por AgentPDF / ClientPDF. */
+export interface PdfFlightDetails {
+  airlineName?: string | null;
+  airlineLogoUrl?: string | null;
+  originIata?: string | null;
+  destinationIata?: string | null;
+  flightNumber?: string | null;
+  departureDate?: string | null;
+  departureTime?: string | null;
+  arrivalTime?: string | null;
+  duration?: string | null;
+  durationMinutes?: number | null;
+  stops?: number | null;
+  cabinClass?: string | null;
+  fareType?: string | null;
+  baggageIncluded?: string | null;
 }
 
 // ─────────────────────────────────────────────────────────────

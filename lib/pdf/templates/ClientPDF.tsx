@@ -19,6 +19,7 @@ import { colors, fonts, fontSize, fontWeight, spacing, page } from "../theme";
 import { AgencyLogo } from "../components/AgencyLogo";
 import { RecommendationsBlock } from "../components/RecommendationsBlock";
 import { GoldRule, SectionLabel } from "../components/Decoration";
+import { PDFFlightDetailsRows } from "../components/PDFFlightDetailsRows";
 import {
   formatCurrency,
   formatDate,
@@ -446,8 +447,16 @@ export function ClientPDF({ quote }: ClientPDFProps) {
             <Text style={styles.lineNumber}>{index + 1}</Text>
             <View style={styles.lineContent}>
               <Text style={styles.lineCategory}>{categoryLabel(item.category)}</Text>
-              <Text style={styles.lineDescription}>{item.description}</Text>
-              {item.subtitle && <Text style={styles.lineSubtitle}>{item.subtitle}</Text>}
+              {item.category === "flight" ? (
+                <PDFFlightDetailsRows item={item} />
+              ) : (
+                <>
+                  <Text style={styles.lineDescription}>{item.description}</Text>
+                  {item.subtitle && (
+                    <Text style={styles.lineSubtitle}>{item.subtitle}</Text>
+                  )}
+                </>
+              )}
             </View>
             <Text style={styles.linePrice}>
               {formatCurrency(item.publicPrice, quote.totals.currency as "EUR" | "USD" | "GBP")}

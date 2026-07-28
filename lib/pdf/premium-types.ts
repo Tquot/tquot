@@ -12,6 +12,14 @@ export interface PremiumPdfHotel extends Hotel {
 export interface PremiumPdfFlight extends Flight {
   departureDate?: string;
   name?: string;
+  airlineLogoUrl?: string;
+  flightNumber?: string;
+  departureTime?: string;
+  arrivalTime?: string;
+  stops?: number;
+  cabinClass?: string;
+  fareName?: string;
+  baggageIncluded?: string;
 }
 
 export interface PremiumPdfQuote {

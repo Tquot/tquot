@@ -73,7 +73,7 @@ export function mapSnapshotToPremiumQuote(
         id: item.id,
         legId: mapped?.legId ?? "leg-1",
         carrier: mapped?.carrier ?? item.provider.slice(0, 2).toUpperCase(),
-        carrierName: mapped?.carrierName ?? item.provider,
+        carrierName: mapped?.carrierName ?? fd?.airline ?? item.provider,
         price: item.finalPrice,
         currency: item.currency ?? "EUR",
         origin: mapped?.origin ?? fd?.originIata ?? meta.origin,
@@ -82,6 +82,16 @@ export function mapSnapshotToPremiumQuote(
         departureDate: fd?.departureDate ?? String(meta.departure_date),
         name: item.title,
         slices: mapped?.slices,
+        // Rich fields available for PDF consumers / future FlightBlockPdf
+        airlineLogoUrl: fd?.airlineLogoUrl,
+        flightNumber: fd?.flightNumber,
+        departureTime: fd?.departureTime,
+        arrivalTime: fd?.arrivalTime,
+        duration: fd?.duration,
+        stops: fd?.stops,
+        cabinClass: fd?.cabinClass,
+        fareName: fd?.fareName,
+        baggageIncluded: fd?.baggageIncluded,
       };
     },
   );

@@ -10,7 +10,7 @@
  *
  *  El esquema de tu Supabase (tablas `quotes`, `quote_line_items`, `agencies`,
  *  `clients`, etc.) probablemente difiere en nombres de columnas. Adapta los
- *  selects y el mapper sin tocar las plantillas.
+ *  selects y el mapper sin tocar este archivo o las plantillas.
  *
  *  Lo que importa: que la función devuelva un objeto que cumpla `Quote` en
  *  `lib/pdf/types.ts`. Si tu modelo no tiene un campo, devuélvelo como null
@@ -18,9 +18,10 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
-import type { Quote, QuoteLineItem } from "../types";
+import type { Quote, QuoteLineItem, PdfFlightDetails } from "../types";
 import type { PriceSource } from "../theme";
 import { getCachedHotelContent } from "@/lib/providers/hotelbeds/content-cache";
+import { resolveFlightDetails } from "./resolve-flight-details";
 
 function supabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -58,6 +59,43 @@ type QuoteLineItemRow = {
   hotel_code?: string | null;
 };
 
+type SnapshotFlightItem = {
+  id?: string;
+  title?: string;
+  flightDetails?: Record<string, unknown> | null;
+};
+
+type SnapshotPayload = {
+  flights?: SnapshotFlightItem[];
+};
+
+function findSnapshotFlightDetails(
+  snapshot: SnapshotPayload | null,
+  lineItem: QuoteLineItemRow,
+): PdfFlightDetails | null {
+  if (!snapshot?.flights?.length || lineItem.category !== "flight") return null;
+
+  const byId = snapshot.flights.find((flight) => flight.id === lineItem.id);
+  const byTitle = snapshot.flights.find(
+    (flight) =>
+      flight.title &&
+      lineItem.description &&
+      flight.title.trim() === lineItem.description.trim(),
+  );
+  const match = byId ?? byTitle;
+  if (!match?.flightDetails) return null;
+
+  return resolveFlightDetails(
+    {
+      description: lineItem.description,
+      subtitle: lineItem.subtitle,
+      supplier: lineItem.supplier,
+      flightDetails: null,
+    },
+    match.flightDetails as Parameters<typeof resolveFlightDetails>[1],
+  );
+}
+
 // ─────────────────────────────────────────────────────────────
 // Carga principal
 // ─────────────────────────────────────────────────────────────
@@ -87,6 +125,8 @@ export async function loadQuoteForPdf(quoteId: string): Promise<Quote | null> {
     return null;
   }
 
+  const snapshot = (data.snapshot as SnapshotPayload | null) ?? null;
+
   // ─── Mapeo a Quote ───
   // Renombra los campos según tu esquema real. Esto es solo una plantilla.
 
@@ -96,6 +136,17 @@ export async function loadQuoteForPdf(quoteId: string): Promise<Quote | null> {
       const hotelContent =
         li.category === "hotel" && hotelCode
           ? await getCachedHotelContent(hotelCode)
+          : null;
+
+      const flightDetails =
+        li.category === "flight"
+          ? findSnapshotFlightDetails(snapshot, li) ??
+            resolveFlightDetails({
+              description: li.description,
+              subtitle: li.subtitle,
+              supplier: li.supplier,
+              flightDetails: null,
+            })
           : null;
 
       return {
@@ -114,6 +165,7 @@ export async function loadQuoteForPdf(quoteId: string): Promise<Quote | null> {
         paxCount: Number(li.pax_count ?? 1),
         hotelCode,
         hotelContent,
+        flightDetails,
       };
     }),
   );

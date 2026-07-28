@@ -24,6 +24,7 @@ import { AgencyLogo } from "../components/AgencyLogo";
 import { RecommendationsBlock } from "../components/RecommendationsBlock";
 import { SectionLabel } from "../components/Decoration";
 import { SourceBadge } from "../components/SourceBadge";
+import { PDFFlightDetailsRows } from "../components/PDFFlightDetailsRows";
 import {
   formatCurrency,
   formatDate,
@@ -424,12 +425,20 @@ export function AgentPDF({ quote }: AgentPDFProps) {
             <View style={styles.lineHeader}>
               <View style={styles.lineHeaderLeft}>
                 <Text style={styles.lineCategoryBadge}>{categoryLabel(item.category)}</Text>
-                <Text style={styles.lineDescription}>{item.description}</Text>
+                {item.category === "flight" ? (
+                  <Text style={styles.lineDescription}>Vuelo</Text>
+                ) : (
+                  <Text style={styles.lineDescription}>{item.description}</Text>
+                )}
               </View>
               <SourceBadge source={item.source} />
             </View>
 
-            {item.subtitle && <Text style={styles.lineSubtitle}>{item.subtitle}</Text>}
+            {item.category === "flight" ? (
+              <PDFFlightDetailsRows item={item} indent={56} />
+            ) : (
+              item.subtitle && <Text style={styles.lineSubtitle}>{item.subtitle}</Text>
+            )}
 
             {/* Desglose económico */}
             <View style={styles.costGrid}>
@@ -455,12 +464,12 @@ export function AgentPDF({ quote }: AgentPDFProps) {
                   {formatCurrency(item.publicPrice, quote.totals.currency as "EUR" | "USD" | "GBP")}
                 </Text>
               </View>
-              {item.supplier && (
+              {item.supplier && item.category !== "flight" ? (
                 <View style={styles.costCell}>
                   <Text style={styles.costLabel}>Proveedor</Text>
                   <Text style={styles.costValue}>{item.supplier}</Text>
                 </View>
-              )}
+              ) : null}
             </View>
 
             {/* Nota interna por línea */}
