@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { TopBar } from "@/components/layout/TopBar";
 
 export default async function DashboardLayout({
   children,
@@ -15,5 +16,10 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  return children;
+  return (
+    <div className="min-h-screen bg-paper text-text">
+      <TopBar />
+      {children}
+    </div>
+  );
 }
