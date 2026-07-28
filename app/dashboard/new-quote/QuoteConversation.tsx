@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { saveQuoteWithClient } from "@/app/actions/quotes";
 import { useQuoteConversation } from "@/hooks/useQuoteConversation";
 import { BookingConfigProvider } from "@/lib/booking-handoff/context";
 import type { AgencyBookingConfig } from "@/lib/booking-handoff/types";
 import { AccessibilityProfileProvider } from "@/components/accessibility/AccessibilityProfileContext";
 import { useQuoteConversationStore } from "@/lib/quote-conversation/store";
-import type { Quote } from "@/lib/quotes/build-quote";
+import type { ParsedTripInput, Quote } from "@/lib/quotes/build-quote";
 import type { Quote as EngineQuote } from "@/lib/quote-engine/types";
 import { useDashboardLanguage } from "../dashboard-language-provider";
 import { ConversationHeader } from "./quote-conversation/ConversationHeader";
@@ -30,12 +30,18 @@ type QuoteConversationProps = {
   agencyConfig: AgencyBookingConfig;
   prefillText?: string;
   prefillClient?: { id: string; name: string; email?: string };
+  initialResume?: {
+    quoteId: string;
+    quote: Quote;
+    tripInput: ParsedTripInput;
+  };
 };
 
 export function QuoteConversation({
   agencyConfig,
   prefillText,
   prefillClient,
+  initialResume,
 }: QuoteConversationProps) {
   const { locale, t } = useDashboardLanguage();
   const {
@@ -62,16 +68,34 @@ export function QuoteConversation({
   const setPersistedQuoteId = useQuoteConversationStore(
     (store) => store.setPersistedQuoteId,
   );
+  const hydrateFromSavedQuote = useQuoteConversationStore(
+    (store) => store.hydrateFromSavedQuote,
+  );
 
   const [agentNotes, setAgentNotes] = useState(t.defaultAgentNotes);
   const [isSavingQuote, setIsSavingQuote] = useState(false);
   const [compareHotel, setCompareHotel] = useState<CompareHotelState>(null);
+  const hydratedResumeRef = useRef<string | null>(null);
   const savedQuoteId = persistedQuoteId;
 
   const completeQuote = isCompleteQuote(quote) ? quote : null;
   const completeQuoteWithGroup = completeQuote as EngineQuote | null;
 
   useEffect(() => {
+    if (!initialResume) return;
+    if (hydratedResumeRef.current === initialResume.quoteId) return;
+    hydratedResumeRef.current = initialResume.quoteId;
+    hydrateFromSavedQuote({
+      quoteId: initialResume.quoteId,
+      quote: initialResume.quote,
+      tripInput: initialResume.tripInput,
+      resumeMessage:
+        "Cotización retomada. Puedes seguir refinando vuelos, hoteles o márgenes desde aquí.",
+    });
+  }, [hydrateFromSavedQuote, initialResume]);
+
+  useEffect(() => {
+    if (initialResume) return;
     if (messages.length > 0) return;
 
     const welcomeTimer = window.setTimeout(() => {
@@ -81,7 +105,7 @@ export function QuoteConversation({
     }, 0);
 
     return () => window.clearTimeout(welcomeTimer);
-  }, [addAssistantMessage, messages.length, t.chatWelcome]);
+  }, [addAssistantMessage, initialResume, messages.length, t.chatWelcome]);
 
   useEffect(() => {
     setAgentNotes(t.defaultAgentNotes);

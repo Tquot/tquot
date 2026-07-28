@@ -15,8 +15,15 @@ import type {
   SystemEventType,
   SystemMessage,
 } from "@/lib/quote-conversation/types";
-import type { Quote } from "@/lib/quotes/build-quote";
+import type { ParsedTripInput, Quote } from "@/lib/quotes/build-quote";
 import { syncQuotePricing } from "@/lib/quotes/build-quote";
+
+interface HydrateFromSavedQuoteInput {
+  quoteId: string;
+  quote: Quote;
+  tripInput: ParsedTripInput;
+  resumeMessage?: string;
+}
 
 interface QuoteConversationStore {
   state: ConversationState;
@@ -38,6 +45,7 @@ interface QuoteConversationStore {
   addSystemEvent: (type: SystemEventType, payload?: Record<string, unknown>) => string;
   updateQuote: (quote: Quote) => void;
   setPersistedQuoteId: (quoteId: string | null) => void;
+  hydrateFromSavedQuote: (input: HydrateFromSavedQuoteInput) => void;
 
   reset: () => void;
 }
@@ -165,6 +173,36 @@ export const useQuoteConversationStore = create<QuoteConversationStore>()(
 
       setPersistedQuoteId: (quoteId) =>
         set({ persistedQuoteId: quoteId }, false, "quote/setPersistedId"),
+
+      hydrateFromSavedQuote: ({ quoteId, quote, tripInput, resumeMessage }) => {
+        const synced = { ...quote };
+        syncQuotePricing(synced);
+        const messages: Message[] = resumeMessage
+          ? [
+              {
+                id: nanoid(),
+                role: "assistant",
+                content: resumeMessage,
+                timestamp: Date.now(),
+                streaming: false,
+              },
+            ]
+          : [];
+
+        set(
+          {
+            state: {
+              status: "complete",
+              parsed: tripInput,
+              quote: synced,
+            },
+            messages,
+            persistedQuoteId: quoteId,
+          },
+          false,
+          "quote/hydrateFromSaved",
+        );
+      },
 
       reset: () =>
         set(
