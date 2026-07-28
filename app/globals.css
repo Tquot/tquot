@@ -2,12 +2,14 @@
 
 /* ─── TQuot visual foundation (Tailwind v4 @theme) ─── */
 @theme inline {
-  /* Colors */
+  /* Colors — teal primary; umber only as rare (~5%) accent */
   --color-ink: #1b2436;
   --color-ink-2: #2a3447;
-  --color-paper: #ffffff;
-  --color-paper-2: #faf8f4;
-  --color-paper-3: #f2efe7;
+  --color-paper: #fafaf8;
+  --color-paper-2: #f5f3ef;
+  --color-paper-3: #efece6;
+  --color-teal: #00897b;
+  --color-teal-2: #00796b;
   --color-umber: #b85c38;
   --color-umber-2: #9f4d2e;
   --color-text: #0f1419;
@@ -22,13 +24,13 @@
   --color-info: #3b5b7c;
 
   /* Legacy tquot-* aliases → foundation (keeps existing classNames working) */
-  --color-tquot-bg: #faf8f4;
+  --color-tquot-bg: #fafaf8;
   --color-tquot-surface: #ffffff;
   --color-tquot-text: #0f1419;
   --color-tquot-muted: #5b5f66;
   --color-tquot-border: #d2ccc0;
-  --color-tquot-accent: #3b5b7c;
-  --color-tquot-teal: #b85c38;
+  --color-tquot-accent: #00897b;
+  --color-tquot-teal: #00897b;
   --color-tquot-warm: #b89446;
   --color-tquot-success: #2f6b4d;
   --color-tquot-error: #8b2828;
@@ -175,7 +177,8 @@
 
 :root {
   --color-ink: #1b2436;
-  --color-paper: #ffffff;
+  --color-paper: #fafaf8;
+  --color-teal: #00897b;
   --color-umber: #b85c38;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
@@ -189,13 +192,13 @@
   --font-outfit: var(--font-fraunces);
 
   /* Keep CSS var names used by non-Tailwind code */
-  --tquot-bg: #faf8f4;
+  --tquot-bg: #fafaf8;
   --tquot-surface: #ffffff;
   --tquot-text: #0f1419;
   --tquot-muted: #5b5f66;
   --tquot-border: #d2ccc0;
-  --tquot-accent: #3b5b7c;
-  --tquot-teal: #b85c38;
+  --tquot-accent: #00897b;
+  --tquot-teal: #00897b;
   --tquot-warm: #b89446;
   --tquot-success: #2f6b4d;
   --tquot-error: #8b2828;
@@ -223,7 +226,7 @@
   }
 
   ::selection {
-    background-color: rgba(184, 92, 56, 0.18);
+    background-color: rgba(0, 137, 123, 0.18);
     color: var(--color-ink);
   }
 
@@ -275,7 +278,8 @@
 .mesh-bg {
   background-image:
     radial-gradient(ellipse 80% 50% at 50% -20%, rgba(27, 36, 54, 0.04), transparent),
-    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(184, 92, 56, 0.04), transparent);
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(0, 137, 123, 0.05), transparent),
+    radial-gradient(ellipse 40% 30% at 0% 100%, rgba(184, 92, 56, 0.03), transparent);
 }
 
 .grid-overlay {

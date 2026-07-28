@@ -17,7 +17,8 @@ const config: Config = {
     extend: {
       colors: {
         ink: { DEFAULT: "#1B2436", 2: "#2A3447" },
-        paper: { DEFAULT: "#FFFFFF", 2: "#FAF8F4", 3: "#F2EFE7" },
+        paper: { DEFAULT: "#FAFAF8", 2: "#F5F3EF", 3: "#EFECE6" },
+        teal: { DEFAULT: "#00897B", 2: "#00796B" },
         umber: { DEFAULT: "#B85C38", 2: "#9F4D2E" },
         text: { DEFAULT: "#0F1419", 2: "#5B5F66", 3: "#9A9C9E" },
         border: { 1: "#EBE8E0", 2: "#D2CCC0", 3: "#B5AE9F" },
