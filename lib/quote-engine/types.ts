@@ -25,7 +25,14 @@ export interface Hotel {
   connectionId?: string;
   totalForGroup?: number;
   imageUrl?: string;
+  /** Galería de fotos (Content API / enrichment). */
+  images?: string[];
   description?: string;
+  address?: string;
+  destination?: string;
+  amenities?: string[];
+  refundable?: boolean;
+  cancellationDeadline?: string;
   /** Régimen actualmente seleccionado (códigos Hotelbeds: RO/BB/HB/FB/AI). */
   boardCode?: BoardCode;
   /** Combinaciones tarifa×régimen disponibles (Hotelbeds). */
@@ -68,6 +75,8 @@ export interface Flight {
   currency: string;
   origin?: string;
   destination?: string;
+  duration?: string;
+  fareClass?: string;
   offerId?: string;
   locator?: string;
   originalPrice?: number;
@@ -81,6 +90,7 @@ export interface Flight {
       destination: { iata_code: string };
       flightNumber?: string;
       departureTime?: string;
+      arrivalTime?: string;
     }>;
   }>;
 }

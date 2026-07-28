@@ -1,36 +1,56 @@
 "use client";
 
+import {
+  ChatMessage,
+  StreamingText,
+} from "@/components/chat/ChatMessage";
 import type { Message } from "@/lib/quote-conversation/types";
 
 interface Props {
   message: Message;
 }
 
+function formatTimestamp(ts: number): string {
+  try {
+    return new Date(ts).toLocaleTimeString("es-ES", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
+}
+
 export function MessageBubble({ message }: Props) {
   if (message.role === "system") {
-    return null;
+    const label =
+      typeof message.payload?.label === "string"
+        ? message.payload.label
+        : message.type.replace(/-/g, " ");
+    return (
+      <div className="mb-3 px-4">
+        <ChatMessage role="system">{label}</ChatMessage>
+      </div>
+    );
   }
 
   const isUser = message.role === "user";
-  const isStreaming = message.role === "assistant" && message.streaming === true;
+  const isStreaming =
+    message.role === "assistant" && message.streaming === true;
+  const timestamp = formatTimestamp(message.timestamp);
 
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"} mb-2 px-4`}>
-      <div
-        className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm leading-relaxed ${
-          isUser
-            ? "bg-blue-600 text-white rounded-br-md"
-            : "bg-white border border-neutral-200 text-neutral-900 rounded-bl-md"
-        }`}
+    <div className="mb-3 px-4">
+      <ChatMessage
+        role={isUser ? "user" : "agent"}
+        timestamp={timestamp || undefined}
       >
-        <span>{message.content}</span>
-        {isStreaming ? (
-          <span
-            aria-hidden
-            className="inline-block w-1.5 h-4 ml-0.5 align-text-bottom bg-neutral-700 animate-pulse"
-          />
-        ) : null}
-      </div>
+        {isUser ? (
+          message.content
+        ) : (
+          <StreamingText text={message.content} done={!isStreaming} />
+        )}
+      </ChatMessage>
     </div>
   );
 }

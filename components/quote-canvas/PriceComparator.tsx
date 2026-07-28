@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { ComparatorSourceBadge } from "@/components/quote-canvas/ComparatorSourceBadge";
+import { ComparatorStrip } from "@/components/canvas/ComparatorStrip";
 import { refreshHotelSnapshot } from "@/lib/comparator/refresh-snapshot";
 import type {
   ComparatorEntry,
@@ -159,7 +160,9 @@ export function PriceComparator({
         </div>
       ) : null}
 
-      <table className="w-full text-sm">
+      <ComparatorStrip entries={data.entries} />
+
+      <table className="mt-3 w-full text-sm">
         <thead>
           <tr className="border-b border-neutral-200 text-left text-xs text-neutral-500">
             <th className="pb-2 font-medium">Proveedor</th>

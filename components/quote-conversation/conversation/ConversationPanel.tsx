@@ -13,6 +13,13 @@ import { useState, useEffect } from "react";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { RefinementConfirmation } from "./RefinementConfirmation";
+import { TypingIndicator } from "@/components/chat/TypingIndicator";
+import { QuoteSummary } from "@/components/chat/QuoteSummary";
+import type { Quote as EngineQuote } from "@/lib/quote-engine/types";
+import {
+  selectCurrentQuote,
+  useQuoteConversationStore,
+} from "@/lib/quote-conversation/store";
 
 export function ConversationPanel({
   prefillText,
@@ -64,6 +71,27 @@ export function ConversationPanel({
     status === "refining" ||
     status === "planning_refinement";
 
+  const currentQuote = useQuoteConversationStore(selectCurrentQuote) as
+    | EngineQuote
+    | null;
+
+  const typingLabel =
+    status === "parsing"
+      ? "Entendiendo la petición"
+      : status === "building"
+        ? "Buscando opciones"
+        : status === "planning_refinement"
+          ? "Pensando el cambio"
+          : status === "refining"
+            ? "Aplicando el cambio"
+            : null;
+
+  const handleScrollToCanvas = () => {
+    document
+      .getElementById("quote-canvas")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const placeholder = getPlaceholder(status);
   const enriched = awaitingAirports?.parsed.enrichedTrip;
   const airportComplete =
@@ -73,6 +101,21 @@ export function ConversationPanel({
     <div className="flex h-full flex-col">
       <div className="flex-1 overflow-y-auto py-3">
         <MessageList messages={messages} />
+
+        {typingLabel ? (
+          <div className="px-4 py-2">
+            <TypingIndicator label={typingLabel} />
+          </div>
+        ) : null}
+
+        {status === "complete" && currentQuote ? (
+          <div className="px-4">
+            <QuoteSummary
+              quote={currentQuote}
+              onScrollToCanvas={handleScrollToCanvas}
+            />
+          </div>
+        ) : null}
 
         {needsInput ? (
           <div className="mx-4 my-3 rounded-lg border border-amber-300 bg-amber-50 p-3">
@@ -88,7 +131,7 @@ export function ConversationPanel({
         ) : null}
 
         {awaitingAirports && enriched ? (
-          <div className="mx-4 space-y-4 rounded-xl border border-neutral-200 bg-white p-4">
+          <div className="mx-4 space-y-4 rounded-xl border border-border-1 bg-paper p-4">
             {enriched._resolved.origin?.needsAgentChoice ? (
               <AirportPicker
                 label="Origen"
@@ -117,7 +160,7 @@ export function ConversationPanel({
                 if (!enriched) return;
                 confirmAirports(airportChoicesForBuild(enriched, airportChoices));
               }}
-              className="w-full rounded-md bg-blue-600 px-4 py-3 text-sm font-medium text-white disabled:opacity-50"
+              className="w-full rounded-md bg-ink px-4 py-3 text-sm font-medium text-paper disabled:opacity-50"
             >
               Generar cotización
             </button>

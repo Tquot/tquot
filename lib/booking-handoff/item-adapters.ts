@@ -21,6 +21,30 @@ function resolveHotelProvider(item: QuoteItem): Hotel["provider"] | null {
   return null;
 }
 
+function amenitiesFromContent(
+  content: NonNullable<Hotel["content"]> | undefined,
+): string[] {
+  if (!content?.facilities?.length) return [];
+  const keys: string[] = [];
+  for (const facility of content.facilities) {
+    const desc = facility.description.toLowerCase();
+    if (desc.includes("wifi") || desc.includes("wi-fi") || desc.includes("internet")) {
+      if (!keys.includes("wifi")) keys.push("wifi");
+    } else if (desc.includes("breakfast") || desc.includes("desayuno")) {
+      if (!keys.includes("breakfast")) keys.push("breakfast");
+    } else if (desc.includes("pool") || desc.includes("piscina") || desc.includes("swimming")) {
+      if (!keys.includes("pool")) keys.push("pool");
+    } else if (desc.includes("parking") || desc.includes("aparcamiento") || desc.includes("garage")) {
+      if (!keys.includes("parking")) keys.push("parking");
+    } else if (desc.includes("spa")) {
+      if (!keys.includes("spa")) keys.push("spa");
+    } else if (desc.includes("gym") || desc.includes("fitness") || desc.includes("gimnasio")) {
+      if (!keys.includes("gym")) keys.push("gym");
+    }
+  }
+  return keys;
+}
+
 export function quoteItemToHotel(item: QuoteItem, legId = DEFAULT_TRIP_LEG_ID): Hotel | null {
   if (item.type !== "hotel") return null;
 
@@ -29,6 +53,19 @@ export function quoteItemToHotel(item: QuoteItem, legId = DEFAULT_TRIP_LEG_ID): 
 
   const context = parseHotelContextFromTitle(item.title);
   const nights = parseHotelNightsFromTitle(item.title) ?? 1;
+  const content = item.hotelDetails?.content;
+  const contentImages = (content?.images ?? [])
+    .map((img) => img.url)
+    .filter(Boolean);
+  const images =
+    contentImages.length > 0
+      ? contentImages
+      : item.imageUrl
+        ? [item.imageUrl]
+        : [];
+  const selectedBoard = item.hotelDetails?.boardOptions?.find(
+    (opt) => opt.boardCode === item.hotelDetails?.boardCode,
+  );
 
   return {
     id: item.id,
@@ -43,11 +80,20 @@ export function quoteItemToHotel(item: QuoteItem, legId = DEFAULT_TRIP_LEG_ID): 
     hotelCode: item.hotelDetails?.hotelCode,
     rateKey: item.hotelDetails?.rateKey,
     totalForGroup: item.price,
-    imageUrl: item.imageUrl,
-    description: item.description,
+    imageUrl: item.imageUrl ?? images[0],
+    images,
+    description:
+      item.description ??
+      content?.descriptionShort ??
+      content?.descriptionLong,
+    address: content?.address ?? context.location ?? undefined,
+    destination: content?.destinationName ?? content?.zoneName ?? undefined,
+    amenities: amenitiesFromContent(content),
+    refundable: selectedBoard?.refundable,
+    cancellationDeadline: content?.cancellationPolicies?.[0]?.from,
     boardCode: item.hotelDetails?.boardCode,
     boardOptions: item.hotelDetails?.boardOptions,
-    content: item.hotelDetails?.content,
+    content,
     accessibility: item.hotelDetails?.accessibility,
     connectionId: item.hotelDetails?.connectionId,
     originalPrice: item.originalPrice,
@@ -85,6 +131,8 @@ export function quoteItemToFlight(item: QuoteItem, legId = DEFAULT_TRIP_LEG_ID):
     currency: item.currency ?? "EUR",
     origin: fd?.originIata ?? fd?.originCity,
     destination: fd?.destinationIata ?? fd?.destinationCity,
+    duration: fd?.duration,
+    fareClass: fd?.cabinClass ?? fd?.fareName,
     offerId: fd?.selectedOfferId ?? fd?.primaryOfferId,
     originalPrice: item.originalPrice,
     originalCurrency: item.originalCurrency,
@@ -100,6 +148,7 @@ export function quoteItemToFlight(item: QuoteItem, legId = DEFAULT_TRIP_LEG_ID):
                 destination: { iata_code: fd.destinationIata },
                 flightNumber: fd.flightNumber,
                 departureTime: fd.departureTime,
+                arrivalTime: fd.arrivalTime,
               },
             ],
           },

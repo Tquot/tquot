@@ -17,8 +17,13 @@ import {
 } from "../quote-shared";
 import { BookingHandoffLegSection } from "@/components/quote-canvas/LegBlock";
 import { RecommendationsSection } from "@/components/quote-conversation/canvas/RecommendationsSection";
+import {
+  BuildProgress as BuildProgressUI,
+  type SectionProgress,
+} from "@/components/canvas/BuildProgress";
 import type { Quote as EngineQuote } from "@/lib/quote-engine/types";
 import type { useQuoteItemHandlers } from "../use-quote-item-handlers";
+import type { SectionStatus } from "@/lib/quote-conversation/types";
 
 type QuoteCanvasProps = {
   status: string;
@@ -50,6 +55,69 @@ function isCompleteQuote(quote: Partial<Quote> | Quote | null): quote is Quote {
   return Boolean(quote && quote.pricing && quote.summary && quote.id);
 }
 
+function mapSectionStatus(status: SectionStatus | undefined): SectionProgress["status"] {
+  if (!status) return "pending";
+  switch (status.kind) {
+    case "searching":
+    case "partial":
+      return "searching";
+    case "done":
+      return "done";
+    case "error":
+      return status.skipped ? "skipped" : "error";
+    case "pending":
+    default:
+      return "pending";
+  }
+}
+
+function buildProgressSections(
+  buildProgress: BuildProgress | null,
+  quote: Partial<Quote> | Quote | null,
+  parsingPartial: Partial<ParsedTripInput> | null,
+): SectionProgress[] {
+  const legProgress = buildProgress
+    ? Object.values(buildProgress)[0]
+    : undefined;
+  const detail =
+    parsingPartial?.origin && parsingPartial?.destination
+      ? `${parsingPartial.origin} → ${parsingPartial.destination}`
+      : parsingPartial?.destination;
+
+  const defs: Array<{
+    key: QuoteSection;
+    label: string;
+    detail?: string;
+  }> = [
+    { key: "flights", label: "Vuelos", detail },
+    {
+      key: "hotels",
+      label: "Hoteles",
+      detail: parsingPartial?.destination,
+    },
+    {
+      key: "experiences",
+      label: "Experiencias",
+      detail: parsingPartial?.destination,
+    },
+    { key: "transfers", label: "Traslados" },
+  ];
+
+  return defs.map((def) => {
+    const progress = legProgress?.[def.key];
+    const items = sectionItems(quote, def.key);
+    const status = mapSectionStatus(progress);
+    return {
+      key: def.key,
+      label: def.label,
+      status:
+        status === "pending" && items.length > 0 ? "done" : status,
+      resultCount: items.length > 0 ? items.length : undefined,
+      detail: def.detail,
+    };
+  });
+}
+
 export function QuoteCanvas({
   status,
   parsingPartial,
@@ -64,8 +132,8 @@ export function QuoteCanvas({
     return (
       <div className="flex h-full items-center justify-center p-8 text-center">
         <div className="max-w-md">
-          <p className="text-lg font-semibold text-tquot-text">{t.newQuote}</p>
-          <p className="mt-2 text-sm text-tquot-muted">{t.quoteEngineSubtitle}</p>
+          <p className="font-serif text-h2 text-ink">{t.newQuote}</p>
+          <p className="mt-2 text-body-sm text-text-2">{t.quoteEngineSubtitle}</p>
         </div>
       </div>
     );
@@ -73,37 +141,25 @@ export function QuoteCanvas({
 
   if (status === "parsing" || status === "needs_input") {
     return (
-      <div className="p-6">
-        <h3 className="mb-4 text-sm font-semibold uppercase tracking-wide text-tquot-teal">
-          {t.stepParseTitle}
-        </h3>
-        <div className="space-y-3 rounded-xl border border-tquot-border bg-tquot-surface p-4 text-sm">
+      <div className="space-y-4">
+        <BuildProgressUI
+          sections={buildProgressSections(null, null, parsingPartial)}
+        />
+        <div className="rounded-lg border border-border-1 bg-paper p-4 text-body-sm">
           <p>
-            <span className="font-medium text-tquot-muted">{t.destination}:</span>{" "}
+            <span className="text-text-2">{t.destination}:</span>{" "}
             {parsingPartial?.destination ?? "—"}
           </p>
-          <p>
-            <span className="font-medium text-tquot-muted">{t.origin}:</span>{" "}
+          <p className="mt-2">
+            <span className="text-text-2">{t.origin}:</span>{" "}
             {parsingPartial?.origin ?? "—"}
           </p>
-          <p>
-            <span className="font-medium text-tquot-muted">
+          <p className="mt-2">
+            <span className="text-text-2">
               {locale === "es" ? "Fechas" : "Dates"}:
             </span>{" "}
             {parsingPartial?.dates
               ? `${parsingPartial.dates.start} → ${parsingPartial.dates.end}`
-              : "—"}
-          </p>
-          <p>
-            <span className="font-medium text-tquot-muted">
-              {locale === "es" ? "Viajeros" : "Travelers"}:
-            </span>{" "}
-            {parsingPartial?.passengers
-              ? `${parsingPartial.passengers.adults} adults${
-                  parsingPartial.passengers.children
-                    ? `, ${parsingPartial.passengers.children} children`
-                    : ""
-                }`
               : "—"}
           </p>
         </div>
@@ -113,7 +169,7 @@ export function QuoteCanvas({
 
   if (status === "awaiting_airports") {
     return (
-      <div className="flex h-full items-center justify-center p-8 text-center text-sm text-tquot-muted">
+      <div className="flex h-full items-center justify-center p-8 text-center text-body-sm text-text-2">
         {locale === "es"
           ? "Confirma los aeropuertos en el chat para continuar."
           : "Confirm airports in the chat to continue."}
@@ -123,6 +179,11 @@ export function QuoteCanvas({
 
   const showSkeleton = isBuilding && status === "building";
   const completeQuote = isCompleteQuote(quote) ? quote : null;
+  const progressSections = buildProgressSections(
+    buildProgress,
+    quote,
+    parsingPartial,
+  );
 
   const sections: Array<{
     key: QuoteSection;
@@ -204,82 +265,86 @@ export function QuoteCanvas({
   ];
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="flex-1 space-y-6 overflow-y-auto p-6">
-        {sections.map((section) => {
-          const legProgress = buildProgress
-            ? Object.values(buildProgress)[0]
-            : undefined;
-          const progress = legProgress?.[section.key];
-          const items = sectionItems(quote, section.key);
-          const searching =
-            showSkeleton &&
-            progress &&
-            (progress.kind === "pending" || progress.kind === "searching");
+    <div className="space-y-6">
+      {(status === "building" || isBuilding) && (
+        <div className="rounded-lg border border-border-1 bg-paper px-4">
+          <BuildProgressUI sections={progressSections} />
+        </div>
+      )}
 
-          if (searching && items.length === 0) {
-            return <SectionSkeleton key={section.key} title={section.title} />;
-          }
+      {sections.map((section) => {
+        const legProgress = buildProgress
+          ? Object.values(buildProgress)[0]
+          : undefined;
+        const progress = legProgress?.[section.key];
+        const items = sectionItems(quote, section.key);
+        const searching =
+          showSkeleton &&
+          progress &&
+          (progress.kind === "pending" || progress.kind === "searching");
 
-          if (items.length === 0 && status === "building") {
-            return null;
-          }
+        if (searching && items.length === 0) {
+          return <SectionSkeleton key={section.key} title={section.title} />;
+        }
 
-          if (items.length === 0) {
-            return null;
-          }
+        if (items.length === 0 && status === "building") {
+          return null;
+        }
 
-          return (
-            <div key={section.key}>
-              {completeQuote ? (
-                <DataSourceBadge
-                  source={
-                    (completeQuote._meta[section.metaKey] ??
-                      "mock") as QuoteDataSource
-                  }
-                />
-              ) : null}
-              {section.render()}
-            </div>
-          );
-        })}
+        if (items.length === 0) {
+          return null;
+        }
 
-        {completeQuote ? <BookingHandoffLegSection /> : null}
-
-        {completeQuote &&
-        (completeQuote as EngineQuote).recommendations &&
-        (completeQuote as EngineQuote).recommendations!.length > 0 ? (
-          <RecommendationsSection
-            recommendations={(completeQuote as EngineQuote).recommendations!}
-          />
-        ) : null}
-
-        {completeQuote ? (
-          <div className="grid gap-4 rounded-xl border border-tquot-border bg-gradient-to-r from-tquot-teal/5 to-slate-50 p-5 shadow-sm sm:grid-cols-3 sm:divide-x sm:divide-tquot-border">
-            <TotalCard
-              label={t.baseTotal}
-              value={completeQuote.pricing.baseTotal}
-              locale={locale}
-              currency={completeQuote.pricing.currency}
-            />
-            <TotalCard
-              label={t.margin}
-              value={completeQuote.pricing.margin}
-              locale={locale}
-              currency={completeQuote.pricing.currency}
-            />
-            <TotalCard
-              label={formatMessage(t.finalTotal, {
-                currency: completeQuote.pricing.currency,
-              })}
-              value={completeQuote.pricing.finalTotal}
-              highlight
-              locale={locale}
-              currency={completeQuote.pricing.currency}
-            />
+        return (
+          <div key={section.key}>
+            {completeQuote ? (
+              <DataSourceBadge
+                source={
+                  (completeQuote._meta[section.metaKey] ??
+                    "mock") as QuoteDataSource
+                }
+              />
+            ) : null}
+            {section.render()}
           </div>
-        ) : null}
-      </div>
+        );
+      })}
+
+      {completeQuote ? <BookingHandoffLegSection /> : null}
+
+      {completeQuote &&
+      (completeQuote as EngineQuote).recommendations &&
+      (completeQuote as EngineQuote).recommendations!.length > 0 ? (
+        <RecommendationsSection
+          recommendations={(completeQuote as EngineQuote).recommendations!}
+        />
+      ) : null}
+
+      {completeQuote ? (
+        <div className="grid gap-4 rounded-lg border border-border-1 bg-paper p-5 sm:grid-cols-3 sm:divide-x sm:divide-border-1">
+          <TotalCard
+            label={t.baseTotal}
+            value={completeQuote.pricing.baseTotal}
+            locale={locale}
+            currency={completeQuote.pricing.currency}
+          />
+          <TotalCard
+            label={t.margin}
+            value={completeQuote.pricing.margin}
+            locale={locale}
+            currency={completeQuote.pricing.currency}
+          />
+          <TotalCard
+            label={formatMessage(t.finalTotal, {
+              currency: completeQuote.pricing.currency,
+            })}
+            value={completeQuote.pricing.finalTotal}
+            highlight
+            locale={locale}
+            currency={completeQuote.pricing.currency}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

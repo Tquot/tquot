@@ -116,8 +116,8 @@ export function BoardChips({ hotel, stayTotalPrice, onUpdate }: Props) {
               title={`${option.boardLabel} · ${Math.round(option.totalPrice)} ${option.currency} total`}
               className={`relative rounded-full px-2.5 py-0.5 text-xs font-medium transition ${
                 isSelected
-                  ? "bg-blue-600 text-white"
-                  : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+                  ? "bg-ink text-paper"
+                  : "bg-paper-2 text-text-2 hover:bg-paper-3 hover:text-text"
               } ${pending && !isPending ? "opacity-50" : ""}`}
             >
               {isPending ? (

@@ -2,8 +2,9 @@
 
 import { useAccessibilityProfile } from "@/components/accessibility/AccessibilityProfileContext";
 import { matchesHotel } from "@/lib/accessibility/match";
-import { FlightCard } from "@/components/quote-canvas/FlightCard";
-import { HotelCard } from "@/components/quote-canvas/HotelCard";
+import { FlightTable } from "@/components/canvas/FlightTable";
+import { HotelCard } from "@/components/canvas/HotelCard";
+import { Eyebrow } from "@/components/ui/Eyebrow";
 import { useBookingConfig } from "@/lib/booking-handoff/context";
 import {
   handoffProviderForHotel,
@@ -12,6 +13,7 @@ import {
 } from "@/lib/booking-handoff/item-adapters";
 import { getHandoff } from "@/lib/booking-handoff/registry";
 import type { AgencyBookingConfig } from "@/lib/booking-handoff/types";
+import type { BookingHandoff } from "@/lib/booking-handoff/types";
 import {
   selectCurrentQuote,
   selectParsedTripInput,
@@ -33,10 +35,43 @@ interface Props {
   leg: TripLeg;
   legIndex: number;
   totalLegs: number;
-  agencyConfig: AgencyBookingConfig;
+  agencyConfig?: AgencyBookingConfig;
 }
 
-export function LegBlock({ leg, legIndex, totalLegs, agencyConfig }: Props) {
+function nightsLabel(arrival: string, departure: string): string {
+  const start = new Date(`${arrival}T12:00:00`).getTime();
+  const end = new Date(`${departure}T12:00:00`).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+    return "";
+  }
+  const nights = Math.round((end - start) / (24 * 60 * 60 * 1000));
+  return `${nights} ${nights === 1 ? "noche" : "noches"}`;
+}
+
+function formatLegDates(arrival: string, departure: string): string {
+  try {
+    const start = new Date(`${arrival}T12:00:00`).toLocaleDateString("es-ES", {
+      day: "numeric",
+      month: "short",
+    });
+    const end = new Date(`${departure}T12:00:00`).toLocaleDateString("es-ES", {
+      day: "numeric",
+      month: "short",
+    });
+    return `${start}–${end}`;
+  } catch {
+    return `${arrival} → ${departure}`;
+  }
+}
+
+export function LegBlock({
+  leg,
+  legIndex,
+  totalLegs,
+  agencyConfig: agencyConfigProp,
+}: Props) {
+  const bookingConfig = useBookingConfig();
+  const agencyConfig = agencyConfigProp ?? bookingConfig;
   const quote = useQuoteConversationStore(selectCurrentQuote);
   const parsedInput = useQuoteConversationStore(selectParsedTripInput);
   const updateQuote = useQuoteConversationStore((s) => s.updateQuote);
@@ -50,7 +85,16 @@ export function LegBlock({ leg, legIndex, totalLegs, agencyConfig }: Props) {
     accessibilityProfile ??
     parsedInput.preferences.accessibilityProfile ??
     parsed.preferences.accessibilityProfile;
-  const handoffQuote = quote as Quote & { group?: { distribution: { doubles: number; singles: number; triples: number; totalRooms: number } } };
+  const handoffQuote = quote as Quote & {
+    group?: {
+      distribution: {
+        doubles: number;
+        singles: number;
+        triples: number;
+        totalRooms: number;
+      };
+    };
+  };
   const context = { agencyConfig, quote: handoffQuote, parsed };
 
   const selectedItems = (items: QuoteItem[] | undefined) =>
@@ -73,20 +117,43 @@ export function LegBlock({ leg, legIndex, totalLegs, agencyConfig }: Props) {
     return null;
   }
 
+  const routeLabel =
+    (leg.origin || flights[0]?.origin || "") &&
+    (leg.destination || flights[0]?.destination || "")
+      ? `${leg.origin ?? flights[0]?.origin} → ${leg.destination ?? flights[0]?.destination}`
+      : leg.destination;
+
+  const nights = nightsLabel(leg.arrivalDate, leg.departureDate);
+  const flightHandoffs = new Map<string, BookingHandoff>();
+  for (const flight of flights) {
+    const handoff = getHandoff("duffel", flight, context);
+    if (handoff) flightHandoffs.set(flight.id, handoff);
+  }
+
   return (
-    <section className="space-y-3">
-      <header className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
-          Tramo {legIndex + 1} de {totalLegs}
-        </p>
-        <p className="text-sm text-neutral-700">
-          {leg.arrivalDate} → {leg.departureDate}
+    <section className="space-y-4">
+      <header className="border-b border-border-1 pb-3">
+        <div className="flex items-baseline justify-between gap-3">
+          <Eyebrow>
+            ← Tramo {legIndex + 1}
+            {totalLegs > 1 ? ` de ${totalLegs}` : ""}
+          </Eyebrow>
+          <span className="font-mono text-mono-sm text-ink">{routeLabel}</span>
+        </div>
+        <p className="mt-1 text-body-sm text-text-2">
+          {[leg.destination, nights, formatLegDates(leg.arrivalDate, leg.departureDate)]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
       </header>
 
-      {hotels.map((hotel) => {
-        const sourceItem = selectedItems(quote.hotels).find((item) => item.id === hotel.id);
-        const provider = sourceItem ? handoffProviderForHotel(sourceItem) : hotel.provider;
+      {hotels.map((hotel, index) => {
+        const sourceItem = selectedItems(quote.hotels).find(
+          (item) => item.id === hotel.id,
+        );
+        const provider = sourceItem
+          ? handoffProviderForHotel(sourceItem)
+          : hotel.provider;
         const handoff = provider
           ? getHandoff(provider, hotel, context)
           : null;
@@ -95,11 +162,15 @@ export function LegBlock({ leg, legIndex, totalLegs, agencyConfig }: Props) {
           <HotelCard
             key={hotel.id}
             hotel={hotel}
+            quoteId={persistedQuoteId ?? undefined}
             handoff={handoff}
+            index={index}
             accessibilityProfile={profile}
             onBoardUpdated={(update) => {
               const next = cloneQuote(quote as Quote);
-              const item = next.hotels.find((entry) => entry.id === update.hotelId);
+              const item = next.hotels.find(
+                (entry) => entry.id === update.hotelId,
+              );
               if (!item) return;
               item.price = update.totalPrice;
               item.hotelDetails = {
@@ -120,7 +191,10 @@ export function LegBlock({ leg, legIndex, totalLegs, agencyConfig }: Props) {
                   changeKind: "board_change",
                   changeSummary: `Cambio de régimen a ${update.boardCode}: ${item.title}`,
                 }).catch((error) =>
-                  console.error("[LegBlock] version board_change failed", error),
+                  console.error(
+                    "[LegBlock] version board_change failed",
+                    error,
+                  ),
                 );
               }
             }}
@@ -128,10 +202,14 @@ export function LegBlock({ leg, legIndex, totalLegs, agencyConfig }: Props) {
         );
       })}
 
-      {flights.map((flight) => {
-        const handoff = getHandoff("duffel", flight, context);
-        return <FlightCard key={flight.id} flight={flight} handoff={handoff} />;
-      })}
+      {flights.length > 0 ? (
+        <FlightTable
+          flights={flights}
+          handoffs={flightHandoffs}
+          legLabel={routeLabel}
+          date={leg.arrivalDate}
+        />
+      ) : null}
     </section>
   );
 }
@@ -147,13 +225,7 @@ export function BookingHandoffLegSection() {
   if (parsed.legs.length === 0) return null;
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h3 className="text-sm font-semibold text-neutral-900">Reserva externa</h3>
-        <p className="mt-1 text-xs text-neutral-500">
-          Abre el extranet del proveedor o copia los datos necesarios para reservar fuera de TQuot.
-        </p>
-      </div>
+    <div className="space-y-6">
       {parsed.legs.map((leg, index) => (
         <LegBlock
           key={leg.id}

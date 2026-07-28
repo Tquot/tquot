@@ -175,7 +175,7 @@ export function QuoteConversation({
     <AccessibilityProfileProvider
       initial={parsedTripInput?.preferences?.accessibilityProfile}
     >
-    <div className="flex min-h-screen flex-col bg-tquot-bg text-tquot-text">
+    <div className="flex h-[calc(100vh-0px)] min-h-screen flex-col bg-paper text-text">
       <ConversationHeader
         quote={headerQuote}
         tripInput={parsedTripInput}
@@ -204,20 +204,25 @@ export function QuoteConversation({
         </div>
       ) : null}
 
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <aside className="flex min-h-[42vh] flex-col border-b border-tquot-border bg-white lg:min-h-0 lg:w-2/5 lg:border-b-0 lg:border-r">
+      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[400px_1fr]">
+        <aside className="flex min-h-[42vh] flex-col border-b border-border-1 bg-paper lg:min-h-0 lg:border-b-0 lg:border-r">
           <ConversationPanel prefillText={prefillText} />
         </aside>
 
-        <main className="min-h-[50vh] flex-1 bg-tquot-surface lg:min-h-0 lg:w-3/5">
-          <QuoteCanvas
-            status={status}
-            parsingPartial={parsingPartial}
-            buildProgress={buildProgress}
-            quote={quote}
-            isBuilding={isBuilding || isParsing}
-            handlers={handlers}
-          />
+        <main
+          id="quote-canvas"
+          className="min-h-[50vh] overflow-y-auto bg-paper-2 lg:min-h-0"
+        >
+          <div className="mx-auto max-w-[720px] space-y-6 p-6">
+            <QuoteCanvas
+              status={status}
+              parsingPartial={parsingPartial}
+              buildProgress={buildProgress}
+              quote={quote}
+              isBuilding={isBuilding || isParsing}
+              handlers={handlers}
+            />
+          </div>
         </main>
       </div>
 
