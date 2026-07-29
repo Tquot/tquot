@@ -24,6 +24,12 @@ export interface PremiumPdfFlight extends Flight {
 
 export interface PremiumPdfQuote {
   id: string;
+  trip: {
+    origin: string;
+    destination: string;
+    departureDate: string;
+    returnDate: string;
+  };
   hotels: PremiumPdfHotel[];
   flights: PremiumPdfFlight[];
   experiences: Array<{

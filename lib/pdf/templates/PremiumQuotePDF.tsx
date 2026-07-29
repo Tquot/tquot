@@ -1,7 +1,10 @@
 import React from "react";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import type { AgencyBranding } from "@/lib/branding/types";
-import { PDFCover } from "../components/PDFCover";
+import {
+  destinationCoverPhotoUrl,
+  PDFCover,
+} from "../components/PDFCover";
 import { PDFHotelBlock } from "../components/PDFHotelBlock";
 import { PDFItineraryBlock } from "../components/PDFItineraryBlock";
 import { PDFFooter } from "../components/PDFFooter";
@@ -20,6 +23,9 @@ interface Props {
 
 export function PremiumQuotePDF({ quote, branding, variant }: Props) {
   const styles = createStyles(branding);
+  const destinationPhotoUrl = destinationCoverPhotoUrl(
+    quote.trip.destination,
+  );
 
   return (
     <Document
@@ -27,7 +33,12 @@ export function PremiumQuotePDF({ quote, branding, variant }: Props) {
       author={branding.agencyLegalName ?? "TQuot"}
     >
       <Page size="A4" style={styles.coverPage}>
-        <PDFCover quote={quote} branding={branding} styles={styles} />
+        <PDFCover
+          quote={quote}
+          branding={branding}
+          styles={styles}
+          destinationPhotoUrl={destinationPhotoUrl}
+        />
       </Page>
 
       {quote.itinerary ? (
