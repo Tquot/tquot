@@ -4,6 +4,7 @@ import { SecondaryMetrics } from "@/components/dashboard/SecondaryMetrics";
 import { Sparkline } from "@/components/dashboard/Sparkline";
 import { RecentQuotesStrip } from "@/components/dashboard/RecentQuotesStrip";
 import { QuickActions } from "@/components/dashboard/QuickActions";
+import { SecondaryQuickLinks } from "@/components/dashboard/SecondaryQuickLinks";
 import { loadDashboardMetrics } from "@/lib/dashboard/loader";
 import { listRecentQuotes } from "@/lib/quotes/recent";
 
@@ -73,6 +74,11 @@ export default async function DashboardPage() {
         <section>
           <Eyebrow className="mb-4 block">Atajos</Eyebrow>
           <QuickActions />
+        </section>
+
+        <section>
+          <Eyebrow className="mb-3 block">Más accesos</Eyebrow>
+          <SecondaryQuickLinks />
         </section>
       </div>
     </main>
