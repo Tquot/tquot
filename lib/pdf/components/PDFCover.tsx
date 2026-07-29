@@ -7,45 +7,34 @@ interface Props {
   branding: AgencyBranding;
   styles: // eslint-disable-next-line @typescript-eslint/no-explicit-any
   any;
-  destinationPhotoUrl?: string;
 }
 
-export function destinationCoverPhotoUrl(destination: string): string {
-  const query = destination.trim() || "travel";
-  return `https://source.unsplash.com/1200x800/?${encodeURIComponent(query)},travel`;
-}
-
-export function PDFCover({
-  quote,
-  branding,
-  styles: _styles,
-  destinationPhotoUrl,
-}: Props) {
-  const destination = quote.trip.destination || "Tu próximo viaje";
-  const heroImage =
-    branding.coverImageUrl ??
-    destinationPhotoUrl ??
-    destinationCoverPhotoUrl(destination);
-  const firstCheckIn =
-    quote.hotels[0]?.checkIn ?? quote.trip.departureDate;
-  const lastCheckOut =
-    quote.hotels[quote.hotels.length - 1]?.checkOut ?? quote.trip.returnDate;
+export function PDFCover({ quote, branding, styles }: Props) {
+  const destination =
+    quote.hotels[0]?.destination ??
+    quote.flights[0]?.destination ??
+    "Tu próximo viaje";
+  const heroImage = branding.coverImageUrl ?? quote.hotels[0]?.imageUrl;
+  const firstCheckIn = quote.hotels[0]?.checkIn;
+  const lastCheckOut = quote.hotels[quote.hotels.length - 1]?.checkOut;
 
   return (
     <View style={{ flex: 1, position: "relative" }}>
-      <Image
-        src={heroImage}
-        style={{
-          position: "absolute" as const,
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-        }}
-      />
+      {heroImage ? (
+        <Image
+          src={heroImage}
+          style={{
+            position: "absolute" as const,
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+          }}
+        />
+      ) : null}
       <View
         style={{
           position: "absolute",

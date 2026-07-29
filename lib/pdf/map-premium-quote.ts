@@ -116,12 +116,6 @@ export function mapSnapshotToPremiumQuote(
 
   return {
     id: snapshot.id,
-    trip: {
-      origin: meta.origin,
-      destination: meta.destination,
-      departureDate: String(meta.departure_date),
-      returnDate: String(meta.return_date),
-    },
     hotels,
     flights,
     experiences,
