@@ -868,6 +868,8 @@ export function itemsForPricing(items: QuoteItem[]) {
 export function getQuoteSelectionGroup(
   itemId: string,
 ): QuoteSelectionGroupInfo | null {
+  if (!itemId || typeof itemId !== "string") return null;
+
   if (itemId.startsWith("flight-out")) {
     return { group: "flight-outbound", selectionMode: "exclusive" };
   }
