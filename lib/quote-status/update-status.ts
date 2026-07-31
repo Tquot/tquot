@@ -33,17 +33,18 @@ export async function updateQuoteStatus(input: UpdateStatusInput): Promise<{
     };
   }
 
-  const timestampField = {
+  const timestampField: Partial<Record<QuoteStatus, string>> = {
     sent: "sent_at",
+    confirmed: "confirmed_at",
     accepted: "accepted_at",
+    in_progress: "in_progress_at",
     reserved: "reserved_at",
     cancelled: "cancelled_at",
-    expired: null,
-    draft: null,
-  }[input.newStatus];
+  };
 
   const update: Record<string, unknown> = { status: input.newStatus };
-  if (timestampField) update[timestampField] = new Date().toISOString();
+  const tsField = timestampField[input.newStatus];
+  if (tsField) update[tsField] = new Date().toISOString();
 
   const { error: updateError } = await supabase
     .from("quotes")

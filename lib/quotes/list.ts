@@ -135,7 +135,9 @@ function mapQuoteListItem(row: QuoteRow): QuoteListItem {
 function normalizeStatus(status: string | null): QuoteStatus {
   switch (status) {
     case "sent":
+    case "confirmed":
     case "accepted":
+    case "in_progress":
     case "reserved":
     case "cancelled":
     case "expired":

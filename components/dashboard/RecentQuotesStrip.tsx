@@ -3,6 +3,11 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
+import {
+  STATUS_BADGE_TONE,
+  STATUS_LABELS,
+  type QuoteStatus,
+} from "@/lib/quote-status/transitions";
 
 export interface RecentQuote {
   id: string;
@@ -11,7 +16,7 @@ export interface RecentQuote {
   imageUrl?: string;
   totalPrice: number;
   currency: string;
-  status: "draft" | "sent" | "accepted" | "reserved" | "cancelled" | "expired";
+  status: QuoteStatus;
   createdAt: string;
 }
 
@@ -19,26 +24,8 @@ interface RecentQuotesStripProps {
   quotes: RecentQuote[];
 }
 
-const STATUS_LABEL: Record<RecentQuote["status"], string> = {
-  draft: "Borrador",
-  sent: "Enviada",
-  accepted: "Aceptada",
-  reserved: "Reservada",
-  cancelled: "Cancelada",
-  expired: "Caducada",
-};
-
-const STATUS_TONE: Record<
-  RecentQuote["status"],
-  "neutral" | "info" | "success" | "umber" | "danger" | "warning"
-> = {
-  draft: "neutral",
-  sent: "info",
-  accepted: "success",
-  reserved: "umber",
-  cancelled: "danger",
-  expired: "warning",
-};
+const STATUS_LABEL = STATUS_LABELS;
+const STATUS_TONE = STATUS_BADGE_TONE;
 
 export function RecentQuotesStrip({ quotes }: RecentQuotesStripProps) {
   if (quotes.length === 0) {

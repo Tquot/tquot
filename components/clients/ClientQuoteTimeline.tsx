@@ -60,12 +60,16 @@ export function ClientQuoteTimeline({ quotes }: Props) {
 
 function statusColor(status: string): string {
   switch (status) {
+    case "confirmed":
+      return "bg-emerald-100 text-emerald-800";
     case "reserved":
       return "bg-emerald-100 text-emerald-700";
     case "accepted":
-      return "bg-blue-100 text-blue-700";
+      return "bg-green-100 text-green-800";
+    case "in_progress":
+      return "bg-amber-100 text-amber-800";
     case "sent":
-      return "bg-amber-100 text-amber-700";
+      return "bg-sky-100 text-sky-800";
     case "cancelled":
       return "bg-red-100 text-red-700";
     default:

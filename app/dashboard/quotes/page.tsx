@@ -15,7 +15,9 @@ const FILTERS: Array<{ value: "all" | QuoteStatus; label: string }> = [
   { value: "all", label: "Todas" },
   { value: "draft", label: "Borrador" },
   { value: "sent", label: "Enviadas" },
+  { value: "confirmed", label: "Confirmadas" },
   { value: "accepted", label: "Aceptadas" },
+  { value: "in_progress", label: "En reserva" },
   { value: "reserved", label: "Reservadas" },
   { value: "cancelled", label: "Canceladas" },
   { value: "expired", label: "Caducadas" },
@@ -125,7 +127,9 @@ function normalizeStatus(value?: string): "all" | QuoteStatus {
   switch (value) {
     case "draft":
     case "sent":
+    case "confirmed":
     case "accepted":
+    case "in_progress":
     case "reserved":
     case "cancelled":
     case "expired":

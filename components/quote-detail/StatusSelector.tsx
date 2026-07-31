@@ -4,9 +4,11 @@ import { useState, useTransition } from "react";
 import { updateQuoteStatus } from "@/lib/quote-status/update-status";
 import {
   getAllowedTransitions,
+  STATUS_COLORS,
   STATUS_LABELS,
   type QuoteStatus,
 } from "@/lib/quote-status/transitions";
+import { cn } from "@/lib/utils";
 
 interface Props {
   quoteId: string;
@@ -43,7 +45,12 @@ export function StatusSelector({
   return (
     <div className="inline-flex flex-wrap items-center gap-2">
       <span className="text-sm text-tquot-muted">Estado:</span>
-      <span className="rounded-full bg-tquot-bg px-3 py-0.5 text-sm font-medium text-tquot-text">
+      <span
+        className={cn(
+          "rounded-full px-3 py-0.5 text-sm font-medium",
+          STATUS_COLORS[status],
+        )}
+      >
         {STATUS_LABELS[status]}
       </span>
       {allowed.length > 0 && !pending ? (

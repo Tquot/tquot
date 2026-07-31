@@ -2,18 +2,9 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/Badge";
 import type { QuoteListItem } from "@/lib/quotes/list";
 import type { QuoteStatus } from "@/lib/quote-status/transitions";
+import { STATUS_BADGE_TONE } from "@/lib/quote-status/transitions";
 
-const STATUS_TONE: Record<
-  QuoteStatus,
-  "neutral" | "info" | "success" | "umber" | "danger" | "warning"
-> = {
-  draft: "neutral",
-  sent: "info",
-  accepted: "success",
-  reserved: "umber",
-  cancelled: "danger",
-  expired: "warning",
-};
+const STATUS_TONE = STATUS_BADGE_TONE;
 
 interface QuotesTableProps {
   quotes: QuoteListItem[];
