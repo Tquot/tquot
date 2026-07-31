@@ -13,6 +13,10 @@ import {
   demoFlightsToQuoteItems,
   demoHotelsToQuoteItems,
 } from "./demo-data";
+import { tplAck } from "@/lib/agent/templates";
+import { planMessage } from "@/lib/agent/planner";
+import type { AgentMessage } from "@/lib/agent/types";
+import { suggestionCtxFromQuote } from "@/lib/agent/context";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -52,7 +56,8 @@ export function streamDemoBuild(): Response {
 
       try {
         const parsed = buildDemoParsed();
-        const legId = parsed.legs[0].id;
+        const legId = parsed.legs[0]!.id;
+        const emitted: AgentMessage[] = [];
 
         const openingId = nanoid();
         send({
@@ -62,10 +67,17 @@ export function streamDemoBuild(): Response {
           ts: Date.now(),
         });
         await sleep(DEMO_TIMINGS.opening);
+        const ack = tplAck(parsed);
+        emitted.push({
+          id: openingId,
+          kind: "ack",
+          text: ack,
+          createdAt: new Date().toISOString(),
+        });
         send({
           type: "narrator.message.complete",
           messageId: openingId,
-          content: "Roma, 4 noches, 2 adultos. Zona Trastevere. Voy.",
+          content: ack,
           phase: "opening",
           ts: Date.now(),
         });
@@ -97,7 +109,8 @@ export function streamDemoBuild(): Response {
         });
 
         await sleep(DEMO_TIMINGS.flights);
-        const flightItems = demoFlightsToQuoteItems(buildDemoFlights());
+        const flights = buildDemoFlights();
+        const flightItems = demoFlightsToQuoteItems(flights);
         send({
           type: "section.done",
           section: "flights",
@@ -105,13 +118,7 @@ export function streamDemoBuild(): Response {
           results: flightItems,
           ts: Date.now(),
         });
-        send({
-          type: "narrator.message.complete",
-          messageId: nanoid(),
-          content: `Encontré ${flightItems.length} vuelos MAD → FCO.`,
-          phase: "progress",
-          ts: Date.now(),
-        });
+        // Silencio en section.done — BuildProgress ya informa.
 
         await sleep(DEMO_TIMINGS.hotels);
         const hotels = buildDemoHotels();
@@ -123,26 +130,12 @@ export function streamDemoBuild(): Response {
           results: hotelItems,
           ts: Date.now(),
         });
-        send({
-          type: "narrator.message.complete",
-          messageId: nanoid(),
-          content: `${hotelItems.length} hoteles en Roma, con regímenes SA/AD/MP.`,
-          phase: "progress",
-          ts: Date.now(),
-        });
-
-        // Comparator payload for UI consumers that listen for it
+        const comparatorEntries = buildDemoComparator(hotels[0]!.id);
         send({
           type: "section.partial",
           section: "hotels",
           legId,
-          results: [
-            {
-              __demoComparator: true,
-              hotelId: hotels[0].id,
-              entries: buildDemoComparator(hotels[0].id),
-            },
-          ],
+          results: comparatorEntries,
           ts: Date.now(),
         });
 
@@ -168,34 +161,47 @@ export function streamDemoBuild(): Response {
         send({ type: "build.done", quote, ts: Date.now() });
 
         await sleep(DEMO_TIMINGS.summary);
-        const summaryId = nanoid();
-        send({
-          type: "narrator.message.start",
-          messageId: summaryId,
-          phase: "summary",
-          ts: Date.now(),
+        const ctx = suggestionCtxFromQuote(parsed, quote, {
+          comparator: comparatorEntries
+            .filter((e) => e.totalPrice != null || !e.available)
+            .map((e) => ({
+              provider: e.provider as
+                | "hotelbeds"
+                | "booking"
+                | "expedia"
+                | "ratehawk"
+                | "own",
+              source: "snapshot" as const,
+              available: e.available,
+              totalPrice: e.totalPrice ?? undefined,
+              currency: e.currency,
+              nights: 4,
+              hotelName: hotels[0]!.name,
+              fetchedAt: new Date().toISOString(),
+              ageMinutes: 0,
+            })),
         });
-        send({
-          type: "narrator.message.complete",
-          messageId: summaryId,
-          content: `Vuelo IB 124 €, Hotel de Russie a 312 €/noche. Total 2 personas: ${Math.round(quote.pricing.finalTotal).toLocaleString("es-ES")} €.`,
-          phase: "summary",
-          ts: Date.now(),
-        });
-        send({
-          type: "narrator.message.end",
-          messageId: summaryId,
-          ts: Date.now(),
+        ctx.candidates.flights = flights;
+        ctx.candidates.hotels = hotels;
+        ctx.candidates.experiences = buildDemoExperiences();
+
+        const closeMessages = await planMessage({
+          event: { type: "complete" },
+          ctx,
+          emitted,
         });
 
-        send({
-          type: "narrator.message.complete",
-          messageId: nanoid(),
-          content:
-            "Sugerencia: sin seguro de viaje. Básico para 2 pax: 96 €. Puedes añadirlo al refinar.",
-          phase: "progress",
-          ts: Date.now(),
-        });
+        for (const msg of closeMessages) {
+          emitted.push(msg);
+          send({
+            type: "narrator.message.complete",
+            messageId: msg.id,
+            content: msg.text,
+            phase: msg.kind === "suggestion" ? "progress" : "summary",
+            ts: Date.now(),
+            ...(msg.suggestion ? { suggestion: msg.suggestion } : {}),
+          });
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : "demo_error";
         send({ type: "build.error", error: message, ts: Date.now() });

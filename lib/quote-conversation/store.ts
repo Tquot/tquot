@@ -17,6 +17,13 @@ import type {
 } from "@/lib/quote-conversation/types";
 import type { ParsedTripInput, Quote } from "@/lib/quotes/build-quote";
 import { syncQuotePricing } from "@/lib/quotes/build-quote";
+import type { QuotePatch } from "@/lib/agent/types";
+import { applyQuotePatch } from "@/lib/agent/apply-patch";
+import type { Intent } from "@/lib/agent/intent";
+import { classifyIntent } from "@/lib/agent/intent";
+import { resolveInvalidation } from "@/lib/agent/invalidation";
+import { tplRevisionAck } from "@/lib/agent/templates";
+import type { RevisionKind } from "@/lib/agent/types";
 
 interface HydrateFromSavedQuoteInput {
   quoteId: string;
@@ -30,11 +37,22 @@ interface QuoteConversationStore {
   messages: Message[];
   /** Supabase quotes.id once the canvas quote has been persisted (Block E). */
   persistedQuoteId: string | null;
+  /** Sugerencias descartadas en esta cotización (persisten con el quote). */
+  dismissedSuggestions: string[];
+  /** Revisión encolada si llega otra mientras se procesa una. No serializar. */
+  _pendingRevision: Intent | null;
+  _revising: boolean;
 
   dispatch: (action: ConversationAction) => void;
 
   addUserMessage: (content: string) => string;
-  addAssistantMessage: (content: string, opts?: { streaming?: boolean }) => string;
+  addAssistantMessage: (
+    content: string,
+    opts?: {
+      streaming?: boolean;
+      metadata?: AssistantMessage["metadata"];
+    },
+  ) => string;
   replaceAssistantMessage: (
     id: string,
     content: string,
@@ -46,6 +64,11 @@ interface QuoteConversationStore {
   updateQuote: (quote: Quote) => void;
   setPersistedQuoteId: (quoteId: string | null) => void;
   hydrateFromSavedQuote: (input: HydrateFromSavedQuoteInput) => void;
+  applyAgentPatch: (patch: QuotePatch) => Promise<void>;
+  dismissSuggestion: (id: string) => void;
+  /** Clasifica e intenta aplicar una revisión mid-build (coalescing). */
+  enqueueRevisionFromMessage: (message: string) => Promise<void>;
+  _applyRevisionIntent: (intent: Intent) => Promise<void>;
 
   reset: () => void;
   resetConversation: () => void;
@@ -57,6 +80,9 @@ export const useQuoteConversationStore = create<QuoteConversationStore>()(
       state: initialState,
       messages: [],
       persistedQuoteId: null,
+      dismissedSuggestions: [],
+      _pendingRevision: null,
+      _revising: false,
 
       dispatch: (action) =>
         set(
@@ -88,6 +114,7 @@ export const useQuoteConversationStore = create<QuoteConversationStore>()(
           content,
           timestamp: Date.now(),
           streaming: opts?.streaming ?? false,
+          metadata: opts?.metadata,
         };
         set(
           (current) => ({ messages: [...current.messages, message] }),
@@ -190,6 +217,13 @@ export const useQuoteConversationStore = create<QuoteConversationStore>()(
             ]
           : [];
 
+        const dismissed =
+          (
+            synced as Quote & {
+              dismissedSuggestions?: string[];
+            }
+          ).dismissedSuggestions ?? [];
+
         set(
           {
             state: {
@@ -199,15 +233,166 @@ export const useQuoteConversationStore = create<QuoteConversationStore>()(
             },
             messages,
             persistedQuoteId: quoteId,
+            dismissedSuggestions: dismissed,
+            _pendingRevision: null,
+            _revising: false,
           },
           false,
           "quote/hydrateFromSaved",
         );
       },
 
+      dismissSuggestion: (id) =>
+        set(
+          (current) => ({
+            dismissedSuggestions: current.dismissedSuggestions.includes(id)
+              ? current.dismissedSuggestions
+              : [...current.dismissedSuggestions, id],
+          }),
+          false,
+          "suggestions/dismiss",
+        ),
+
+      applyAgentPatch: async (patch) => {
+        const current = useQuoteConversationStore.getState();
+        const quote = current.state.status === "complete" ||
+          current.state.status === "building" ||
+          current.state.status === "refining" ||
+          current.state.status === "awaiting_confirmation"
+          ? ("quote" in current.state ? current.state.quote : null)
+          : null;
+        if (!quote && patch.type !== "dismissSuggestion") return;
+
+        const result = applyQuotePatch(
+          quote ?? {
+            id: "empty",
+            summary: {
+              route: "",
+              durationDays: 0,
+              passengers: { adults: 0, children: 0, total: 0 },
+            },
+            flights: [],
+            hotels: [],
+            experiences: [],
+            transfers: [],
+            pricing: {
+              baseTotal: 0,
+              margin: 0,
+              finalTotal: 0,
+              currency: "EUR",
+            },
+            _meta: {
+              flightsSource: "mock",
+              hotelsSource: "mock",
+              experiencesSource: "mock",
+              transfersSource: "mock",
+            },
+          },
+          current.dismissedSuggestions,
+          patch,
+        );
+
+        set(
+          { dismissedSuggestions: result.dismissed },
+          false,
+          "suggestions/patchDismissed",
+        );
+
+        if (quote) {
+          current.updateQuote(result.quote);
+        }
+
+        if (result.message) {
+          current.addAssistantMessage(result.message, {
+            metadata: { agentKind: "revision_ack" },
+          });
+        }
+
+        // Persist dismissals when we have a quote id (best-effort).
+        if (
+          patch.type === "dismissSuggestion" &&
+          current.persistedQuoteId
+        ) {
+          try {
+            await fetch("/api/quotes/dismiss-suggestion", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                quoteId: current.persistedQuoteId,
+                suggestionId: patch.id,
+              }),
+            });
+          } catch {
+            // offline / not yet migrated — dismissals still live in memory
+          }
+        }
+      },
+
+      enqueueRevisionFromMessage: async (message) => {
+        const intent = classifyIntent(message);
+        await useQuoteConversationStore.getState()._applyRevisionIntent(intent);
+      },
+
+      _applyRevisionIntent: async (intent: Intent) => {
+        const current = useQuoteConversationStore.getState();
+
+        if (current._revising) {
+          set({ _pendingRevision: intent }, false, "revision/enqueue");
+          return;
+        }
+
+        set({ _revising: true }, false, "revision/start");
+
+        try {
+          if (intent.type === "revise_params") {
+            const { rebuild } = resolveInvalidation(intent.changes);
+            const field = intent.changes[0]?.field;
+            const kind: RevisionKind =
+              field === "adults" || field === "children"
+                ? "pax"
+                : field === "nights" ||
+                    field === "dates" ||
+                    field === "destination" ||
+                    field === "board" ||
+                    field === "category" ||
+                    field === "budget"
+                  ? field
+                  : "dates";
+            const detail =
+              field === "nights"
+                ? `${intent.changes[0]?.value} noches`
+                : String(intent.changes[0]?.value ?? "");
+            const ack = tplRevisionAck(kind, detail, rebuild);
+            current.addAssistantMessage(ack, {
+              metadata: { agentKind: "revision_ack" },
+            });
+          }
+        } finally {
+          const pending =
+            useQuoteConversationStore.getState()._pendingRevision;
+          set(
+            { _revising: false, _pendingRevision: null },
+            false,
+            "revision/done",
+          );
+          if (pending) {
+            await useQuoteConversationStore
+              .getState()
+              ._applyRevisionIntent(pending);
+          }
+        }
+      },
+
       reset: () =>
         set(
-          { state: initialState, messages: [], persistedQuoteId: null },
+          {
+            state: initialState,
+            messages: [],
+            persistedQuoteId: null,
+            dismissedSuggestions: [],
+            _pendingRevision: null,
+            _revising: false,
+          },
           false,
           "store/reset",
         ),
@@ -215,7 +400,14 @@ export const useQuoteConversationStore = create<QuoteConversationStore>()(
       /** Alias used by embedded onboarding to clear demo state on unmount. */
       resetConversation: () =>
         set(
-          { state: initialState, messages: [], persistedQuoteId: null },
+          {
+            state: initialState,
+            messages: [],
+            persistedQuoteId: null,
+            dismissedSuggestions: [],
+            _pendingRevision: null,
+            _revising: false,
+          },
           false,
           "store/resetConversation",
         ),

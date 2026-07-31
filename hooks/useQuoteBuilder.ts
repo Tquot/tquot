@@ -116,7 +116,15 @@ export function useQuoteBuilder() {
         }
 
         if (event.type === "narrator.message.complete") {
-          addAssistantMessage(event.content, { streaming: false });
+          addAssistantMessage(event.content, {
+            streaming: false,
+            metadata: event.suggestion
+              ? {
+                  suggestion: event.suggestion,
+                  agentKind: "suggestion",
+                }
+              : undefined,
+          });
         }
         if (event.type === "narrator.message.start") {
           const clientId = addAssistantMessage("", { streaming: true });

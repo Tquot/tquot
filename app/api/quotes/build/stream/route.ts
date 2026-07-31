@@ -5,10 +5,6 @@ import { buildQuoteWithProgress } from "@/lib/quote-engine/buildQuoteWithProgres
 import { parseParsedTripInputBody } from "@/lib/quote-engine/schemas";
 import { narrateBuildEvent, narrateRecommendationEvent } from "@/lib/narrator/templates";
 import { buildClarificationMessages } from "@/lib/narrator/clarification";
-import {
-  streamOpeningMessage,
-  streamSummaryMessage,
-} from "@/lib/narrator/synthesizer";
 import { generateRecommendations } from "@/lib/recommendations/generate";
 import type {
   ConversationStreamEvent,
@@ -19,6 +15,12 @@ import {
   isDemoBuildBody,
   streamDemoBuild,
 } from "@/lib/onboarding/demo-stream";
+import { planMessage } from "@/lib/agent/planner";
+import type { AgentMessage } from "@/lib/agent/types";
+import {
+  emptySuggestionCtx,
+  suggestionCtxFromQuote,
+} from "@/lib/agent/context";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -83,31 +85,24 @@ export async function POST(req: NextRequest) {
       }, 15_000);
 
       try {
-        const openingId = nanoid();
-        send({
-          type: "narrator.message.start",
-          messageId: openingId,
-          phase: "opening",
-          ts: Date.now(),
-        });
+        const emitted: AgentMessage[] = [];
 
-        await streamOpeningMessage(parsed.data, {
-          signal: abort.signal,
-          onDelta: (delta) =>
-            send({
-              type: "narrator.message.delta",
-              messageId: openingId,
-              delta,
-              ts: Date.now(),
-            }),
-          onError: () => {},
+        // Template-first ack (0 tokens)
+        const ackMessages = await planMessage({
+          event: { type: "parsed", parsed: parsed.data },
+          ctx: emptySuggestionCtx(parsed.data),
+          emitted,
         });
-
-        send({
-          type: "narrator.message.end",
-          messageId: openingId,
-          ts: Date.now(),
-        });
+        for (const msg of ackMessages) {
+          emitted.push(msg);
+          send({
+            type: "narrator.message.complete",
+            messageId: msg.id,
+            content: msg.text,
+            phase: "opening",
+            ts: Date.now(),
+          });
+        }
 
         const clarifications = buildClarificationMessages(parsed.data);
         for (const content of clarifications) {
@@ -219,30 +214,23 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        const summaryId = nanoid();
-        send({
-          type: "narrator.message.start",
-          messageId: summaryId,
-          phase: "summary",
-          ts: Date.now(),
+        const closeCtx = suggestionCtxFromQuote(parsed.data, quoteWithRecs);
+        const closeMessages = await planMessage({
+          event: { type: "complete" },
+          ctx: closeCtx,
+          emitted,
         });
-
-        await streamSummaryMessage(parsed.data, quote, collectedEvents, {
-          signal: abort.signal,
-          onDelta: (delta) =>
-            send({
-              type: "narrator.message.delta",
-              messageId: summaryId,
-              delta,
-              ts: Date.now(),
-            }),
-        });
-
-        send({
-          type: "narrator.message.end",
-          messageId: summaryId,
-          ts: Date.now(),
-        });
+        for (const msg of closeMessages) {
+          emitted.push(msg);
+          send({
+            type: "narrator.message.complete",
+            messageId: msg.id,
+            content: msg.text,
+            phase: msg.kind === "suggestion" ? "progress" : "summary",
+            ts: Date.now(),
+            ...(msg.suggestion ? { suggestion: msg.suggestion } : {}),
+          });
+        }
 
         const recommendations = await recommendationsPromise;
         if (recommendations.length > 0) {

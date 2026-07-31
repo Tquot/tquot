@@ -65,6 +65,9 @@ export interface AssistantMessage {
 export interface AssistantMessageMetadata {
   phase?: ConversationPhase;
   refinementId?: string;
+  /** Sugerencia proactiva del agente (acciones inline). */
+  suggestion?: import("@/lib/agent/suggestions/types").Suggestion;
+  agentKind?: import("@/lib/agent/types").AgentMessageKind;
 }
 
 export type SystemEventType =
@@ -210,6 +213,8 @@ export type NarratorEvent =
       content: string;
       phase: NarratorPhase;
       ts: number;
+      /** Sugerencia proactiva con acciones inline (template-first). */
+      suggestion?: import("@/lib/agent/suggestions/types").Suggestion;
     }
   | {
       type: "narrator.message.start";

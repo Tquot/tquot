@@ -4,6 +4,7 @@ import {
   ChatMessage,
   StreamingText,
 } from "@/components/chat/ChatMessage";
+import { SuggestionMessage } from "@/components/chat/SuggestionMessage";
 import type { Message } from "@/lib/quote-conversation/types";
 
 interface Props {
@@ -38,6 +39,16 @@ export function MessageBubble({ message }: Props) {
   const isStreaming =
     message.role === "assistant" && message.streaming === true;
   const timestamp = formatTimestamp(message.timestamp);
+  const suggestion =
+    message.role === "assistant" ? message.metadata?.suggestion : undefined;
+
+  if (suggestion) {
+    return (
+      <div className="mb-3 px-4">
+        <SuggestionMessage suggestion={suggestion} />
+      </div>
+    );
+  }
 
   return (
     <div className="mb-3 px-4">
