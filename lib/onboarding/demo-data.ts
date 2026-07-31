@@ -28,8 +28,8 @@ function boardOption(
 }
 
 export function buildDemoFlights(): Flight[] {
-  const { arrivalDate } = demoDates();
-  const day = arrivalDate || "";
+  const { tripStart } = demoDates();
+  const day = tripStart || "";
   return [
     {
       id: "demo-fl-1",
@@ -113,10 +113,10 @@ export function buildDemoFlights(): Flight[] {
 }
 
 export function buildDemoHotels(): Hotel[] {
-  const { arrivalDate, departureDate } = demoDates();
+  const { tripStart } = demoDates();
   const nights = 4;
   const fetchedAt = new Date().toISOString();
-  const checkIn = arrivalDate || "";
+  const checkIn = tripStart || "";
   const base = {
     legId: "demo-leg-1" as const,
     provider: "own" as const,

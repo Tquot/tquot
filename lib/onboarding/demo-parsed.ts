@@ -7,13 +7,13 @@ import type { ParsedTripInput } from "@/lib/quotes/build-quote";
  */
 export function demoDates() {
   const now = new Date();
-  const arrival = new Date(now.getFullYear(), now.getMonth() + 1, 12);
-  const departure = new Date(arrival);
-  departure.setDate(departure.getDate() + 4);
+  const start = new Date(now.getFullYear(), now.getMonth() + 1, 12);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 4);
   const iso = (d: Date) => d.toISOString().slice(0, 10);
   return {
-    arrivalDate: iso(arrival) || "",
-    departureDate: iso(departure) || "",
+    tripStart: iso(start) || "", // arrival at destination = start of trip
+    tripEnd: iso(end) || "", // departure back home = end of trip
   };
 }
 
@@ -24,9 +24,9 @@ const DEMO_RAW =
 
 /** Pre-baked legs[] v2 trip — used by demo-stream / composeQuote. */
 export function buildDemoParsed(): ParsedTripInputV2 {
-  const { arrivalDate, departureDate } = demoDates();
-  const start = arrivalDate || "";
-  const end = departureDate || "";
+  const { tripStart, tripEnd } = demoDates();
+  const start = tripStart || "";
+  const end = tripEnd || "";
 
   return {
     version: 2,
@@ -81,14 +81,14 @@ export function buildDemoParsed(): ParsedTripInputV2 {
  * dates.start undefined and triggers ".startsWith" crashes downstream.
  */
 export function buildDemoParsedForStore(): ParsedTripInput {
-  const { arrivalDate, departureDate } = demoDates();
+  const { tripStart, tripEnd } = demoDates();
 
   return {
     origin: DEMO_ORIGIN,
     destination: DEMO_DESTINATION,
     dates: {
-      start: arrivalDate || "",
-      end: departureDate || "",
+      start: tripStart || "",
+      end: tripEnd || "",
     },
     passengers: {
       adults: 2,
