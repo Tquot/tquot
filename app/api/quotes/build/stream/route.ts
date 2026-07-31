@@ -15,6 +15,10 @@ import type {
   BuildEvent,
 } from "@/lib/quote-conversation/types";
 import type { Quote } from "@/lib/quote-engine/types";
+import {
+  isDemoBuildBody,
+  streamDemoBuild,
+} from "@/lib/onboarding/demo-stream";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -33,6 +37,11 @@ export async function POST(req: NextRequest) {
       status: 400,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  // Demo mode: zero Claude / provider calls (onboarding + local UI work)
+  if (isDemoBuildBody(body)) {
+    return streamDemoBuild();
   }
 
   const parsed = parseParsedTripInputBody(body);

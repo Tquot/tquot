@@ -4,14 +4,16 @@ import { getClientWithHistory } from "@/lib/clients/loader";
 import { buildPrefillFromClient } from "@/lib/clients/prefill";
 import { loadQuoteForResume } from "@/lib/quotes/load-for-resume";
 import { QuoteConversation } from "./QuoteConversation";
+import { DEMO_SUGGESTION } from "@/lib/onboarding/constants";
 
 interface PageProps {
-  searchParams: Promise<{ clientId?: string; quoteId?: string }>;
+  searchParams: Promise<{ clientId?: string; quoteId?: string; demo?: string }>;
 }
 
 export default async function NewQuotePage({ searchParams }: PageProps) {
   const agencyConfig = await loadBookingConfig();
   const params = await searchParams;
+  const demo = params.demo === "1" || params.demo === "true";
 
   if (params.quoteId) {
     const resume = await loadQuoteForResume(params.quoteId);
@@ -70,6 +72,9 @@ export default async function NewQuotePage({ searchParams }: PageProps) {
       agencyConfig={agencyConfig}
       prefillText={prefillText}
       prefillClient={prefillClient}
+      demo={demo}
+      initialMessage={demo ? DEMO_SUGGESTION : prefillText}
+      autoStart={demo}
     />
   );
 }

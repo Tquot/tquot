@@ -5,18 +5,53 @@ import { Sparkline } from "@/components/dashboard/Sparkline";
 import { RecentQuotesStrip } from "@/components/dashboard/RecentQuotesStrip";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { SecondaryQuickLinks } from "@/components/dashboard/SecondaryQuickLinks";
+import { OnboardingChecklist } from "@/components/onboarding/OnboardingChecklist";
+import { DemoModeCard } from "@/components/onboarding/DemoModeCard";
 import { loadDashboardMetrics } from "@/lib/dashboard/loader";
 import { listRecentQuotes } from "@/lib/quotes/recent";
+import { getOrCreateOnboarding } from "@/lib/onboarding/progress";
+import { ONBOARDING_STEPS } from "@/lib/onboarding/steps";
+import { stepPath } from "@/lib/onboarding/progress";
 
 export default async function DashboardPage() {
-  const [metrics, recentQuotes] = await Promise.all([
+  const [metrics, recentQuotes, onboarding] = await Promise.all([
     loadDashboardMetrics(),
     listRecentQuotes({ limit: 12 }),
+    getOrCreateOnboarding(),
   ]);
+
+  const completed = new Set(onboarding?.completed_steps ?? []);
+  const checklistItems = ONBOARDING_STEPS.filter((s) => s !== "complete").map(
+    (step) => ({
+      key: step,
+      label:
+        step === "welcome"
+          ? "Bienvenida"
+          : step === "identity"
+            ? "Identidad de agencia"
+            : step === "providers"
+              ? "Conectar proveedor"
+              : step === "first-quote"
+                ? "Primera cotización"
+                : "Inventario propio",
+      href: stepPath(step),
+      done: completed.has(step),
+    }),
+  );
+  const showChecklist =
+    !onboarding ||
+    !(onboarding.completed_steps ?? []).includes("complete");
 
   return (
     <main className="mx-auto max-w-[1080px] px-6 py-10 sm:py-12">
       <div className="space-y-12">
+        {showChecklist ? (
+          <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
+            <OnboardingChecklist items={checklistItems} />
+            <DemoModeCard />
+          </div>
+        ) : null}
+
         <section>
           <Eyebrow className="mb-6 block">
             {metrics.agencyName} · {formatMonth(new Date())}

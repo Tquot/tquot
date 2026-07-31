@@ -26,7 +26,6 @@
  *  El agente reserva en el extranet de Hotelbeds vía deep linking.
  */
 
-import { createHash } from "node:crypto";
 import type {
   ProviderAdapter,
   ProviderCategory,
@@ -46,6 +45,7 @@ import {
   tryAdapter,
   nightsBetween,
 } from "../utils";
+import { hotelbedsAuthHeaders } from "@/lib/providers/hotelbeds/signature";
 
 // ─────────────────────────────────────────────────────────────
 // Configuración
@@ -117,21 +117,8 @@ interface HotelbedsRawHotel {
 // Helper: generar X-Signature de Hotelbeds
 // ─────────────────────────────────────────────────────────────
 
-function buildSignature(apiKey: string, secret: string): string {
-  const timestamp = Math.floor(Date.now() / 1000);
-  return createHash("sha256")
-    .update(apiKey + secret + timestamp)
-    .digest("hex");
-}
-
 function buildHeaders(creds: HotelbedsCredentials): Record<string, string> {
-  return {
-    "Api-key": creds.api_key,
-    "X-Signature": buildSignature(creds.api_key, creds.secret),
-    Accept: "application/json",
-    "Content-Type": "application/json",
-    "Accept-Encoding": "gzip",
-  };
+  return hotelbedsAuthHeaders(creds.api_key, creds.secret);
 }
 
 function baseUrl(creds: HotelbedsCredentials): string {
@@ -157,12 +144,9 @@ export function parseHotelbedsCredentials(raw: Credentials): HotelbedsCredential
 export function buildHotelbedsContentHeaders(
   creds: HotelbedsCredentials,
 ): Record<string, string> {
-  return {
-    "Api-key": creds.api_key,
-    "X-Signature": buildSignature(creds.api_key, creds.secret),
-    Accept: "application/json",
-    "Accept-Encoding": "gzip",
-  };
+  const headers = hotelbedsAuthHeaders(creds.api_key, creds.secret);
+  const { ["Content-Type"]: _omit, ...rest } = headers;
+  return rest;
 }
 
 export function hotelbedsBaseUrl(creds: HotelbedsCredentials): string {

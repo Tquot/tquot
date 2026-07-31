@@ -5,7 +5,7 @@ import {
 } from "@/lib/connectors/adapters/hotelbeds";
 import type { Credentials } from "@/lib/connectors/types";
 import { fetchWithTimeout } from "@/lib/connectors/utils";
-import { createHash } from "crypto";
+import { hotelbedsAuthHeaders } from "./signature";
 
 interface CheckRatesInput {
   rateKey: string;
@@ -22,13 +22,6 @@ export interface CheckRatesResponse {
   error?: string;
 }
 
-function buildSignature(apiKey: string, secret: string): string {
-  const timestamp = Math.floor(Date.now() / 1000);
-  return createHash("sha256")
-    .update(apiKey + secret + timestamp)
-    .digest("hex");
-}
-
 /**
  * Valida disponibilidad de un rateKey concreto vía checkrates.
  */
@@ -41,12 +34,7 @@ export async function checkRates(
 
     const response = await fetchWithTimeout(url, {
       method: "POST",
-      headers: {
-        "Api-key": creds.api_key,
-        "X-Signature": buildSignature(creds.api_key, creds.secret),
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
+      headers: hotelbedsAuthHeaders(creds.api_key, creds.secret),
       body: JSON.stringify({
         rooms: [{ rateKey: input.rateKey }],
       }),

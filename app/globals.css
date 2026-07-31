@@ -10,6 +10,9 @@
   --color-paper-3: #efece6;
   --color-teal: #00897b;
   --color-teal-2: #00796b;
+  /* Semantic product accent (= teal). Prefer text-accent / bg-accent over umber. */
+  --color-accent: #00897b;
+  --color-accent-2: #00796b;
   --color-umber: #b85c38;
   --color-umber-2: #9f4d2e;
   --color-text: #0f1419;

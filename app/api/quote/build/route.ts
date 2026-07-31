@@ -2,7 +2,11 @@ import { NextRequest } from "next/server";
 import { getAuthenticatedUser } from "@/app/api/parser/_auth";
 import { buildQuoteWithProgress } from "@/lib/quote-engine/buildQuoteWithProgress";
 import { parseParsedTripInputBody } from "@/lib/quote-engine/schemas";
-import type { BuildEvent } from "@/lib/quote-engine/types";
+import type { BuildEvent } from "@/lib/quote-conversation/types";
+import {
+  isDemoBuildBody,
+  streamDemoBuild,
+} from "@/lib/onboarding/demo-stream";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -25,6 +29,10 @@ export async function POST(req: NextRequest) {
       status: 400,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  if (isDemoBuildBody(body)) {
+    return streamDemoBuild();
   }
 
   const parsed = parseParsedTripInputBody(body);

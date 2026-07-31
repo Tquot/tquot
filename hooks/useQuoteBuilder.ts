@@ -11,6 +11,7 @@ import {
 } from "@/lib/quote-conversation/store";
 import type { ConversationStreamEvent } from "@/lib/quote-conversation/types";
 import type { Recommendation } from "@/lib/recommendations/types";
+import { isQuoteDemoBuild } from "@/lib/onboarding/demo-flag";
 
 export function useQuoteBuilder() {
   const status = useQuoteConversationStore((store) => store.state.status);
@@ -54,7 +55,9 @@ export function useQuoteBuilder() {
     setIsBuilding(true);
     setRecommendations([]);
 
-    void streamBuildEvents(buildingParsed, {
+    void streamBuildEvents(
+      isQuoteDemoBuild() ? { demo: true, ...buildingParsed } : buildingParsed,
+      {
       signal: controller.signal,
       autoDispatch: false,
       onEvent: (event: ConversationStreamEvent) => {

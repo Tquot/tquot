@@ -28,6 +28,7 @@
     "_tquot-pdf-pending",
     "_tquot-airports-pending",
     "tquot-parser",
-    "tquot-app"
+    "tquot-app",
+    "supabase/functions"
   ]
 }

@@ -21,6 +21,8 @@ import {
   openServerPdf,
 } from "./quote-pdf";
 import { useQuoteItemHandlers } from "./use-quote-item-handlers";
+import { buildDemoParsedForStore } from "@/lib/onboarding/demo-data-client";
+import { setQuoteDemoFlag } from "@/lib/onboarding/demo-flag";
 
 function isCompleteQuote(quote: Partial<Quote> | Quote | null): quote is Quote {
   return Boolean(quote && quote.pricing && quote.summary && quote.id);
@@ -35,6 +37,14 @@ type QuoteConversationProps = {
     quote: Quote;
     tripInput: ParsedTripInput;
   };
+  /** Onboarding: one-column layout without ConversationHeader chrome. */
+  embedded?: boolean;
+  /** Pass demo:true to the build stream (zero Claude / providers). */
+  demo?: boolean;
+  /** Prefill the composer; with autoStart, used as the first user message. */
+  initialMessage?: string;
+  /** Auto-submit initialMessage (or demo build) on mount. */
+  autoStart?: boolean;
 };
 
 export function QuoteConversation({
@@ -42,6 +52,10 @@ export function QuoteConversation({
   prefillText,
   prefillClient,
   initialResume,
+  embedded = false,
+  demo = false,
+  initialMessage,
+  autoStart = false,
 }: QuoteConversationProps) {
   const { locale, t } = useDashboardLanguage();
   const {
@@ -57,11 +71,13 @@ export function QuoteConversation({
     updateQuote,
     retry,
     reset,
+    submitInitialRequest,
   } = useQuoteConversation();
 
   const addAssistantMessage = useQuoteConversationStore(
     (store) => store.addAssistantMessage,
   );
+  const dispatch = useQuoteConversationStore((store) => store.dispatch);
   const persistedQuoteId = useQuoteConversationStore(
     (store) => store.persistedQuoteId,
   );
@@ -71,15 +87,30 @@ export function QuoteConversation({
   const hydrateFromSavedQuote = useQuoteConversationStore(
     (store) => store.hydrateFromSavedQuote,
   );
+  const resetConversation = useQuoteConversationStore(
+    (store) => store.resetConversation,
+  );
 
   const [agentNotes, setAgentNotes] = useState(t.defaultAgentNotes);
   const [isSavingQuote, setIsSavingQuote] = useState(false);
   const [compareHotel, setCompareHotel] = useState<CompareHotelState>(null);
   const hydratedResumeRef = useRef<string | null>(null);
+  const autoStartedRef = useRef(false);
   const savedQuoteId = persistedQuoteId;
+
+  useEffect(() => {
+    setQuoteDemoFlag(demo);
+    return () => setQuoteDemoFlag(false);
+  }, [demo]);
 
   const completeQuote = isCompleteQuote(quote) ? quote : null;
   const completeQuoteWithGroup = completeQuote as EngineQuote | null;
+
+  useEffect(() => {
+    return () => {
+      if (embedded) resetConversation();
+    };
+  }, [embedded, resetConversation]);
 
   useEffect(() => {
     if (!initialResume) return;
@@ -97,6 +128,7 @@ export function QuoteConversation({
   useEffect(() => {
     if (initialResume) return;
     if (messages.length > 0) return;
+    if (autoStart) return;
 
     const welcomeTimer = window.setTimeout(() => {
       if (useQuoteConversationStore.getState().messages.length === 0) {
@@ -105,7 +137,43 @@ export function QuoteConversation({
     }, 0);
 
     return () => window.clearTimeout(welcomeTimer);
-  }, [addAssistantMessage, initialResume, messages.length, t.chatWelcome]);
+  }, [
+    addAssistantMessage,
+    initialResume,
+    messages.length,
+    t.chatWelcome,
+    autoStart,
+  ]);
+
+  useEffect(() => {
+    if (!autoStart || autoStartedRef.current || initialResume) return;
+    autoStartedRef.current = true;
+
+    const message = (initialMessage ?? prefillText ?? "").trim();
+    if (demo) {
+      // Skip Claude parser: jump straight to demo build stream.
+      if (message) {
+        useQuoteConversationStore.getState().addUserMessage(message);
+      }
+      dispatch({
+        type: "PARSE_COMPLETE",
+        parsed: buildDemoParsedForStore(),
+      });
+      return;
+    }
+
+    if (message) {
+      submitInitialRequest(message);
+    }
+  }, [
+    autoStart,
+    demo,
+    dispatch,
+    initialMessage,
+    initialResume,
+    prefillText,
+    submitInitialRequest,
+  ]);
 
   useEffect(() => {
     setAgentNotes(t.defaultAgentNotes);
@@ -199,19 +267,27 @@ export function QuoteConversation({
     <AccessibilityProfileProvider
       initial={parsedTripInput?.preferences?.accessibilityProfile}
     >
-    <div className="flex h-[calc(100vh-0px)] min-h-screen flex-col bg-paper text-text">
-      <ConversationHeader
-        quote={headerQuote}
-        tripInput={parsedTripInput}
-        agentNotes={agentNotes}
-        isSavingQuote={isSavingQuote}
-        savedQuoteId={savedQuoteId}
-        prefillClient={prefillClient}
-        onReset={handleReset}
-        onQuoteSaved={handleQuoteSaved}
-        onAgentPdf={() => void handleAgentPdf()}
-        onClientPdf={() => void handleClientPdf()}
-      />
+    <div
+      className={
+        embedded
+          ? "flex min-h-[640px] flex-col bg-paper text-text"
+          : "flex h-[calc(100vh-0px)] min-h-screen flex-col bg-paper text-text"
+      }
+    >
+      {embedded ? null : (
+        <ConversationHeader
+          quote={headerQuote}
+          tripInput={parsedTripInput}
+          agentNotes={agentNotes}
+          isSavingQuote={isSavingQuote}
+          savedQuoteId={savedQuoteId}
+          prefillClient={prefillClient}
+          onReset={handleReset}
+          onQuoteSaved={handleQuoteSaved}
+          onAgentPdf={() => void handleAgentPdf()}
+          onClientPdf={() => void handleClientPdf()}
+        />
+      )}
 
       {error ? (
         <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:px-6">
@@ -228,9 +304,21 @@ export function QuoteConversation({
         </div>
       ) : null}
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[400px_1fr]">
-        <aside className="flex min-h-[42vh] flex-col border-b border-border-1 bg-paper lg:min-h-0 lg:border-b-0 lg:border-r">
-          <ConversationPanel prefillText={prefillText} />
+      <div
+        className={
+          embedded
+            ? "grid min-h-0 flex-1 grid-cols-1 overflow-hidden"
+            : "grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[400px_1fr]"
+        }
+      >
+        <aside
+          className={
+            embedded
+              ? "flex max-h-[280px] flex-col border-b border-border-1 bg-paper"
+              : "flex min-h-[42vh] flex-col border-b border-border-1 bg-paper lg:min-h-0 lg:border-b-0 lg:border-r"
+          }
+        >
+          <ConversationPanel prefillText={prefillText ?? initialMessage} />
         </aside>
 
         <main
@@ -271,7 +359,7 @@ export function QuoteConversation({
         />
       ) : null}
 
-      {completeQuote ? (
+      {completeQuote && !embedded ? (
         <div className="border-t border-tquot-border bg-tquot-surface px-4 py-3 sm:px-6">
           <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-tquot-muted">
             {t.agentNotes}

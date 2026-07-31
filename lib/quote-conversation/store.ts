@@ -48,6 +48,7 @@ interface QuoteConversationStore {
   hydrateFromSavedQuote: (input: HydrateFromSavedQuoteInput) => void;
 
   reset: () => void;
+  resetConversation: () => void;
 }
 
 export const useQuoteConversationStore = create<QuoteConversationStore>()(
@@ -209,6 +210,14 @@ export const useQuoteConversationStore = create<QuoteConversationStore>()(
           { state: initialState, messages: [], persistedQuoteId: null },
           false,
           "store/reset",
+        ),
+
+      /** Alias used by embedded onboarding to clear demo state on unmount. */
+      resetConversation: () =>
+        set(
+          { state: initialState, messages: [], persistedQuoteId: null },
+          false,
+          "store/resetConversation",
         ),
     })),
     { name: "quote-conversation" },
