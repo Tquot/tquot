@@ -168,7 +168,8 @@ function isConversationStreamEvent(
   if (typeof value !== "object" || value === null || !("type" in value)) {
     return false;
   }
-  const type = (value as { type: string }).type;
+  const type = (value as { type?: unknown }).type;
+  if (typeof type !== "string") return false;
   return (
     type.startsWith("build.") ||
     type.startsWith("section.") ||
