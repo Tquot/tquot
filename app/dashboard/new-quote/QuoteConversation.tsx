@@ -156,7 +156,7 @@ export function QuoteConversation({
         useQuoteConversationStore.getState().addUserMessage(message);
       }
       dispatch({
-        type: "PARSE_COMPLETE",
+        type: "BUILD_START",
         parsed: buildDemoParsedForStore(),
       });
       return;
