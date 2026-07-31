@@ -11,6 +11,7 @@ import {
 } from "../components/PDFAccessibilityBlock";
 import { RecommendationsBlock } from "../components/RecommendationsBlock";
 import type { PremiumPdfFlight, PremiumPdfQuote } from "../premium-types";
+import { formatStopsLabel } from "../utils/resolve-flight-details";
 
 interface Props {
   quote: PremiumPdfQuote;
@@ -106,7 +107,14 @@ function FlightBlockPdf({
   branding: AgencyBranding;
 }) {
   const route = `${flight.origin ?? "?"} → ${flight.destination ?? "?"}`;
-  const label = flight.name ?? `${flight.carrierName ?? flight.carrier} ${route}`;
+  const airline = flight.carrierName ?? flight.carrier ?? "—";
+  const depTime = flight.departureTime ?? "—";
+  const arrTime = flight.arrivalTime ?? "—";
+  const duration = flight.duration ?? "—";
+  const stops = formatStopsLabel(flight.stops);
+  const cabinFareBag = [flight.cabinClass, flight.fareName, flight.baggageIncluded]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <View
@@ -118,10 +126,15 @@ function FlightBlockPdf({
       }}
       wrap={false}
     >
-      <Text style={styles.h3}>{label}</Text>
-      <Text style={styles.small}>
-        {flight.departureDate ?? ""} · {route}
+      <Text style={styles.h3}>
+        {airline} · {route}
       </Text>
+      <Text style={styles.small}>
+        {depTime} → {arrTime} · {duration} · {stops}
+      </Text>
+      {cabinFareBag ? (
+        <Text style={styles.small}>{cabinFareBag}</Text>
+      ) : null}
       <View style={{ marginTop: 6, alignSelf: "flex-end" }}>
         {variant === "agent" ? (
           <>
