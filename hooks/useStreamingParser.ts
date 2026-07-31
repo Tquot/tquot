@@ -3,7 +3,12 @@
 import { useEffect, useRef } from "react";
 import { nanoid } from "nanoid";
 import { streamParseEvents } from "@/lib/quote-conversation/sse-client";
-import { useQuoteConversationStore, selectStatus } from "@/lib/quote-conversation/store";
+import {
+  useQuoteConversationStore,
+  selectStatus,
+} from "@/lib/quote-conversation/store";
+import { isQuoteDemoBuild } from "@/lib/onboarding/demo-flag";
+import { buildDemoParsedForStore } from "@/lib/onboarding/demo-parsed";
 
 export function useStreamingParser() {
   const status = useQuoteConversationStore(selectStatus);
@@ -26,6 +31,15 @@ export function useStreamingParser() {
 
   useEffect(() => {
     if (status !== "parsing" || !parsingInput) {
+      return;
+    }
+
+    // Demo mode: never hit /api/quote/parse (Claude). Inject pre-baked v2 trip.
+    if (isQuoteDemoBuild()) {
+      useQuoteConversationStore.getState().dispatch({
+        type: "PARSE_COMPLETE",
+        parsed: buildDemoParsedForStore(),
+      });
       return;
     }
 
@@ -67,7 +81,13 @@ export function useStreamingParser() {
     return () => {
       controller.abort();
     };
-  }, [status, parsingInput, parsingLocale, parsingPreviousPartial, parsingPreviousQuestions]);
+  }, [
+    status,
+    parsingInput,
+    parsingLocale,
+    parsingPreviousPartial,
+    parsingPreviousQuestions,
+  ]);
 
   const startParsing = (_input: string) => {
     // Parsing starts via USER_SUBMIT + useEffect on status === 'parsing'

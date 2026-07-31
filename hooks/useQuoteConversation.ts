@@ -19,6 +19,8 @@ import { useQuoteBuilder } from "@/hooks/useQuoteBuilder";
 import { useRefinementPlan } from "@/hooks/useRefinementPlan";
 import { useRefinement } from "@/hooks/useRefinement";
 import type { AirportFlightChoices, Quote } from "@/lib/quotes/build-quote";
+import { isQuoteDemoBuild } from "@/lib/onboarding/demo-flag";
+import { buildDemoParsedForStore } from "@/lib/onboarding/demo-parsed";
 
 export function useQuoteConversation() {
   const status = useQuoteConversationStore(selectStatus);
@@ -47,6 +49,17 @@ export function useQuoteConversation() {
     (input: string) => {
       const trimmed = input.trim();
       if (!trimmed) return;
+
+      // Demo: skip USER_SUBMIT → parsing → /api/quote/parse entirely.
+      if (isQuoteDemoBuild()) {
+        addUserMessage(trimmed);
+        dispatch({
+          type: "PARSE_COMPLETE",
+          parsed: buildDemoParsedForStore(),
+        });
+        return;
+      }
+
       addUserMessage(trimmed);
       dispatch({ type: "USER_SUBMIT", input: trimmed });
       startParsing(trimmed);

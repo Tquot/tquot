@@ -100,14 +100,27 @@ function themesFromParsed(parsed: ParsedTripInput): string[] {
 }
 
 /** Converts the current build-quote ParsedTripInput into schema v2. */
-export function toParsedTripInputV2(parsed: ParsedTripInput): ParsedTripInputV2 {
-  const childCount = parsed.passengers.children;
+export function toParsedTripInputV2(
+  parsed: ParsedTripInput | ParsedTripInputV2,
+): ParsedTripInputV2 {
+  if (
+    typeof parsed === "object" &&
+    parsed !== null &&
+    "version" in parsed &&
+    (parsed as ParsedTripInputV2).version === 2 &&
+    Array.isArray((parsed as ParsedTripInputV2).legs)
+  ) {
+    return parsed as ParsedTripInputV2;
+  }
+
+  const v1 = parsed as ParsedTripInput;
+  const childCount = v1.passengers.children;
   const children = Array.from({ length: childCount }, () => ({ age: 10 }));
 
   return {
     version: 2,
     travelers: {
-      adults: parsed.passengers.adults,
+      adults: v1.passengers.adults,
       children,
       infants: 0,
     },
@@ -115,27 +128,27 @@ export function toParsedTripInputV2(parsed: ParsedTripInput): ParsedTripInputV2 
       {
         id: DEFAULT_TRIP_LEG_ID,
         order: 0,
-        arrivalDate: parsed.dates.start,
-        departureDate: parsed.dates.end,
-        origin: parsed.origin,
-        destination: parsed.destination,
-        needsAccommodation: parsed.includeHotels ?? true,
-        needsTransport: parsed.includeFlights === false ? "none" : "flight",
+        arrivalDate: v1.dates.start,
+        departureDate: v1.dates.end,
+        origin: v1.origin,
+        destination: v1.destination,
+        needsAccommodation: v1.includeHotels ?? true,
+        needsTransport: v1.includeFlights === false ? "none" : "flight",
       },
     ],
-    budget: budgetFromParsed(parsed),
+    budget: budgetFromParsed(v1),
     preferences: {
       hotelStyles: [],
-      themes: themesFromParsed(parsed),
+      themes: themesFromParsed(v1),
       locationPriorities: [],
       locationLandmarks: [],
       amenities: [],
-      accessibility: parsed.preferences.accessibility
+      accessibility: v1.preferences.accessibility
         ? ["wheelchair_accessible"]
         : [],
-      ...(parsed.preferences.accessibilityProfile
-        ? { accessibilityProfile: parsed.preferences.accessibilityProfile }
-        : parsed.preferences.accessibility
+      ...(v1.preferences.accessibilityProfile
+        ? { accessibilityProfile: v1.preferences.accessibilityProfile }
+        : v1.preferences.accessibility
           ? {
               accessibilityProfile: {
                 required: {

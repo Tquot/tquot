@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { saveQuoteWithClient } from "@/app/actions/quotes";
 import { useQuoteConversation } from "@/hooks/useQuoteConversation";
 import { BookingConfigProvider } from "@/lib/booking-handoff/context";
@@ -21,8 +21,8 @@ import {
   openServerPdf,
 } from "./quote-pdf";
 import { useQuoteItemHandlers } from "./use-quote-item-handlers";
-import { buildDemoParsedForStore } from "@/lib/onboarding/demo-data-client";
-import { setQuoteDemoFlag } from "@/lib/onboarding/demo-flag";
+import { buildDemoParsedForStore } from "@/lib/onboarding/demo-parsed";
+import { setQuoteDemoFlag, isQuoteDemoBuild } from "@/lib/onboarding/demo-flag";
 
 function isCompleteQuote(quote: Partial<Quote> | Quote | null): quote is Quote {
   return Boolean(quote && quote.pricing && quote.summary && quote.id);
@@ -98,7 +98,7 @@ export function QuoteConversation({
   const autoStartedRef = useRef(false);
   const savedQuoteId = persistedQuoteId;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     setQuoteDemoFlag(demo);
     return () => setQuoteDemoFlag(false);
   }, [demo]);
