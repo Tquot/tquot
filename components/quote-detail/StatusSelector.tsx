@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { updateQuoteStatus } from "@/lib/quote-status/update-status";
 import {
   getAllowedTransitions,
@@ -24,6 +24,10 @@ export function StatusSelector({
   const [status, setStatus] = useState(currentStatus);
   const [pending, startTransition] = useTransition();
   const allowed = getAllowedTransitions(status);
+
+  useEffect(() => {
+    setStatus(currentStatus);
+  }, [currentStatus]);
 
   const handleChange = (newStatus: QuoteStatus) => {
     const ok = confirm(
