@@ -29,6 +29,7 @@ function boardOption(
 
 export function buildDemoFlights(): Flight[] {
   const { arrivalDate } = demoDates();
+  const day = arrivalDate || "";
   return [
     {
       id: "demo-fl-1",
@@ -43,14 +44,14 @@ export function buildDemoFlights(): Flight[] {
       fareClass: "ECONOMY",
       slices: [
         {
-          departureDate: arrivalDate,
+          departureDate: day,
           segments: [
             {
               flightNumber: "IB 3220",
               origin: { iata_code: "MAD" },
               destination: { iata_code: "FCO" },
-              departureTime: `${arrivalDate}T07:25:00`,
-              arrivalTime: `${arrivalDate}T09:50:00`,
+              departureTime: `${day}T07:25:00`,
+              arrivalTime: `${day}T09:50:00`,
             },
           ],
         },
@@ -69,14 +70,14 @@ export function buildDemoFlights(): Flight[] {
       fareClass: "ECONOMY",
       slices: [
         {
-          departureDate: arrivalDate,
+          departureDate: day,
           segments: [
             {
               flightNumber: "VY 6100",
               origin: { iata_code: "MAD" },
               destination: { iata_code: "FCO" },
-              departureTime: `${arrivalDate}T10:15:00`,
-              arrivalTime: `${arrivalDate}T12:40:00`,
+              departureTime: `${day}T10:15:00`,
+              arrivalTime: `${day}T12:40:00`,
             },
           ],
         },
@@ -95,14 +96,14 @@ export function buildDemoFlights(): Flight[] {
       fareClass: "BASIC",
       slices: [
         {
-          departureDate: arrivalDate,
+          departureDate: day,
           segments: [
             {
               flightNumber: "FR 5423",
               origin: { iata_code: "MAD" },
               destination: { iata_code: "CIA" },
-              departureTime: `${arrivalDate}T14:50:00`,
-              arrivalTime: `${arrivalDate}T17:25:00`,
+              departureTime: `${day}T14:50:00`,
+              arrivalTime: `${day}T17:25:00`,
             },
           ],
         },
@@ -115,13 +116,14 @@ export function buildDemoHotels(): Hotel[] {
   const { arrivalDate, departureDate } = demoDates();
   const nights = 4;
   const fetchedAt = new Date().toISOString();
+  const checkIn = arrivalDate || "";
   const base = {
     legId: "demo-leg-1" as const,
     provider: "own" as const,
     currency: "EUR",
     nights,
     destination: "Roma",
-    fetchedAt,
+    fetchedAt: fetchedAt || "",
   };
 
   return [
@@ -138,7 +140,7 @@ export function buildDemoHotels(): Hotel[] {
       imageUrl: "/onboarding/demo-hotel-1.jpg",
       amenities: ["wifi", "breakfast", "pool", "spa"],
       refundable: true,
-      cancellationDeadline: arrivalDate,
+      cancellationDeadline: checkIn,
       boardCode: "BB",
       boardOptions: [
         boardOption("RO", "Solo alojamiento", 288, nights, "demo-ht-1-ro"),
@@ -160,7 +162,7 @@ export function buildDemoHotels(): Hotel[] {
       imageUrl: "/onboarding/demo-hotel-2.jpg",
       amenities: ["wifi", "breakfast"],
       refundable: true,
-      cancellationDeadline: arrivalDate,
+      cancellationDeadline: checkIn,
       boardCode: "BB",
       boardOptions: [
         boardOption("RO", "Solo alojamiento", 262, nights, "demo-ht-2-ro"),
@@ -264,35 +266,39 @@ export function demoFlightsToQuoteItems(flights: Flight[]): TaggedQuoteItem[] {
     const seg = flight.slices?.[0]?.segments?.[0];
     const dep = seg?.departureTime?.slice(11, 16) ?? "";
     const arr = seg?.arrivalTime?.slice(11, 16) ?? "";
-    const priced = withMargin(flight.price);
+    const priced = withMargin(flight.price ?? 0);
+    const origin = flight.origin ?? seg?.origin?.iata_code ?? "MAD";
+    const destination =
+      flight.destination ?? seg?.destination?.iata_code ?? "FCO";
+    const carrier = flight.carrierName ?? flight.carrier ?? "Airline";
+    const flightNumber = seg?.flightNumber ?? "";
     return {
-      id: flight.id,
-      legId: flight.legId,
+      id: flight.id ?? `demo-fl-${index}`,
+      legId: flight.legId ?? "demo-leg-1",
       type: "flight" as const,
-      title: `${flight.carrierName ?? flight.carrier} ${seg?.flightNumber ?? ""} · ${flight.origin ?? "MAD"} → ${flight.destination ?? "FCO"}`,
-      provider: flight.carrierName ?? flight.carrier,
+      title: `${carrier} ${flightNumber} · ${origin} → ${destination}`.trim(),
+      provider: carrier,
       source: "mock" as const,
       alternative: index > 0,
-      currency: flight.currency,
+      currency: flight.currency ?? "EUR",
       ...priced,
       flightDetails: {
         departureDate: flight.slices?.[0]?.departureDate ?? "",
         departureTime: dep,
         arrivalTime: arr,
         duration: flight.duration ?? "",
-        originIata: flight.origin ?? seg?.origin.iata_code ?? "MAD",
-        destinationIata:
-          flight.destination ?? seg?.destination.iata_code ?? "FCO",
+        originIata: origin,
+        destinationIata: destination,
         originCity: "Madrid",
         destinationCity: "Roma",
-        airline: flight.carrierName ?? flight.carrier,
+        airline: carrier,
         airlineLogoUrl: "",
-        flightNumber: seg?.flightNumber ?? "",
+        flightNumber,
         cabinClass: flight.fareClass ?? "ECONOMY",
         baggageIncluded: index === 2 ? "Sin equipaje" : "1×23kg",
         layovers: [],
         stops: 0,
-        priceNumeric: flight.price,
+        priceNumeric: flight.price ?? 0,
         fareName: flight.fareClass ?? "ECONOMY",
       },
     };
@@ -301,27 +307,31 @@ export function demoFlightsToQuoteItems(flights: Flight[]): TaggedQuoteItem[] {
 
 export function demoHotelsToQuoteItems(hotels: Hotel[]): TaggedQuoteItem[] {
   return hotels.map((hotel, index) => {
-    const stayTotal = hotel.netPrice * hotel.nights;
+    const nights = hotel.nights ?? 4;
+    const net = hotel.netPrice ?? 0;
+    const stayTotal = net * nights;
     const priced = withMargin(stayTotal);
+    const name = hotel.name ?? `Hotel demo ${index + 1}`;
+    const destination = hotel.destination ?? "Roma";
     return {
-      id: hotel.id,
-      legId: hotel.legId,
+      id: hotel.id ?? `demo-ht-${index}`,
+      legId: hotel.legId ?? "demo-leg-1",
       type: "hotel" as const,
-      title: `${hotel.name} · ${hotel.stars}★ · Roma`,
+      title: `${name} · ${hotel.stars ?? 4}★ · ${destination}`,
       provider: "Inventario demo",
       source: "mock" as const,
       alternative: index > 0,
-      currency: hotel.currency,
-      description: hotel.description,
-      imageUrl: hotel.imageUrl,
+      currency: hotel.currency ?? "EUR",
+      description: hotel.description ?? "",
+      imageUrl: hotel.imageUrl ?? "",
       ...priced,
       hotelDetails: {
         provider: "hotelbeds",
-        netPrice: hotel.netPrice,
-        currency: hotel.currency,
-        fetchedAt: hotel.fetchedAt,
-        boardCode: hotel.boardCode,
-        boardOptions: hotel.boardOptions,
+        netPrice: net,
+        currency: hotel.currency ?? "EUR",
+        fetchedAt: hotel.fetchedAt ?? new Date().toISOString(),
+        boardCode: hotel.boardCode ?? "BB",
+        boardOptions: hotel.boardOptions ?? [],
       },
     };
   });
@@ -331,16 +341,16 @@ export function demoExperiencesToQuoteItems(
   experiences: Experience[],
 ): TaggedQuoteItem[] {
   return experiences.map((exp, index) => {
-    const priced = withMargin(exp.price);
+    const priced = withMargin(exp.price ?? 0);
     return {
-      id: exp.id,
-      legId: exp.legId,
+      id: exp.id ?? `demo-ex-${index}`,
+      legId: exp.legId ?? "demo-leg-1",
       type: "experience" as const,
-      title: exp.name,
+      title: exp.name ?? `Experiencia demo ${index + 1}`,
       provider: exp.provider ?? "demo",
       source: "mock" as const,
       alternative: false,
-      currency: exp.currency,
+      currency: exp.currency ?? "EUR",
       ...priced,
       experienceDetails: {
         imageUrl:
