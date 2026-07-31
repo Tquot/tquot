@@ -1,0 +1,5 @@
+{
+  "adults": { "value": 2, "raw": "2 adultos" },
+  "board": { "code": "AD", "raw": "con desayuno" },
+  "category": { "stars": 4, "raw": "4 estrellas" }
+}

@@ -26,7 +26,9 @@ export type QuotePatch =
   | { type: "addInsurance"; tier: "basic" | "standard" | "premium" }
   | { type: "addTransfer"; transferId: string }
   | { type: "switchProvider"; hotelId: string; provider: string }
-  | { type: "dismissSuggestion"; id: string };
+  | { type: "dismissSuggestion"; id: string }
+  /** Campo asumido / probe: actualiza parsed y dispara rebuild vía store. */
+  | { type: "setField"; field: string; value: unknown };
 
 export interface AgentAction {
   id: string;

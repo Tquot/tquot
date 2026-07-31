@@ -199,6 +199,36 @@ export function dispatchParseEvent(event: ParseEvent): SseTerminalResult {
         questions: event.questions,
         partial: event.partial,
       });
+      if (event.assumptions) {
+        useQuoteConversationStore
+          .getState()
+          .setAssumptions(event.assumptions, event.sourceMessage);
+      }
+      if (event.probeActions && event.probeActions.length > 0) {
+        const { addAssistantMessage } = useQuoteConversationStore.getState();
+        addAssistantMessage(event.questions.join(" "), {
+          metadata: {
+            agentKind: "probe",
+            suggestion: {
+              id: "probe",
+              kind: "boardUpgrade",
+              priority: 1,
+              text: event.questions.join(" "),
+              interrupts: true,
+              actions: event.probeActions.map((a) => ({
+                id: a.id,
+                label: a.label,
+                variant: "ghost" as const,
+                patch: {
+                  type: "setField" as const,
+                  field: a.field,
+                  value: a.value,
+                },
+              })),
+            },
+          },
+        });
+      }
       addSystemEvent("error", {
         kind: "parse_needs_input",
         questions: event.questions,
@@ -207,6 +237,11 @@ export function dispatchParseEvent(event: ParseEvent): SseTerminalResult {
 
     case "parse.complete": {
       addSystemEvent("parsing-completed", { parsed: event.parsed });
+      if (event.assumptions) {
+        useQuoteConversationStore
+          .getState()
+          .setAssumptions(event.assumptions, event.sourceMessage);
+      }
       const currentState = useQuoteConversationStore.getState().state;
       const parsingInput =
         currentState.status === "parsing"

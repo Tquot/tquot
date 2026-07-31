@@ -24,6 +24,8 @@ import {
 import type { Quote as EngineQuote } from "@/lib/quote-engine/types";
 import type { useQuoteItemHandlers } from "../use-quote-item-handlers";
 import type { SectionStatus } from "@/lib/quote-conversation/types";
+import { AssumptionBar } from "@/components/quote/AssumptionBar";
+import { useQuoteConversationStore } from "@/lib/quote-conversation/store";
 
 type QuoteCanvasProps = {
   status: string;
@@ -127,6 +129,7 @@ export function QuoteCanvas({
   handlers,
 }: QuoteCanvasProps) {
   const { locale, t } = useDashboardLanguage();
+  const assumptions = useQuoteConversationStore((s) => s.assumptions);
 
   if (status === "idle") {
     return (
@@ -142,6 +145,9 @@ export function QuoteCanvas({
   if (status === "parsing" || status === "needs_input") {
     return (
       <div className="space-y-4">
+        {assumptions.length > 0 ? (
+          <AssumptionBar assumptions={assumptions} />
+        ) : null}
         <BuildProgressUI
           sections={buildProgressSections(null, null, parsingPartial)}
         />
@@ -266,6 +272,10 @@ export function QuoteCanvas({
 
   return (
     <div className="space-y-6">
+      {assumptions.length > 0 ? (
+        <AssumptionBar assumptions={assumptions} />
+      ) : null}
+
       {(status === "building" || isBuilding) && (
         <div className="rounded-lg border border-border-1 bg-paper px-4">
           <BuildProgressUI sections={progressSections} />

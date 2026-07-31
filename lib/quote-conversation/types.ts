@@ -190,8 +190,26 @@ export type ParseEvent =
       questions: string[];
       partial: Partial<ParsedTripInput>;
       ts: number;
+      /** Acciones tocables del probe (pax, etc.). */
+      probeActions?: Array<{
+        id: string;
+        label: string;
+        field: string;
+        value: unknown;
+      }>;
+      /** Asunciones ya aplicadas (visibles mientras se responde el probe). */
+      assumptions?: import("@/lib/parser/defaults").Assumption[];
+      sourceMessage?: string;
     }
-  | { type: "parse.complete"; parsed: ParsedTripInput; ts: number }
+  | {
+      type: "parse.complete";
+      parsed: ParsedTripInput;
+      ts: number;
+      /** Asunciones editables (origen, fechas, categoría…). */
+      assumptions?: import("@/lib/parser/defaults").Assumption[];
+      /** Mensaje original sin sanitize. */
+      sourceMessage?: string;
+    }
   | { type: "parse.error"; error: string; ts: number };
 
 // ─────────────────────────────────────────────────────────

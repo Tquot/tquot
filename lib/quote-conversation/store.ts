@@ -21,9 +21,14 @@ import type { QuotePatch } from "@/lib/agent/types";
 import { applyQuotePatch } from "@/lib/agent/apply-patch";
 import type { Intent } from "@/lib/agent/intent";
 import { classifyIntent } from "@/lib/agent/intent";
-import { resolveInvalidation } from "@/lib/agent/invalidation";
+import {
+  resolveInvalidation,
+  type ParamChange,
+  type ParamChangeField,
+} from "@/lib/agent/invalidation";
 import { tplRevisionAck } from "@/lib/agent/templates";
 import type { RevisionKind } from "@/lib/agent/types";
+import type { Assumption } from "@/lib/parser/defaults";
 
 interface HydrateFromSavedQuoteInput {
   quoteId: string;
@@ -39,6 +44,10 @@ interface QuoteConversationStore {
   persistedQuoteId: string | null;
   /** Sugerencias descartadas en esta cotización (persisten con el quote). */
   dismissedSuggestions: string[];
+  /** Asunciones del parse informal (chips editables sobre el canvas). */
+  assumptions: Assumption[];
+  /** Mensaje original pegado (WhatsApp/email), sin sanitize. */
+  sourceMessage: string | null;
   /** Revisión encolada si llega otra mientras se procesa una. No serializar. */
   _pendingRevision: Intent | null;
   _revising: boolean;
@@ -65,6 +74,9 @@ interface QuoteConversationStore {
   setPersistedQuoteId: (quoteId: string | null) => void;
   hydrateFromSavedQuote: (input: HydrateFromSavedQuoteInput) => void;
   applyAgentPatch: (patch: QuotePatch) => Promise<void>;
+  /** Chip de asunción / probe: convierte a revise_params. */
+  applyAssumption: (field: string, value: unknown) => Promise<void>;
+  setAssumptions: (assumptions: Assumption[], sourceMessage?: string) => void;
   dismissSuggestion: (id: string) => void;
   /** Clasifica e intenta aplicar una revisión mid-build (coalescing). */
   enqueueRevisionFromMessage: (message: string) => Promise<void>;
@@ -74,6 +86,62 @@ interface QuoteConversationStore {
   resetConversation: () => void;
 }
 
+function assumptionToParamChanges(
+  field: string,
+  value: unknown,
+): ParamChange[] {
+  if (field === "travelers" && value && typeof value === "object") {
+    const v = value as { adults?: number; children?: Array<{ age: number }> };
+    const changes: ParamChange[] = [];
+    if (typeof v.adults === "number") {
+      changes.push({ field: "adults", value: v.adults });
+    }
+    if (Array.isArray(v.children)) {
+      changes.push({ field: "children", value: v.children });
+    }
+    return changes;
+  }
+
+  if (
+    field.endsWith(".dates") &&
+    value &&
+    typeof value === "object" &&
+    "arrivalDate" in (value as object)
+  ) {
+    return [{ field: "dates", value }];
+  }
+
+  if (field.endsWith(".nights")) {
+    return [{ field: "nights", value }];
+  }
+
+  if (field.endsWith(".origin") || field === "destination") {
+    const f: ParamChangeField = field.endsWith(".origin")
+      ? "origin"
+      : "destination";
+    return [{ field: f, value }];
+  }
+
+  if (field.includes("hotelCategory") || field === "category") {
+    return [{ field: "category", value }];
+  }
+
+  if (field.includes("boardCode") || field === "board") {
+    return [{ field: "board", value }];
+  }
+
+  if (field === "budget") {
+    return [{ field: "budget", value }];
+  }
+
+  // Generic: nights with date recalc hint
+  if (typeof value === "number" && field.includes("nights")) {
+    return [{ field: "nights", value }];
+  }
+
+  return [{ field: "dates", value }];
+}
+
 export const useQuoteConversationStore = create<QuoteConversationStore>()(
   devtools(
     subscribeWithSelector((set) => ({
@@ -81,6 +149,8 @@ export const useQuoteConversationStore = create<QuoteConversationStore>()(
       messages: [],
       persistedQuoteId: null,
       dismissedSuggestions: [],
+      assumptions: [],
+      sourceMessage: null,
       _pendingRevision: null,
       _revising: false,
 
@@ -253,7 +323,42 @@ export const useQuoteConversationStore = create<QuoteConversationStore>()(
           "suggestions/dismiss",
         ),
 
+      setAssumptions: (assumptions, sourceMessage) =>
+        set(
+          (current) => ({
+            assumptions,
+            sourceMessage:
+              sourceMessage !== undefined
+                ? sourceMessage
+                : current.sourceMessage,
+          }),
+          false,
+          "assumptions/set",
+        ),
+
+      applyAssumption: async (field, value) => {
+        const changes = assumptionToParamChanges(field, value);
+        // Quitar el chip de la lista (ya no es asunción)
+        set(
+          (current) => ({
+            assumptions: current.assumptions.filter((a) => a.field !== field),
+          }),
+          false,
+          "assumptions/confirm",
+        );
+        await useQuoteConversationStore
+          .getState()
+          ._applyRevisionIntent({ type: "revise_params", changes });
+      },
+
       applyAgentPatch: async (patch) => {
+        if (patch.type === "setField") {
+          await useQuoteConversationStore
+            .getState()
+            .applyAssumption(patch.field, patch.value);
+          return;
+        }
+
         const current = useQuoteConversationStore.getState();
         const quote = current.state.status === "complete" ||
           current.state.status === "building" ||
@@ -390,6 +495,8 @@ export const useQuoteConversationStore = create<QuoteConversationStore>()(
             messages: [],
             persistedQuoteId: null,
             dismissedSuggestions: [],
+            assumptions: [],
+            sourceMessage: null,
             _pendingRevision: null,
             _revising: false,
           },
@@ -405,6 +512,8 @@ export const useQuoteConversationStore = create<QuoteConversationStore>()(
             messages: [],
             persistedQuoteId: null,
             dismissedSuggestions: [],
+            assumptions: [],
+            sourceMessage: null,
             _pendingRevision: null,
             _revising: false,
           },

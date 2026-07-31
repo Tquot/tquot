@@ -10,6 +10,7 @@ export * from "./facts";
 export * from "./narrate";
 export * from "./apply-patch";
 export * from "./context";
+export { buildProbe, buildProbeIfNeeded } from "./probe";
 export { collectSuggestions } from "./suggestions/rank";
 export type {
   Suggestion,

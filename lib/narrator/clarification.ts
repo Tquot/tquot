@@ -42,12 +42,23 @@ function defaultDurationFor(p: ParsedTripInputV2): string {
   return totalNights > 0 ? `${totalNights} noches` : "3 noches";
 }
 
+/** Gaps que ahora se cubren con asunciones editables (AssumptionBar), no chat. */
+const ASSUMPTION_GAPS: ReadonlySet<ParsingGap> = new Set([
+  "missing_origin",
+  "missing_dates",
+  "missing_return_date",
+  "unclear_budget",
+  "unclear_dates_relative",
+]);
+
 /**
  * Devuelve los mensajes que el narrador debe emitir para informar al agente
  * sobre los gaps detectados en el parseado.
+ * Origen/fechas/presupuesto ya no se preguntan: van como chips de asunción.
  */
 export function buildClarificationMessages(parsed: ParsedTripInputV2): string[] {
   return parsed.parsingGaps
+    .filter((gap) => !ASSUMPTION_GAPS.has(gap))
     .map((gap) => GAP_MESSAGES[gap]?.(parsed))
     .filter((m): m is string => Boolean(m));
 }

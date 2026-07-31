@@ -83,6 +83,13 @@ export function applyQuotePatch(
         dismissed,
         message: "Anoto el cambio; lo aplico en el siguiente paso.",
       };
+    case "setField":
+      // El store aplica el cambio sobre parsed + rebuild; aquí solo ack.
+      return {
+        quote: next,
+        dismissed,
+        message: "Cambio anotado.",
+      };
     default:
       return { quote: next, dismissed };
   }

@@ -1,0 +1,5 @@
+{
+  "adults": { "value": 2, "raw": "pareja" },
+  "nights": { "value": 2, "raw": "fin de semana" },
+  "flags": ["central"]
+}
