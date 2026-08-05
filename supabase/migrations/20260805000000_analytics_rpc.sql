@@ -275,18 +275,18 @@ BEGIN
       'count', t.quotes,
       'prev_count', pt.quotes,
       'delta_pct', CASE WHEN pt.quotes > 0
-        THEN round(((t.quotes - pt.quotes)::numeric / pt.quotes) * 100)
+        THEN round((((t.quotes - pt.quotes)::numeric / pt.quotes) * 100)::numeric, 2)
         ELSE NULL END
     ),
 
     'volume', jsonb_build_object(
-      'quoted', round(t.volume, 2),
-      'won', round(t.volume_won, 2),
-      'margin_won', round(t.margin_won, 2),
-      'avg_ticket', CASE WHEN t.quotes > 0 THEN round(t.volume / t.quotes, 2) ELSE 0 END,
-      'prev_quoted', round(pt.volume, 2),
+      'quoted', round(t.volume::numeric, 2),
+      'won', round(t.volume_won::numeric, 2),
+      'margin_won', round(t.margin_won::numeric, 2),
+      'avg_ticket', CASE WHEN t.quotes > 0 THEN round((t.volume / t.quotes)::numeric, 2) ELSE 0 END,
+      'prev_quoted', round(pt.volume::numeric, 2),
       'delta_pct', CASE WHEN pt.volume > 0
-        THEN round(((t.volume - pt.volume) / pt.volume) * 100)
+        THEN round((((t.volume - pt.volume) / pt.volume) * 100)::numeric, 2)
         ELSE NULL END
     ),
 
@@ -294,10 +294,10 @@ BEGIN
       'won', t.won,
       'decidable', t.decidable,
       'rate_pct', CASE WHEN t.decidable > 0
-        THEN round((t.won::numeric / t.decidable) * 100, 1)
+        THEN round(((t.won::numeric / t.decidable) * 100)::numeric, 2)
         ELSE NULL END,
       'prev_rate_pct', CASE WHEN pt.decidable > 0
-        THEN round((pt.won::numeric / pt.decidable) * 100, 1)
+        THEN round(((pt.won::numeric / pt.decidable) * 100)::numeric, 2)
         ELSE NULL END
     ),
 
@@ -314,7 +314,7 @@ BEGIN
     'comparator', jsonb_build_object(
       'runs', (SELECT runs FROM comparator),
       'total_quotes', t.quotes,
-      'saving', round((SELECT saving FROM comparator), 2),
+      'saving', round((SELECT saving FROM comparator)::numeric, 2),
       'basis', 'median_of_available'
     ),
 
@@ -323,7 +323,7 @@ BEGIN
         jsonb_build_object(
           'day', day,
           'quotes', quotes,
-          'volume', round(volume, 2)
+          'volume', round(volume::numeric, 2)
         )
       )
       FROM daily
@@ -335,11 +335,11 @@ BEGIN
           jsonb_build_object(
             'name', name,
             'quotes', quotes,
-            'volume', round(volume, 2),
+            'volume', round(volume::numeric, 2),
             'won', won,
             'decidable', decidable,
             'conversion_pct', CASE
-              WHEN decidable > 0 THEN round((won::numeric / decidable) * 100)
+              WHEN decidable > 0 THEN round(((won::numeric / decidable) * 100)::numeric, 2)
               ELSE NULL END
           )
         ),
@@ -356,7 +356,7 @@ BEGIN
             'appearances', appearances,
             'chosen', chosen,
             'win_rate_pct', CASE WHEN appearances > 0
-              THEN round((chosen::numeric / appearances) * 100)
+              THEN round(((chosen::numeric / appearances) * 100)::numeric, 2)
               ELSE 0 END
           )
         ),
