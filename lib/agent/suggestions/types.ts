@@ -32,9 +32,32 @@ export interface Suggestion {
   actions: AgentAction[];
   /** Impacto en el total, en la moneda de la cotización. Negativo = ahorro. */
   delta?: number;
+  /**
+   * Metadatos opcionales para analytics/telemetría.
+   * Se usa en UI para persistir eventos relevantes sin acoplarlo a la conversación.
+   */
+  analytics?: {
+    comparatorRun?: ComparatorRunAnalytics;
+  };
   /** Si true, se muestra durante el build. Si false, espera al cierre. */
   interrupts: boolean;
 }
+
+export type ComparatorRunAnalyticsEntry = {
+  provider: string;
+  total_price: number;
+  available: boolean;
+  source: "snapshot" | "live";
+};
+
+export type ComparatorRunAnalytics = {
+  quote_id?: string | null;
+  hotel_name: string;
+  nights: number;
+  entries: ComparatorRunAnalyticsEntry[];
+  chosen_provider: string;
+  chosen_total: number;
+};
 
 export interface SuggestionContext {
   quote: Quote;

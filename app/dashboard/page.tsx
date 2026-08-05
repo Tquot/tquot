@@ -7,6 +7,7 @@ import { QuickActions } from "@/components/dashboard/QuickActions";
 import { SecondaryQuickLinks } from "@/components/dashboard/SecondaryQuickLinks";
 import { OnboardingChecklist } from "@/components/onboarding/OnboardingChecklist";
 import { DemoModeCard } from "@/components/onboarding/DemoModeCard";
+import Link from "next/link";
 import { loadDashboardMetrics } from "@/lib/dashboard/loader";
 import { listRecentQuotes } from "@/lib/quotes/recent";
 import { getOrCreateOnboarding } from "@/lib/onboarding/progress";
@@ -94,6 +95,25 @@ export default async function DashboardPage() {
 
           <div className="mt-8">
             <Sparkline data={metrics.last30Days} label="Últimos 30 días" />
+          </div>
+
+          <div className="mt-6 rounded-xl border border-border-2 bg-paper-2 p-5">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <Eyebrow className="block mb-2">Analítica</Eyebrow>
+                <p className="text-body-sm text-text-2">
+                  Conversión {metrics.conversionRate}% · Ticket medio{" "}
+                  {metrics.averageTicket.toLocaleString("es-ES")}{" "}
+                  {metrics.currencySymbol}
+                </p>
+              </div>
+              <Link
+                href="/analytics?range=month"
+                className="inline-flex h-9 items-center rounded-md bg-ink px-4 text-body-sm font-medium text-paper transition-colors hover:bg-ink-2"
+              >
+                Ver analítica →
+              </Link>
+            </div>
           </div>
         </section>
 

@@ -33,6 +33,23 @@ export function SuggestionMessage({ suggestion }: { suggestion: Suggestion }) {
             disabled={pending}
             onClick={() =>
               startTransition(() => {
+                // Best-effort: if the user accepts a comparator-driven choice,
+                // persist comparator_runs so the analytics savings metric can be honest.
+                if (
+                  suggestion.analytics?.comparatorRun &&
+                  action.patch.type === "switchProvider"
+                ) {
+                  void fetch("/api/analytics/track-comparator-run", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(
+                      suggestion.analytics.comparatorRun,
+                    ),
+                  }).catch(() => {
+                    // analytics is best-effort; never block the conversation
+                  });
+                }
+
                 void applyAgentPatch(action.patch as QuotePatch);
               })
             }

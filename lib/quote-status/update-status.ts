@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { canTransition, type QuoteStatus } from "./transitions";
+import { invalidatePattern } from "@/lib/cache";
 
 interface UpdateStatusInput {
   quoteId: string;
@@ -18,7 +19,7 @@ export async function updateQuoteStatus(input: UpdateStatusInput): Promise<{
 
   const { data: current } = await supabase
     .from("quotes")
-    .select("status")
+    .select("status, agency_id")
     .eq("id", input.quoteId)
     .single();
 
@@ -67,5 +68,9 @@ export async function updateQuoteStatus(input: UpdateStatusInput): Promise<{
 
   revalidatePath("/dashboard");
   revalidatePath(`/dashboard/new-quote`);
+  revalidatePath("/analytics");
+  if (current?.agency_id) {
+    await invalidatePattern(`analytics:${current.agency_id}:*`);
+  }
   return { success: true };
 }

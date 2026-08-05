@@ -186,8 +186,7 @@ BEGIN
             coalesce(q.parsed->>'destination', q.destination)
           )
         )
-        END
-      )
+      END
     ) AS leg
     WHERE leg->>'destination' IS NOT NULL
     GROUP BY 1

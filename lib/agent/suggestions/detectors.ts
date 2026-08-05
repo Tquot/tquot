@@ -492,6 +492,20 @@ export const comparatorCheaperElsewhere: Detector = (ctx) => {
   if (saving < 25) return null;
 
   const id = `comparator:${cheapest.provider}`;
+  const comparatorEntries = ctx.comparator
+    .filter((e) => e.available && e.totalPrice != null)
+    .map((e) => ({
+      provider: e.provider,
+      total_price: e.totalPrice as number,
+      available: e.available,
+      source: e.source,
+    })) satisfies Array<{
+    provider: string;
+    total_price: number;
+    available: boolean;
+    source: "snapshot" | "live";
+  }>;
+
   return {
     id,
     kind: "comparatorCheaperElsewhere",
@@ -517,5 +531,15 @@ export const comparatorCheaperElsewhere: Detector = (ctx) => {
         patch: { type: "dismissSuggestion", id },
       },
     ],
+    analytics: {
+      comparatorRun: {
+        quote_id: null,
+        hotel_name: ctx.comparator[0]?.hotelName ?? "unknown",
+        nights: ctx.comparator[0]?.nights ?? 0,
+        entries: comparatorEntries,
+        chosen_provider: cheapest.provider,
+        chosen_total: cheapest.totalPrice ?? 0,
+      },
+    },
   } satisfies Suggestion;
 };

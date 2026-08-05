@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 import { recomputeClientPreferences } from "@/lib/clients/recompute";
 import { upsertClientFromQuote } from "@/lib/clients/upsert-from-quote";
 import { getCurrentAgencyId, getCurrentUserId } from "@/lib/auth";
@@ -15,6 +16,7 @@ import {
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { ClientSelection } from "@/types/client";
 import { upsertClient } from "./clients";
+import { invalidatePattern } from "@/lib/cache";
 
 const SaveQuoteSchema = z.object({
   quote: z.unknown(),
@@ -271,6 +273,10 @@ export async function saveQuoteWithClient(input: {
       console.error("[saveQuoteWithClient] preferences recompute failed:", prefsError);
     }
   }
+
+  // Best-effort: keep analytics dashboard fresh.
+  await invalidatePattern(`analytics:${agencyId}:*`);
+  revalidatePath("/analytics");
 
   return { quoteId, clientId };
 }
