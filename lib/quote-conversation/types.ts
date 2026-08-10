@@ -5,6 +5,7 @@ import type {
 } from "@/lib/quotes/build-quote";
 import type { RefineAction } from "@/lib/quotes/refine/types";
 import type { RecommendedProvider } from "@/lib/recommendations/types";
+import type { ProviderBlock } from "@/lib/recommendations/providers/types";
 
 export type { ParsedTripInput, Quote } from "@/lib/quotes/build-quote";
 
@@ -166,6 +167,19 @@ export type RecommendationEvent =
       ts: number;
     };
 
+export type ExternalProvidersEvent =
+  | { type: "external_providers.started"; ts: number }
+  | {
+      type: "external_providers.done";
+      blocks: ProviderBlock[];
+      ts: number;
+    }
+  | {
+      type: "external_providers.error";
+      error: string;
+      ts: number;
+    };
+
 // ─────────────────────────────────────────────────────────
 // Parse stream protocol (SSE)
 // ─────────────────────────────────────────────────────────
@@ -303,6 +317,7 @@ export type RefinementPlanEvent =
 export type ConversationStreamEvent =
   | BuildEvent
   | RecommendationEvent
+  | ExternalProvidersEvent
   | NarratorEvent
   | RefinementPlanEvent;
 

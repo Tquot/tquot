@@ -1,12 +1,21 @@
 import "server-only";
 import type { ParsedTripInputV2 } from "@/lib/quote-engine/schemas-v2";
 import type { Quote } from "@/lib/quote-engine/types";
+import { createServiceClient } from "@/lib/supabase/service";
 import type { Recommendation, RecommendedProvider } from "./types";
-import { normalizeParsedInput, selectRelevantCategories } from "./selector";
+import {
+  getConnectedCategories,
+  normalizeParsedInput,
+  selectRelevantCategories,
+} from "./selector";
 import { getEntry } from "./catalog";
 import { readCache, writeCache, normalizeDestination } from "./cache";
 import { runRecommendationAgent } from "./agent";
 import { validateProviderUrls } from "./url-validator";
+import {
+  resolveExternalProviders,
+  type ProviderBlock,
+} from "./providers";
 
 interface GenerateInput {
   parsed: ParsedTripInputV2 | unknown;
@@ -15,7 +24,7 @@ interface GenerateInput {
   onEvent?: (event: ProgressEvent) => void;
 }
 
-type ProgressEvent =
+export type ProgressEvent =
   | { type: "started"; category: string; legId?: string }
   | {
       type: "done";
@@ -69,6 +78,81 @@ export async function generateRecommendations(
   }
 
   return recommendations;
+}
+
+export async function generateExternalProviders(opts: {
+  parsed: ParsedTripInputV2 | unknown;
+  agencyId: string;
+  rawRequest?: string | null;
+  signal?: AbortSignal;
+}): Promise<ProviderBlock[]> {
+  try {
+    if (opts.signal?.aborted) return [];
+
+    const parsed = normalizeParsedInput(opts.parsed);
+    const supabase = createServiceClient();
+    const { data: agency } = await supabase
+      .from("agencies")
+      .select("accessibility_default")
+      .eq("id", opts.agencyId)
+      .maybeSingle();
+
+    const agencyAccessibilityDefault = Boolean(
+      agency?.accessibility_default,
+    );
+    const connectedCategories = await getConnectedCategories(opts.agencyId);
+
+    if (opts.signal?.aborted) return [];
+
+    return await resolveExternalProviders({
+      parsed,
+      agencyId: opts.agencyId,
+      rawRequest: opts.rawRequest ?? parsed.rawInput ?? null,
+      agencyAccessibilityDefault,
+      connectedCategories,
+    });
+  } catch (err) {
+    console.error("[external_providers] generate failed:", err);
+    return [];
+  }
+}
+
+export async function generateAllRecommendationLayers(opts: {
+  parsed: ParsedTripInputV2 | unknown;
+  quote: Quote;
+  agencyId: string | null;
+  rawRequest?: string | null;
+  signal?: AbortSignal;
+  onEvent?: (event: ProgressEvent) => void;
+}): Promise<{
+  webRecommendations: Recommendation[];
+  externalProviders: ProviderBlock[];
+}> {
+  const webPromise = generateRecommendations({
+    parsed: opts.parsed,
+    quote: opts.quote,
+    signal: opts.signal,
+    onEvent: opts.onEvent,
+  });
+
+  if (!opts.agencyId) {
+    return {
+      webRecommendations: await webPromise,
+      externalProviders: [],
+    };
+  }
+
+  const [webRecommendations, externalProviders] = await Promise.all([
+    webPromise,
+    generateExternalProviders({
+      parsed: opts.parsed,
+      agencyId: opts.agencyId,
+      rawRequest: opts.rawRequest,
+      signal: opts.signal,
+    }),
+  ]);
+
+  return { webRecommendations, externalProviders };
 }
 
 interface GenerateOneInput extends Omit<GenerateInput, "parsed"> {

@@ -17,6 +17,7 @@ import {
 } from "../quote-shared";
 import { BookingHandoffLegSection } from "@/components/quote-canvas/LegBlock";
 import { RecommendationsSection } from "@/components/quote-conversation/canvas/RecommendationsSection";
+import { ExternalProvidersBlock } from "@/components/canvas/ExternalProvidersBlock";
 import {
   BuildProgress as BuildProgressUI,
   type SectionProgress,
@@ -328,6 +329,20 @@ export function QuoteCanvas({
         <RecommendationsSection
           recommendations={(completeQuote as EngineQuote).recommendations!}
         />
+      ) : null}
+
+      {completeQuote &&
+      (completeQuote as EngineQuote).externalProviders &&
+      (completeQuote as EngineQuote).externalProviders!.length > 0 ? (
+        <div className="mt-8 space-y-6">
+          {(completeQuote as EngineQuote).externalProviders!.map((block) => (
+            <ExternalProvidersBlock
+              key={`${block.category}:${block.destination}`}
+              block={block}
+              quoteId={completeQuote.id}
+            />
+          ))}
+        </div>
       ) : null}
 
       {completeQuote ? (

@@ -122,6 +122,7 @@ export function mapSnapshotToPremiumQuote(
     transfers,
     pricing: snapshot.pricing,
     recommendations: snapshot.recommendations,
+    externalProviders: snapshot.externalProviders,
     itinerary: snapshot.itinerary,
     group: snapshot.group,
   };

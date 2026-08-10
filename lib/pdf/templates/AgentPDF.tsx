@@ -22,6 +22,7 @@ import { Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
 import { colors, fonts, fontSize, fontWeight, spacing, page } from "../theme";
 import { AgencyLogo } from "../components/AgencyLogo";
 import { RecommendationsBlock } from "../components/RecommendationsBlock";
+import { ExternalProvidersBlock } from "../components/ExternalProvidersBlock";
 import { SectionLabel } from "../components/Decoration";
 import { SourceBadge } from "../components/SourceBadge";
 import { PDFFlightDetailsRows } from "../components/PDFFlightDetailsRows";
@@ -518,6 +519,13 @@ export function AgentPDF({ quote }: AgentPDFProps) {
 
         {quote.recommendations && quote.recommendations.length > 0 && (
           <RecommendationsBlock recommendations={quote.recommendations} variant="agent" />
+        )}
+
+        {quote.externalProviders && quote.externalProviders.length > 0 && (
+          <ExternalProvidersBlock
+            blocks={quote.externalProviders}
+            variant="agent"
+          />
         )}
 
         {/* Leyenda de fuentes */}

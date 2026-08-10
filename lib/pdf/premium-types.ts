@@ -1,6 +1,7 @@
 import type { Flight, Hotel } from "@/lib/quote-engine/types";
 import type { Itinerary } from "@/lib/itinerary/types";
 import type { Recommendation } from "@/lib/recommendations/types";
+import type { ProviderBlock } from "@/lib/recommendations/providers/types";
 import type { QuoteGroup } from "@/lib/quote-engine/types";
 
 export interface PremiumPdfHotel extends Hotel {
@@ -55,6 +56,7 @@ export interface PremiumPdfQuote {
     currency: string;
   };
   recommendations?: Recommendation[];
+  externalProviders?: ProviderBlock[];
   itinerary?: Itinerary;
   group?: QuoteGroup;
 }

@@ -106,6 +106,17 @@ export function useQuoteBuilder() {
             } as StoreQuote);
           }
         }
+        if (event.type === "external_providers.done") {
+          const currentQuote = selectCurrentQuote(
+            useQuoteConversationStore.getState(),
+          ) as EngineQuote | null;
+          if (currentQuote) {
+            useQuoteConversationStore.getState().updateQuote({
+              ...currentQuote,
+              externalProviders: event.blocks,
+            } as StoreQuote);
+          }
+        }
         if (event.type === "build.error") {
           dispatch({
             type: "BUILD_ERROR",

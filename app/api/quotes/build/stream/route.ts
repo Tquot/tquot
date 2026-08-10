@@ -6,7 +6,10 @@ import { buildQuoteWithProgress } from "@/lib/quote-engine/buildQuoteWithProgres
 import { parseParsedTripInputBody } from "@/lib/quote-engine/schemas";
 import { narrateBuildEvent, narrateRecommendationEvent } from "@/lib/narrator/templates";
 import { buildClarificationMessages } from "@/lib/narrator/clarification";
-import { generateRecommendations } from "@/lib/recommendations/generate";
+import {
+  generateExternalProviders,
+  generateRecommendations,
+} from "@/lib/recommendations/generate";
 import type {
   ConversationStreamEvent,
   BuildEvent,
@@ -22,6 +25,7 @@ import {
   emptySuggestionCtx,
   suggestionCtxFromQuote,
 } from "@/lib/agent/context";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -44,6 +48,14 @@ export async function POST(req: NextRequest) {
   if (auth.response) {
     return auth.response;
   }
+
+  const supabase = await createServerSupabaseClient();
+  const { data: agency } = await supabase
+    .from("agencies")
+    .select("id")
+    .eq("owner_id", auth.user.id)
+    .maybeSingle();
+  const agencyId = agency?.id ?? null;
 
   let body: unknown;
   try {
@@ -161,6 +173,11 @@ export async function POST(req: NextRequest) {
         send({ type: "build.done", quote, ts: Date.now() });
 
         const quoteWithRecs = quote as Quote;
+        const rawRequest =
+          "rawInput" in parsed.data &&
+          typeof parsed.data.rawInput === "string"
+            ? parsed.data.rawInput
+            : null;
 
         const recommendationsPromise = generateRecommendations({
           parsed: parsed.data,
@@ -230,6 +247,34 @@ export async function POST(req: NextRequest) {
           },
         });
 
+        const externalProvidersPromise = (async () => {
+          if (!agencyId) return [];
+          send({ type: "external_providers.started", ts: Date.now() });
+          try {
+            const blocks = await generateExternalProviders({
+              parsed: parsed.data,
+              agencyId,
+              rawRequest,
+              signal: abort.signal,
+            });
+            send({
+              type: "external_providers.done",
+              blocks,
+              ts: Date.now(),
+            });
+            return blocks;
+          } catch (err) {
+            const message =
+              err instanceof Error ? err.message : "external_providers_failed";
+            send({
+              type: "external_providers.error",
+              error: message,
+              ts: Date.now(),
+            });
+            return [];
+          }
+        })();
+
         const closeCtx = suggestionCtxFromQuote(parsed.data, quoteWithRecs, {
           locale,
         });
@@ -250,9 +295,15 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        const recommendations = await recommendationsPromise;
+        const [recommendations, externalProviders] = await Promise.all([
+          recommendationsPromise,
+          externalProvidersPromise,
+        ]);
         if (recommendations.length > 0) {
           quoteWithRecs.recommendations = recommendations;
+        }
+        if (externalProviders.length > 0) {
+          quoteWithRecs.externalProviders = externalProviders;
         }
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") {

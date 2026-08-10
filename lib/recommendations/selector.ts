@@ -3,7 +3,9 @@ import type { Quote } from "@/lib/quote-engine/types";
 import { isV1, migrateV1ToV2, toParsedTripInputV2 } from "@/lib/quote-engine/migrate-v1-v2";
 import type { ParsedTripInput } from "@/lib/quotes/build-quote";
 import { shouldIncludeTransfers } from "@/lib/quotes/transfer-eligibility";
+import { createServiceClient } from "@/lib/supabase/service";
 import { SERVICE_CATALOG, type ServiceCategory } from "./catalog";
+import type { ProviderCategory } from "./providers/types";
 
 export interface RelevantCategory {
   category: ServiceCategory;
@@ -199,4 +201,54 @@ function prioritize(
   };
 
   return [...candidates].sort((a, b) => score(b) - score(a));
+}
+
+/**
+ * Categorías que la agencia ya cubre con conector propio o inventario.
+ * Si tiene Hotelbeds Activities conectado, no buscamos operadores de
+ * actividades en internet: ya tiene inventario.
+ */
+export async function getConnectedCategories(
+  agencyId: string,
+): Promise<ProviderCategory[]> {
+  const supabase = createServiceClient();
+
+  const [{ data: creds }, { data: agency }] = await Promise.all([
+    supabase
+      .from("agency_connections")
+      .select("provider_id")
+      .eq("agency_id", agencyId)
+      .eq("status", "active"),
+    supabase.from("agencies").select("owner_id").eq("id", agencyId).maybeSingle(),
+  ]);
+
+  let ownExperiences = 0;
+  if (agency?.owner_id) {
+    const { count } = await supabase
+      .from("inventory")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", agency.owner_id)
+      .eq("category", "experiences");
+    ownExperiences = count ?? 0;
+  }
+
+  const providers = new Set((creds ?? []).map((c) => c.provider_id));
+  const out: ProviderCategory[] = [];
+
+  if (providers.has("hotelbeds"))
+    out.push("culture", "adventure", "nautical", "transfers");
+  if (providers.has("viator") || providers.has("civitatis"))
+    out.push("culture", "adventure", "gastronomy");
+  if (ownExperiences > 0) out.push("dmc");
+
+  return [...new Set(out)];
+}
+
+/**
+ * La accesibilidad NUNCA se considera cubierta por un conector genérico:
+ * Hotelbeds tiene actividades, pero no operadores especializados en
+ * turismo accesible para personas con discapacidad.
+ */
+export function isNeverCoveredByConnector(c: ProviderCategory): boolean {
+  return c === "accessible";
 }

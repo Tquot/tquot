@@ -175,7 +175,8 @@ function isConversationStreamEvent(
     type.startsWith("section.") ||
     type.startsWith("narrator.") ||
     type.startsWith("refinement.") ||
-    type.startsWith("recommendation.")
+    type.startsWith("recommendation.") ||
+    type.startsWith("external_providers.")
   );
 }
 

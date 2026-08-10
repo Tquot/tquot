@@ -8,6 +8,7 @@
 
 import type { PriceSource } from "./theme";
 import type { Recommendation } from "@/lib/recommendations/types";
+import type { ProviderBlock } from "@/lib/recommendations/providers/types";
 import type { HotelContent } from "@/lib/providers/hotelbeds/content-types";
 
 // ─────────────────────────────────────────────────────────────
@@ -141,6 +142,7 @@ export interface Quote {
   cancellationPolicy?: string | null;
 
   recommendations?: Recommendation[];
+  externalProviders?: ProviderBlock[];
 }
 
 // ─────────────────────────────────────────────────────────────
