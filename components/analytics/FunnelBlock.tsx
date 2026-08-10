@@ -1,16 +1,16 @@
+"use client";
+
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import type { AgencyAnalytics } from "@/lib/analytics/types";
+import { useDashboardLanguage } from "@/app/dashboard/dashboard-language-provider";
+import { formatMessage } from "@/app/dashboard/format-message";
 
-const STAGES: Array<{
-  key: keyof AgencyAnalytics["funnel"];
-  label: string;
-  tone: string;
-}> = [
-  { key: "draft", label: "Borradores", tone: "bg-border-2" },
-  { key: "awaiting", label: "Esperando cliente", tone: "bg-info" },
-  { key: "won", label: "Cerradas", tone: "bg-success" },
-  { key: "expired", label: "Caducadas", tone: "bg-warning" },
-  { key: "cancelled", label: "Canceladas", tone: "bg-danger" },
+const STAGE_KEYS = [
+  { key: "draft" as const, tone: "bg-border-2", labelKey: "analyticsFunnelDraft" as const },
+  { key: "awaiting" as const, tone: "bg-info", labelKey: "analyticsFunnelAwaiting" as const },
+  { key: "won" as const, tone: "bg-success", labelKey: "analyticsFunnelWon" as const },
+  { key: "expired" as const, tone: "bg-warning", labelKey: "analyticsFunnelExpired" as const },
+  { key: "cancelled" as const, tone: "bg-danger", labelKey: "analyticsFunnelCancelled" as const },
 ];
 
 export function FunnelBlock({
@@ -20,6 +20,7 @@ export function FunnelBlock({
   funnel: AgencyAnalytics["funnel"];
   conversion: AgencyAnalytics["conversion"];
 }) {
+  const { t } = useDashboardLanguage();
   const total = Object.values(funnel).reduce((s, n) => s + n, 0);
   if (total === 0) return null;
 
@@ -30,7 +31,7 @@ export function FunnelBlock({
 
   return (
     <section>
-      <Eyebrow className="block mb-4">Estado de las cotizaciones</Eyebrow>
+      <Eyebrow className="block mb-4">{t.analyticsFunnelTitle}</Eyebrow>
 
       <div className="mb-6">
         <div className="flex items-baseline gap-3">
@@ -53,15 +54,16 @@ export function FunnelBlock({
           )}
         </div>
         <p className="mt-1 text-body-sm text-text-2">
-          {conversion.won} cerradas de {conversion.decidable} enviadas
+          {formatMessage(t.analyticsFunnelClosedOfSent, {
+            won: conversion.won,
+            decidable: conversion.decidable,
+          })}
         </p>
-        <p className="mt-0.5 text-[11px] text-text-3">
-          Los borradores no cuentan. Las caducadas sí.
-        </p>
+        <p className="mt-0.5 text-[11px] text-text-3">{t.analyticsFunnelHint}</p>
       </div>
 
       <div className="flex h-2 rounded-full overflow-hidden mb-4">
-        {STAGES.map((s) => {
+        {STAGE_KEYS.map((s) => {
           const n = funnel[s.key];
           if (n === 0) return null;
           return (
@@ -75,13 +77,13 @@ export function FunnelBlock({
       </div>
 
       <dl className="space-y-2">
-        {STAGES.map((s) => {
+        {STAGE_KEYS.map((s) => {
           const n = funnel[s.key];
           if (n === 0) return null;
           return (
             <div key={s.key} className="flex items-center gap-3 text-body-sm">
               <span className={`w-2 h-2 rounded-full ${s.tone} shrink-0`} />
-              <dt className="flex-1 text-text">{s.label}</dt>
+              <dt className="flex-1 text-text">{t[s.labelKey]}</dt>
               <dd className="font-mono text-ink tabular-nums">{n}</dd>
               <dd className="font-mono text-text-3 tabular-nums w-12 text-right">
                 {Math.round((n / total) * 100)} %
@@ -93,4 +95,3 @@ export function FunnelBlock({
     </section>
   );
 }
-

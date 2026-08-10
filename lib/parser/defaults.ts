@@ -1,4 +1,6 @@
 import { nanoid } from "nanoid";
+import { translations, type Locale } from "@/app/dashboard/translations";
+import { formatTemplate } from "@/lib/i18n/format-template";
 import type {
   BudgetConstraint,
   ParsedTripInputV2,
@@ -55,16 +57,32 @@ export interface MergedParse {
 const NIGHTS_BY_CONTEXT: Array<{
   when: (f: string[]) => boolean;
   nights: number;
-  reason: string;
+  reasonKey:
+    | "assumptionReasonShortBreak"
+    | "assumptionReasonBeach"
+    | "assumptionReasonHoneymoon"
+    | "assumptionReasonCity";
 }> = [
-  { when: (f) => f.includes("shortBreak"), nights: 3, reason: "escapada" },
+  {
+    when: (f) => f.includes("shortBreak"),
+    nights: 3,
+    reasonKey: "assumptionReasonShortBreak",
+  },
   {
     when: (f) => f.includes("beach") || f.includes("allInclusive"),
     nights: 7,
-    reason: "destino de playa",
+    reasonKey: "assumptionReasonBeach",
   },
-  { when: (f) => f.includes("honeymoon"), nights: 10, reason: "luna de miel" },
-  { when: (f) => f.includes("central"), nights: 4, reason: "ciudad" },
+  {
+    when: (f) => f.includes("honeymoon"),
+    nights: 10,
+    reasonKey: "assumptionReasonHoneymoon",
+  },
+  {
+    when: (f) => f.includes("central"),
+    nights: 4,
+    reasonKey: "assumptionReasonCity",
+  },
 ];
 
 const STARS_TO_TIER: Record<
@@ -78,33 +96,35 @@ const STARS_TO_TIER: Record<
 
 export function applyDefaults(
   merged: MergedParse,
-  ctx: { defaultOrigin: string; flags: string[] },
+  ctx: { defaultOrigin: string; flags: string[]; locale?: Locale },
 ): {
   parsed: ParsedTripInputV2;
   assumptions: Assumption[];
   blocking: BlockingField[];
 } {
+  const locale = ctx.locale ?? "es";
+  const t = translations[locale];
   const assumptions: Assumption[] = [];
   const blocking: BlockingField[] = [];
 
   if (!merged.legs?.[0]?.destination) {
     blocking.push({
       field: "destination",
-      question: "¿A qué destino?",
+      question: t.probeDestination,
     });
   }
 
   if (!merged.travelers?.adults) {
     blocking.push({
       field: "travelers",
-      question: "¿Cuántos viajan?",
+      question: t.probeTravelers,
       options: [
-        { label: "2 adultos", value: { adults: 2, children: [] } },
+        { label: t.probeOpt2Adults, value: { adults: 2, children: [] } },
         {
-          label: "2 adultos + 2 niños",
+          label: t.probeOpt2Adults2Children,
           value: { adults: 2, children: [{ age: 8 }, { age: 11 }] },
         },
-        { label: "4 adultos", value: { adults: 4, children: [] } },
+        { label: t.probeOpt4Adults, value: { adults: 4, children: [] } },
       ],
     });
   }
@@ -121,9 +141,11 @@ export function applyDefaults(
       out.origin = ctx.defaultOrigin;
       assumptions.push({
         field: `legs.0.origin`,
-        label: `desde ${ctx.defaultOrigin}`,
+        label: formatTemplate(t.assumptionFromOrigin, {
+          origin: ctx.defaultOrigin,
+        }),
         value: ctx.defaultOrigin,
-        reason: "origen habitual de tu agencia",
+        reason: t.assumptionReasonDefaultOrigin,
       });
     }
     if (i > 0 && !out.origin) {
@@ -136,12 +158,15 @@ export function applyDefaults(
       out.nights = nights;
       assumptions.push({
         field: `legs.${i}.nights`,
-        label: `${nights} noches`,
+        label: formatTemplate(t.assumptionNights, { n: nights }),
         value: nights,
-        reason: rule?.reason ?? "duración media",
+        reason: rule ? t[rule.reasonKey] : t.assumptionReasonDefaultNights,
         alternatives: [3, 5, 7, 10, 14]
           .filter((n) => n !== nights)
-          .map((n) => ({ label: `${n} noches`, value: n })),
+          .map((n) => ({
+            label: formatTemplate(t.assumptionNights, { n }),
+            value: n,
+          })),
       });
     }
 
@@ -154,16 +179,16 @@ export function applyDefaults(
       out.departureDate = end;
       assumptions.push({
         field: `legs.${i}.dates`,
-        label: formatRange(start, end),
+        label: formatRange(start, end, locale),
         value: { arrivalDate: start, departureDate: end },
         reason: isGroup
-          ? "inicio de semana (grupo/empresa)"
-          : "primer fin de semana del mes",
+          ? t.assumptionReasonGroupStart
+          : t.assumptionReasonFirstWeekend,
         alternatives: saturdaysOf(out.monthHint.year, out.monthHint.month)
           .filter((s) => s !== start)
           .slice(0, 4)
           .map((s) => ({
-            label: formatRange(s, addDays(s, out.nights!)),
+            label: formatRange(s, addDays(s, out.nights!), locale),
             value: {
               arrivalDate: s,
               departureDate: addDays(s, out.nights!),
@@ -176,11 +201,11 @@ export function applyDefaults(
       out.preferences = { ...out.preferences, hotelCategory: 4 };
       assumptions.push({
         field: `legs.${i}.preferences.hotelCategory`,
-        label: "4 estrellas",
+        label: formatTemplate(t.assumptionStars, { s: 4 }),
         value: 4,
-        reason: "categoría más cotizada",
+        reason: t.assumptionReasonPopularCategory,
         alternatives: [3, 5].map((s) => ({
-          label: `${s} estrellas`,
+          label: formatTemplate(t.assumptionStars, { s }),
           value: s,
         })),
       });
@@ -193,14 +218,17 @@ export function applyDefaults(
       out.preferences = { ...out.preferences, boardCode: code };
       assumptions.push({
         field: `legs.${i}.preferences.boardCode`,
-        label: code === "TI" ? "todo incluido" : "con desayuno",
+        label:
+          code === "TI"
+            ? t.assumptionBoardAllInclusive
+            : t.assumptionBoardWithBreakfast,
         value: code,
         reason: isResort
-          ? "lo habitual en destino de playa"
-          : "lo más vendido",
+          ? t.assumptionReasonResortBoard
+          : t.assumptionReasonPopularBoard,
         alternatives: (["SA", "AD", "MP", "PC", "TI"] as const)
           .filter((c) => c !== code)
-          .map((c) => ({ label: boardLabel(c), value: c })),
+          .map((c) => ({ label: boardLabel(c, locale), value: c })),
       });
     }
 
@@ -219,19 +247,21 @@ export function applyDefaults(
       rawInput: merged.rawInput ?? "",
       flags: ctx.flags,
       blocking,
+      locale,
     }),
     assumptions,
     blocking,
   };
 }
 
-function boardLabel(code: InformalBoardCode): string {
+function boardLabel(code: InformalBoardCode, locale: Locale = "es"): string {
+  const t = translations[locale];
   const map: Record<InformalBoardCode, string> = {
-    SA: "solo alojamiento",
-    AD: "con desayuno",
-    MP: "media pensión",
-    PC: "pensión completa",
-    TI: "todo incluido",
+    SA: t.boardLabelRO,
+    AD: t.boardLabelBB,
+    MP: t.boardLabelHB,
+    PC: t.boardLabelFB,
+    TI: t.boardLabelAI,
   };
   return map[code];
 }
@@ -245,8 +275,11 @@ export function buildParsedV2(
     rawInput: string;
     flags: string[];
     blocking: BlockingField[];
+    locale?: Locale;
   },
 ): ParsedTripInputV2 {
+  const locale = extras.locale ?? "es";
+  const t = translations[locale];
   const adults = travelers?.adults && travelers.adults > 0 ? travelers.adults : 2;
   const children = travelers?.children ?? [];
 
@@ -304,7 +337,7 @@ export function buildParsedV2(
           ? firstSaturdayOf(leg.monthHint.year, leg.monthHint.month)
           : fallbackStart);
       const departure = leg.departureDate ?? addDays(arrival, nights);
-      const dest = leg.destination?.trim() || "Destino";
+      const dest = leg.destination?.trim() || t.assumptionFallbackDestination;
 
       return {
         id: nanoid(),
@@ -346,7 +379,11 @@ export function buildParsedV2(
           ? { audience: "couples" as const }
           : {}),
     },
-    notes: board ? `Régimen preferido: ${boardLabel(board)}` : undefined,
+    notes: board
+      ? formatTemplate(t.assumptionPreferredBoardNote, {
+          board: boardLabel(board, locale),
+        })
+      : undefined,
     rawInput: extras.rawInput,
     parsingGaps,
   };
@@ -381,27 +418,20 @@ export function saturdaysOf(year: number, month: number): string[] {
   return result;
 }
 
-export function formatRange(from: string, to: string): string {
+export function formatRange(
+  from: string,
+  to: string,
+  locale: Locale = "es",
+): string {
   const a = new Date(`${from}T12:00:00`);
   const b = new Date(`${to}T12:00:00`);
-  const months = [
-    "enero",
-    "febrero",
-    "marzo",
-    "abril",
-    "mayo",
-    "junio",
-    "julio",
-    "agosto",
-    "septiembre",
-    "octubre",
-    "noviembre",
-    "diciembre",
-  ];
+  const intlLocale = locale === "en" ? "en-GB" : "es-ES";
+  const dayFmt = new Intl.DateTimeFormat(intlLocale, { day: "numeric" });
+  const monthFmt = new Intl.DateTimeFormat(intlLocale, { month: "long" });
   if (a.getMonth() === b.getMonth()) {
-    return `${a.getDate()}–${b.getDate()} ${months[a.getMonth()]}`;
+    return `${dayFmt.format(a)}–${dayFmt.format(b)} ${monthFmt.format(a)}`;
   }
-  return `${a.getDate()} ${months[a.getMonth()]} – ${b.getDate()} ${months[b.getMonth()]}`;
+  return `${dayFmt.format(a)} ${monthFmt.format(a)} – ${dayFmt.format(b)} ${monthFmt.format(b)}`;
 }
 
 function toIsoLocal(d: Date): string {

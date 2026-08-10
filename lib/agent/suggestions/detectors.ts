@@ -1,5 +1,7 @@
+import { translations, type Locale } from "@/app/dashboard/translations";
 import { fmtEur } from "@/lib/agent/format";
-import type { Detector, Suggestion } from "./types";
+import { formatTemplate } from "@/lib/i18n/format-template";
+import type { Detector, Suggestion, SuggestionContext } from "./types";
 import {
   boardOrderCode,
   childNearAgeThreshold,
@@ -15,7 +17,12 @@ import {
   primaryHotel,
 } from "./helpers";
 
+function copy(ctx: SuggestionContext) {
+  return translations[ctx.locale ?? "es"];
+}
+
 export const directFlightUpgrade: Detector = (ctx) => {
+  const t = copy(ctx);
   const chosenItem = primaryFlight(ctx.quote);
   const chosen = matchCandidateFlight(chosenItem, ctx.candidates.flights);
   if (!chosen && !chosenItem) return null;
@@ -41,19 +48,22 @@ export const directFlightUpgrade: Detector = (ctx) => {
     id,
     kind: "directFlightUpgrade",
     priority: 2,
-    text: `Hay directo con ${direct.carrier} por ${fmtEur(delta)} más. ¿Lo cambio?`,
+    text: formatTemplate(t.suggestionDirectFlight, {
+      carrier: direct.carrier,
+      delta: fmtEur(delta),
+    }),
     delta,
     interrupts: true,
     actions: [
       {
         id: "accept",
-        label: "Cambiar",
+        label: t.suggestionActionChange,
         variant: "primary",
         patch: { type: "selectFlight", flightId: direct.id },
       },
       {
         id: "dismiss",
-        label: "No",
+        label: t.suggestionActionNo,
         variant: "ghost",
         patch: { type: "dismissSuggestion", id },
       },
@@ -62,6 +72,7 @@ export const directFlightUpgrade: Detector = (ctx) => {
 };
 
 export const refundableUpgrade: Detector = (ctx) => {
+  const t = copy(ctx);
   const chosenItem = primaryHotel(ctx.quote);
   const chosen = matchCandidateHotel(chosenItem, ctx.candidates.hotels);
   if (!chosen || chosen.refundable) return null;
@@ -81,19 +92,21 @@ export const refundableUpgrade: Detector = (ctx) => {
     id,
     kind: "refundableUpgrade",
     priority: 1,
-    text: `El mismo hotel reembolsable por ${fmtEur(deltaTotal)} más en total. ¿Lo pongo?`,
+    text: formatTemplate(t.suggestionRefundable, {
+      delta: fmtEur(deltaTotal),
+    }),
     delta: deltaTotal,
     interrupts: false,
     actions: [
       {
         id: "accept",
-        label: "Sí",
+        label: t.suggestionActionYes,
         variant: "primary",
         patch: { type: "selectHotel", hotelId: alt.id },
       },
       {
         id: "dismiss",
-        label: "No",
+        label: t.suggestionActionNo,
         variant: "ghost",
         patch: { type: "dismissSuggestion", id },
       },
@@ -102,6 +115,7 @@ export const refundableUpgrade: Detector = (ctx) => {
 };
 
 export const boardUpgrade: Detector = (ctx) => {
+  const t = copy(ctx);
   const item = primaryHotel(ctx.quote);
   const hotel = matchCandidateHotel(item, ctx.candidates.hotels);
   const boardOptions =
@@ -128,12 +142,12 @@ export const boardUpgrade: Detector = (ctx) => {
   if (perPaxPerDay <= 0 || perPaxPerDay > 14) return null;
 
   const label: Record<string, string> = {
-    AD: "desayuno",
-    MP: "media pensión",
-    PC: "pensión completa",
-    BB: "desayuno",
-    HB: "media pensión",
-    FB: "pensión completa",
+    AD: t.suggestionBoardBreakfast,
+    MP: t.suggestionBoardHalf,
+    PC: t.suggestionBoardFull,
+    BB: t.suggestionBoardBreakfast,
+    HB: t.suggestionBoardHalf,
+    FB: t.suggestionBoardFull,
   };
   const nextUi = boardOrderCode(next.boardCode);
   const nights = hotelNights(hotel, ctx.parsed.legs[0]);
@@ -143,13 +157,17 @@ export const boardUpgrade: Detector = (ctx) => {
     id,
     kind: "boardUpgrade",
     priority: 3,
-    text: `${label[nextUi] ?? label[next.boardCode] ?? next.boardCode} sale a ${fmtEur(perPaxPerDay)} por persona y día. ¿Subo a ${nextUi}?`,
+    text: formatTemplate(t.suggestionBoardUpgrade, {
+      board: label[nextUi] ?? label[next.boardCode] ?? next.boardCode,
+      price: fmtEur(perPaxPerDay),
+      code: nextUi,
+    }),
     delta: deltaPerNight * nights,
     interrupts: false,
     actions: [
       {
         id: "accept",
-        label: `A ${nextUi}`,
+        label: formatTemplate(t.suggestionActionToBoard, { code: nextUi }),
         variant: "primary",
         patch: {
           type: "setBoard",
@@ -159,7 +177,7 @@ export const boardUpgrade: Detector = (ctx) => {
       },
       {
         id: "dismiss",
-        label: "No",
+        label: t.suggestionActionNo,
         variant: "ghost",
         patch: { type: "dismissSuggestion", id },
       },
@@ -168,6 +186,7 @@ export const boardUpgrade: Detector = (ctx) => {
 };
 
 export const insuranceMissing: Detector = (ctx) => {
+  const t = copy(ctx);
   if (hasInsurance(ctx.quote)) return null;
 
   const total = ctx.quote.pricing.finalTotal;
@@ -197,30 +216,34 @@ export const insuranceMissing: Detector = (ctx) => {
   const estimate = estimateInsurance({ pax, nights, nonEu });
 
   const why = nonEu
-    ? "Fuera de la UE"
+    ? t.suggestionInsuranceWhyNonEu
     : total > 1500
-      ? `${fmtEur(total)} de viaje`
+      ? formatTemplate(t.suggestionInsuranceWhyTotal, { total: fmtEur(total) })
       : nights > 10
-        ? `${nights} noches`
-        : "Viaje con menores";
+        ? formatTemplate(t.suggestionInsuranceWhyNights, { nights })
+        : t.suggestionInsuranceWhyChildren;
 
   return {
     id: "insurance",
     kind: "insuranceMissing",
     priority: 2,
-    text: `Sin seguro. ${why}, básico para ${pax} pax: desde ${fmtEur(estimate)}.`,
+    text: formatTemplate(t.suggestionInsuranceMissing, {
+      why,
+      pax,
+      estimate: fmtEur(estimate),
+    }),
     delta: estimate,
     interrupts: false,
     actions: [
       {
         id: "accept",
-        label: "Añadir",
+        label: t.suggestionActionAdd,
         variant: "primary",
         patch: { type: "addInsurance", tier: "basic" },
       },
       {
         id: "dismiss",
-        label: "No",
+        label: t.suggestionActionNo,
         variant: "ghost",
         patch: { type: "dismissSuggestion", id: "insurance" },
       },
@@ -229,7 +252,8 @@ export const insuranceMissing: Detector = (ctx) => {
 };
 
 export const transferGap: Detector = (ctx) => {
-  if (ctx.quote.transfers.some((t) => !t.alternative)) return null;
+  const t = copy(ctx);
+  if (ctx.quote.transfers.some((tr) => !tr.alternative)) return null;
   if (ctx.quote.flights.length === 0 || ctx.quote.hotels.length === 0) {
     return null;
   }
@@ -244,19 +268,21 @@ export const transferGap: Detector = (ctx) => {
     id,
     kind: "transferGap",
     priority: 2,
-    text: `Sin traslado aeropuerto-hotel. Privado ida y vuelta: ${fmtEur(candidate.price)}.`,
+    text: formatTemplate(t.suggestionTransferGap, {
+      price: fmtEur(candidate.price),
+    }),
     delta: candidate.price,
     interrupts: false,
     actions: [
       {
         id: "accept",
-        label: "Añadir",
+        label: t.suggestionActionAdd,
         variant: "primary",
         patch: { type: "addTransfer", transferId: candidate.id },
       },
       {
         id: "dismiss",
-        label: "No",
+        label: t.suggestionActionNo,
         variant: "ghost",
         patch: { type: "dismissSuggestion", id },
       },
@@ -265,6 +291,7 @@ export const transferGap: Detector = (ctx) => {
 };
 
 export const budgetOvershoot: Detector = (ctx) => {
+  const t = copy(ctx);
   const budget = ctx.parsed.budget;
   if (budget.kind !== "exact" && budget.kind !== "range") return null;
 
@@ -296,12 +323,14 @@ export const budgetOvershoot: Detector = (ctx) => {
       id: "budgetOvershootNoFix",
       kind: "budgetOvershoot",
       priority: 1,
-      text: `${fmtEur(over)} por encima del presupuesto y no hay hotel que lo arregle. ¿Bajo categoría o quito extras?`,
+      text: formatTemplate(t.suggestionBudgetOvershootNoFix, {
+        over: fmtEur(over),
+      }),
       interrupts: false,
       actions: [
         {
           id: "dismiss",
-          label: "Sigo así",
+          label: t.suggestionActionKeepGoing,
           variant: "ghost",
           patch: {
             type: "dismissSuggestion",
@@ -318,19 +347,23 @@ export const budgetOvershoot: Detector = (ctx) => {
     id,
     kind: "budgetOvershoot",
     priority: 1,
-    text: `${fmtEur(over)} por encima. Con ${cheaper.name} entra: ${fmtEur(saving)} menos.`,
+    text: formatTemplate(t.suggestionBudgetOvershoot, {
+      over: fmtEur(over),
+      name: cheaper.name,
+      saving: fmtEur(saving),
+    }),
     delta: -saving,
     interrupts: true,
     actions: [
       {
         id: "accept",
-        label: "Cambiar",
+        label: t.suggestionActionChange,
         variant: "primary",
         patch: { type: "selectHotel", hotelId: cheaper.id },
       },
       {
         id: "dismiss",
-        label: "Dejar así",
+        label: t.suggestionActionLeave,
         variant: "ghost",
         patch: { type: "dismissSuggestion", id },
       },
@@ -339,6 +372,7 @@ export const budgetOvershoot: Detector = (ctx) => {
 };
 
 export const budgetHeadroom: Detector = (ctx) => {
+  const t = copy(ctx);
   const budget = ctx.parsed.budget;
   if (budget.kind !== "exact" && budget.kind !== "range") return null;
 
@@ -373,19 +407,24 @@ export const budgetHeadroom: Detector = (ctx) => {
     id,
     kind: "budgetHeadroom",
     priority: 3,
-    text: `Sobran ${fmtEur(headroom)}. ${better.name} ${"★".repeat(Math.min(5, better.stars))} entra por ${fmtEur(extra)} más.`,
+    text: formatTemplate(t.suggestionBudgetHeadroom, {
+      headroom: fmtEur(headroom),
+      name: better.name,
+      stars: "★".repeat(Math.min(5, better.stars)),
+      extra: fmtEur(extra),
+    }),
     delta: extra,
     interrupts: false,
     actions: [
       {
         id: "accept",
-        label: "Subir",
+        label: t.suggestionActionUpgrade,
         variant: "primary",
         patch: { type: "selectHotel", hotelId: better.id },
       },
       {
         id: "dismiss",
-        label: "No",
+        label: t.suggestionActionNo,
         variant: "ghost",
         patch: { type: "dismissSuggestion", id },
       },
@@ -394,6 +433,7 @@ export const budgetHeadroom: Detector = (ctx) => {
 };
 
 export const longLayover: Detector = (ctx) => {
+  const t = copy(ctx);
   const chosenItem = primaryFlight(ctx.quote);
   const chosen = matchCandidateFlight(chosenItem, ctx.candidates.flights);
   const target = chosen ?? chosenItem;
@@ -407,12 +447,14 @@ export const longLayover: Detector = (ctx) => {
     id,
     kind: "longLayover",
     priority: 3,
-    text: `Escala de ${Math.round(layover)} h en el vuelo elegido. Avísalo al cliente.`,
+    text: formatTemplate(t.suggestionLongLayover, {
+      hours: Math.round(layover),
+    }),
     interrupts: false,
     actions: [
       {
         id: "dismiss",
-        label: "Visto",
+        label: t.suggestionActionSeen,
         variant: "ghost",
         patch: { type: "dismissSuggestion", id },
       },
@@ -421,6 +463,7 @@ export const longLayover: Detector = (ctx) => {
 };
 
 export const cancellationDeadlineTight: Detector = (ctx) => {
+  const t = copy(ctx);
   const item = primaryHotel(ctx.quote);
   const hotel = matchCandidateHotel(item, ctx.candidates.hotels);
   if (!hotel?.cancellationDeadline) return null;
@@ -436,12 +479,12 @@ export const cancellationDeadlineTight: Detector = (ctx) => {
     id,
     kind: "cancellationDeadlineTight",
     priority: 1,
-    text: `Deadline de cancelación en ${days} ${days === 1 ? "día" : "días"}. Confirma pronto o busca reembolsable.`,
+    text: formatTemplate(t.suggestionCancelDeadline, { days }),
     interrupts: false,
     actions: [
       {
         id: "dismiss",
-        label: "Visto",
+        label: t.suggestionActionSeen,
         variant: "ghost",
         patch: { type: "dismissSuggestion", id },
       },
@@ -450,23 +493,26 @@ export const cancellationDeadlineTight: Detector = (ctx) => {
 };
 
 export const childAgeRateRisk: Detector = (ctx) => {
+  const t = copy(ctx);
   const children = ctx.parsed.travelers.children;
   if (children.length === 0) return null;
 
   const atRisk = children.filter((c) => childNearAgeThreshold(c.age));
   if (atRisk.length === 0) return null;
 
-  const ages = atRisk.map((c) => c.age + 1).join(" y ");
+  const locale: Locale = ctx.locale ?? "es";
+  const joiner = locale === "en" ? " and " : " y ";
+  const ages = atRisk.map((c) => c.age + 1).join(joiner);
   return {
     id: "childAgeRisk",
     kind: "childAgeRateRisk",
     priority: 1,
-    text: `El menor de ${ages} puede cambiar de tramo de edad durante el viaje. Revisa la tarifa antes de confirmar.`,
+    text: formatTemplate(t.suggestionChildAgeRisk, { ages }),
     interrupts: false,
     actions: [
       {
         id: "dismiss",
-        label: "Visto",
+        label: t.suggestionActionSeen,
         variant: "ghost",
         patch: { type: "dismissSuggestion", id: "childAgeRisk" },
       },
@@ -475,6 +521,7 @@ export const childAgeRateRisk: Detector = (ctx) => {
 };
 
 export const comparatorCheaperElsewhere: Detector = (ctx) => {
+  const t = copy(ctx);
   if (!ctx.comparator || ctx.comparator.length < 2) return null;
 
   const item = primaryHotel(ctx.quote);
@@ -510,13 +557,16 @@ export const comparatorCheaperElsewhere: Detector = (ctx) => {
     id,
     kind: "comparatorCheaperElsewhere",
     priority: 1,
-    text: `Mismo hotel en ${cheapest.provider}: ${fmtEur(saving)} menos de neto.`,
+    text: formatTemplate(t.suggestionComparatorCheaper, {
+      provider: cheapest.provider,
+      saving: fmtEur(saving),
+    }),
     delta: -saving,
     interrupts: true,
     actions: [
       {
         id: "accept",
-        label: "Usar ese",
+        label: t.suggestionActionUseThat,
         variant: "primary",
         patch: {
           type: "switchProvider",
@@ -526,7 +576,7 @@ export const comparatorCheaperElsewhere: Detector = (ctx) => {
       },
       {
         id: "dismiss",
-        label: "No",
+        label: t.suggestionActionNo,
         variant: "ghost",
         patch: { type: "dismissSuggestion", id },
       },

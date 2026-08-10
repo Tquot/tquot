@@ -1,3 +1,6 @@
+"use client";
+
+import { useSiteLanguage } from "@/app/language-provider";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { cn } from "@/lib/utils";
 
@@ -10,56 +13,58 @@ interface Provider {
   status: "cheapest" | "available" | "unconnected";
 }
 
-const PROVIDERS: Provider[] = [
-  {
-    code: "HB",
-    name: "Hotelbeds",
-    description: "Tarifa neta · Hab. doble estándar",
-    totalPrice: 1440,
-    perNightPrice: 120,
-    status: "cheapest",
-  },
-  {
-    code: "TI",
-    name: "Tu inventario",
-    description: "Tarifa negociada directa",
-    totalPrice: 1560,
-    perNightPrice: 130,
-    status: "available",
-  },
-  {
-    code: "BK",
-    name: "Booking.com",
-    description: "Tarifa pública",
-    totalPrice: 1896,
-    perNightPrice: 158,
-    status: "available",
-  },
-  {
-    code: "RH",
-    name: "RateHawk",
-    description: "Conecta tu cuenta para ver precio",
-    status: "unconnected",
-  },
-  {
-    code: "W2",
-    name: "W2M World to Meet",
-    description: "Conecta tu cuenta para ver precio",
-    status: "unconnected",
-  },
-];
-
 export function ComparatorBlock() {
+  const { t, locale } = useSiteLanguage();
+  const moneyLocale = locale === "en" ? "en-US" : "es-ES";
+
+  const PROVIDERS: Provider[] = [
+    {
+      code: "HB",
+      name: t.landingCompRowHb,
+      description: t.landingCompSubNet,
+      totalPrice: 1440,
+      perNightPrice: 120,
+      status: "cheapest",
+    },
+    {
+      code: "TI",
+      name: t.landingCompRowOwn,
+      description: t.landingCompSubNegotiated,
+      totalPrice: 1560,
+      perNightPrice: 130,
+      status: "available",
+    },
+    {
+      code: "BK",
+      name: t.landingCompRowBooking,
+      description: t.landingCompSubPublic,
+      totalPrice: 1896,
+      perNightPrice: 158,
+      status: "available",
+    },
+    {
+      code: "RH",
+      name: t.landingConnectorRateHawk,
+      description: t.landingCompSubConnect,
+      status: "unconnected",
+    },
+    {
+      code: "W2",
+      name: t.landingCompRowW2m,
+      description: t.landingCompSubConnect,
+      status: "unconnected",
+    },
+  ];
+
   return (
     <section id="comparador" className="py-14 sm:py-20">
       <div className="mx-auto max-w-[1200px] px-5">
-        <Eyebrow className="mb-3 block">Comparador pre-reserva</Eyebrow>
+        <Eyebrow className="mb-3 block">{t.landingCompEyebrow}</Eyebrow>
         <h2 className="mb-3 max-w-[680px] font-serif text-h1 text-ink" style={{ fontWeight: 500 }}>
-          ¿Dónde está más barato ese hotel ahora mismo?
+          {t.landingCompTitle}
         </h2>
         <p className="mb-10 max-w-[640px] text-[17px] text-text-2">
-          TQuot consulta todos tus proveedores en paralelo y muestra el ranking
-          en segundos.
+          {t.landingCompSubtitle}
         </p>
 
         <div className="max-w-[900px] overflow-hidden rounded-lg border border-border-1 bg-paper shadow-card">
@@ -67,22 +72,30 @@ export function ComparatorBlock() {
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h3 className="font-serif text-[20px] leading-tight text-ink" style={{ fontWeight: 500 }}>
-                  Barceló Teguise Beach
+                  {t.landingHotel1Name}
                 </h3>
                 <p className="mt-1 font-mono text-[12px] text-text-2">
-                  Playa Blanca · 6–18 ago · 2 adultos · 12 noches
+                  {t.landingCompHotelMetaShort}
                 </p>
               </div>
               <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-text-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse-soft" />
-                Comparado en 2.1 s
+                {t.landingCompComparedInShort}
               </span>
             </div>
           </header>
 
           <div className="divide-y divide-border-1">
             {PROVIDERS.map((provider) => (
-              <ComparatorRow key={provider.code} provider={provider} />
+              <ComparatorRow
+                key={provider.code}
+                provider={provider}
+                moneyLocale={moneyLocale}
+                perNight={t.landingCompPerNight}
+                cheapestLabel={t.landingCompCheapestLabel}
+                connectLabel={t.landingCompBtnConnectArrow}
+                useLabel={t.landingCompBtnUseShort}
+              />
             ))}
           </div>
 
@@ -92,18 +105,18 @@ export function ComparatorBlock() {
                 className="shrink-0 font-serif text-[28px] leading-none text-umber sm:text-[36px]"
                 style={{ fontWeight: 500 }}
               >
-                456 €
+                {t.landingCompSavingsAmount}
               </div>
               <div className="flex-1">
                 <p className="text-[14px] leading-relaxed">
-                  <span className="font-medium text-paper">Ahorro con Hotelbeds</span>
+                  <span className="font-medium text-paper">{t.landingCompSavingsTitle}</span>
                   <span className="text-paper/70">
                     {" "}
-                    vs Booking en esta reserva.
+                    {t.landingCompSavingsVs}
                   </span>
                 </p>
                 <p className="mt-1 font-mono text-[12px] text-paper/60">
-                  10 reservas similares al mes → +4 560 € de margen adicional
+                  {t.landingCompSavingsFootnote}
                 </p>
               </div>
             </div>
@@ -114,7 +127,21 @@ export function ComparatorBlock() {
   );
 }
 
-function ComparatorRow({ provider }: { provider: Provider }) {
+function ComparatorRow({
+  provider,
+  moneyLocale,
+  perNight,
+  cheapestLabel,
+  connectLabel,
+  useLabel,
+}: {
+  provider: Provider;
+  moneyLocale: string;
+  perNight: string;
+  cheapestLabel: string;
+  connectLabel: string;
+  useLabel: string;
+}) {
   const isCheapest = provider.status === "cheapest";
   const isUnconnected = provider.status === "unconnected";
 
@@ -142,7 +169,7 @@ function ComparatorRow({ provider }: { provider: Provider }) {
           </span>
           {isCheapest ? (
             <span className="rounded-full bg-umber/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-umber">
-              Más barato
+              {cheapestLabel}
             </span>
           ) : null}
         </div>
@@ -156,16 +183,16 @@ function ComparatorRow({ provider }: { provider: Provider }) {
             className="font-serif text-[22px] leading-none text-ink tabular-nums sm:text-[28px]"
             style={{ fontWeight: 500 }}
           >
-            {provider.totalPrice.toLocaleString("es-ES")} €
+            {provider.totalPrice.toLocaleString(moneyLocale)} €
           </div>
           <div className="mt-1 font-mono text-[11px] text-text-2">
-            {provider.perNightPrice} €/noche
+            {provider.perNightPrice} €{perNight}
           </div>
         </div>
       ) : null}
       {isUnconnected ? (
         <button className="shrink-0 text-body-sm font-medium text-ink transition-colors hover:text-umber">
-          Conectar →
+          {connectLabel}
         </button>
       ) : (
         <button
@@ -176,7 +203,7 @@ function ComparatorRow({ provider }: { provider: Provider }) {
               : "border border-border-2 text-ink hover:bg-paper-2",
           )}
         >
-          Usar
+          {useLabel}
         </button>
       )}
     </div>

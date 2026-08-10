@@ -159,6 +159,7 @@ async function parseInformalWithProgress(
   const result = await parseInformal(text, {
     agencyDefaultOrigin,
     agencyId,
+    locale,
   });
   assertNotAborted(signal);
 

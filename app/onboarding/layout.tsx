@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { ProgressBar } from "@/components/onboarding/ProgressBar";
+import { OnboardingLayoutSubtitle } from "@/components/onboarding/OnboardingLayoutSubtitle";
 import {
   getOrCreateOnboarding,
   type OnboardingStep,
@@ -32,7 +33,7 @@ export default async function OnboardingLayout({
           <span className="font-mono text-mono-md font-semibold tracking-tight text-ink">
             TQUOT
           </span>
-          <span className="ml-3 text-body-sm text-text-3">Configuración</span>
+          <OnboardingLayoutSubtitle />
         </div>
       </header>
       <main className="mx-auto max-w-[720px] px-6 py-10">

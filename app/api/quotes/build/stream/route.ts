@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { nanoid } from "nanoid";
 import { getAuthenticatedUser } from "@/app/api/parser/_auth";
+import type { Locale } from "@/app/dashboard/translations";
 import { buildQuoteWithProgress } from "@/lib/quote-engine/buildQuoteWithProgress";
 import { parseParsedTripInputBody } from "@/lib/quote-engine/schemas";
 import { narrateBuildEvent, narrateRecommendationEvent } from "@/lib/narrator/templates";
@@ -25,6 +26,19 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
+function localeFromBody(body: unknown): Locale {
+  if (
+    body &&
+    typeof body === "object" &&
+    "locale" in body &&
+    ((body as { locale?: unknown }).locale === "es" ||
+      (body as { locale?: unknown }).locale === "en")
+  ) {
+    return (body as { locale: Locale }).locale;
+  }
+  return "es";
+}
+
 export async function POST(req: NextRequest) {
   const auth = await getAuthenticatedUser();
   if (auth.response) {
@@ -45,6 +59,8 @@ export async function POST(req: NextRequest) {
   if (isDemoBuildBody(body)) {
     return streamDemoBuild();
   }
+
+  const locale = localeFromBody(body);
 
   const parsed = parseParsedTripInputBody(body);
   if (!parsed.success) {
@@ -90,7 +106,7 @@ export async function POST(req: NextRequest) {
         // Template-first ack (0 tokens)
         const ackMessages = await planMessage({
           event: { type: "parsed", parsed: parsed.data },
-          ctx: emptySuggestionCtx(parsed.data),
+          ctx: emptySuggestionCtx(parsed.data, { locale }),
           emitted,
         });
         for (const msg of ackMessages) {
@@ -214,7 +230,9 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        const closeCtx = suggestionCtxFromQuote(parsed.data, quoteWithRecs);
+        const closeCtx = suggestionCtxFromQuote(parsed.data, quoteWithRecs, {
+          locale,
+        });
         const closeMessages = await planMessage({
           event: { type: "complete" },
           ctx: closeCtx,

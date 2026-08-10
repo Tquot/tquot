@@ -47,7 +47,7 @@ export async function planMessage(input: PlanInput): Promise<AgentMessage[]> {
 
   switch (event.type) {
     case "parsed": {
-      const probe = buildProbeIfNeeded(event.parsed);
+      const probe = buildProbeIfNeeded(event.parsed, ctx.locale ?? "es");
       if (probe) return [probe];
       return [mkMessage("ack", tplAck(event.parsed))];
     }

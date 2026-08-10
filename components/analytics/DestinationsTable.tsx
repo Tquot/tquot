@@ -1,30 +1,33 @@
+"use client";
+
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { cn } from "@/lib/utils";
 import type { AgencyAnalytics } from "@/lib/analytics/types";
+import { useDashboardLanguage } from "@/app/dashboard/dashboard-language-provider";
 
 export function DestinationsTable({
   destinations,
 }: {
   destinations: AgencyAnalytics["destinations"];
 }) {
+  const { t } = useDashboardLanguage();
   if (destinations.length === 0) return null;
 
   const maxQuotes = Math.max(...destinations.map((d) => d.quotes));
 
   return (
     <section>
-      <Eyebrow className="block mb-1">Destinos</Eyebrow>
+      <Eyebrow className="block mb-1">{t.analyticsDestinationsTitle}</Eyebrow>
       <p className="text-[12px] text-text-3 mb-5">
-        Ordenados por volumen de trabajo. La conversión dice dónde merece
-        la pena insistir.
+        {t.analyticsDestinationsSubtitle}
       </p>
 
       <div className="border-t border-border-2">
         <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 py-2.5 border-b border-border-2">
-          <span className="eyebrow">Destino</span>
-          <span className="eyebrow text-right w-20">Cotiz.</span>
-          <span className="eyebrow text-right w-24">Volumen</span>
-          <span className="eyebrow text-right w-20">Conv.</span>
+          <span className="eyebrow">{t.analyticsColDestination}</span>
+          <span className="eyebrow text-right w-20">{t.analyticsColQuotesAbbrev}</span>
+          <span className="eyebrow text-right w-24">{t.analyticsColVolume}</span>
+          <span className="eyebrow text-right w-20">{t.analyticsColConvAbbrev}</span>
         </div>
 
         {destinations.map((d) => (
@@ -72,4 +75,3 @@ export function DestinationsTable({
     </section>
   );
 }
-

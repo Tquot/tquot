@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useSiteLanguage } from "@/app/language-provider";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { cn } from "@/lib/utils";
 
@@ -13,73 +16,79 @@ interface Plan {
   tag?: string;
 }
 
-const PLANS: Plan[] = [
-  {
-    key: "solo",
-    name: "SOLO",
-    description: "Para agentes independientes.",
-    price: 99,
-    features: [
-      "1 usuario",
-      "Cotizaciones ilimitadas",
-      "PDF con tu marca",
-      "Connectors esenciales",
-    ],
-    cta: { label: "Solicitar acceso", href: "/login" },
-  },
-  {
-    key: "agency",
-    name: "AGENCIA",
-    description: "Para equipos comerciales en crecimiento.",
-    price: 179,
-    features: [
-      "Hasta 5 usuarios",
-      "Inventario + comparador",
-      "TQuot Agent completo",
-      "Soporte prioritario",
-    ],
-    cta: { label: "Solicitar acceso", href: "/login" },
-    highlight: true,
-    tag: "Más popular",
-  },
-  {
-    key: "pro",
-    name: "PRO",
-    description: "Para agencias con alto volumen.",
-    price: 349,
-    features: [
-      "Usuarios ilimitados",
-      "Todos los connectors",
-      "API y exportaciones",
-      "Onboarding dedicado",
-    ],
-    cta: { label: "Contactar", href: "mailto:hello@tquot.io" },
-  },
-];
-
 export function Pricing() {
+  const { t } = useSiteLanguage();
+
+  const PLANS: Plan[] = [
+    {
+      key: "solo",
+      name: t.landingPlanSoloName,
+      description: t.landingPlanSoloDesc,
+      price: 99,
+      features: [
+        t.landingPlanSoloFeature1,
+        t.landingPlanSoloFeature2,
+        t.landingPlanSoloFeature3,
+        t.landingPlanSoloFeature4,
+      ],
+      cta: { label: t.landingPricingCta, href: "/login" },
+    },
+    {
+      key: "agency",
+      name: t.landingPlanAgencyName,
+      description: t.landingPlanAgencyDesc,
+      price: 179,
+      features: [
+        t.landingPlanAgencyFeature1,
+        t.landingPlanAgencyFeature2,
+        t.landingPlanAgencyFeature3,
+        t.landingPlanAgencyFeature4,
+      ],
+      cta: { label: t.landingPricingCta, href: "/login" },
+      highlight: true,
+      tag: t.landingPricingFeaturedBadge,
+    },
+    {
+      key: "pro",
+      name: t.landingPlanProName,
+      description: t.landingPlanProDesc,
+      price: 349,
+      features: [
+        t.landingPlanProFeature1,
+        t.landingPlanProFeature2,
+        t.landingPlanProFeature3,
+        t.landingPlanProFeature4,
+      ],
+      cta: { label: t.landingPlanProCtaContact, href: `mailto:${t.landingFooterEmail}` },
+    },
+  ];
+
   return (
     <section id="pricing" className="py-14 sm:py-20">
       <div className="mx-auto max-w-[1200px] px-5">
-        <Eyebrow className="mb-3 block">Precios</Eyebrow>
+        <Eyebrow className="mb-3 block">{t.landingPricingEyebrow}</Eyebrow>
         <h2 className="mb-3 max-w-[560px] font-serif text-h1 text-ink" style={{ fontWeight: 500 }}>
-          Planes para cada tamaño de agencia.
+          {t.landingPricingTitleUi}
         </h2>
         <p className="mb-10 text-body text-text-2">
-          Precios orientativos para acceso anticipado. IVA no incluido.
+          {t.landingPricingSubtitle}
         </p>
         <div className="grid max-w-[1000px] grid-cols-1 gap-4 md:grid-cols-3">
           {PLANS.map((plan) => (
-            <PlanCard key={plan.key} plan={plan} />
+            <PlanCard
+              key={plan.key}
+              plan={plan}
+              period={t.landingPricingPeriodSpaced}
+            />
           ))}
         </div>
         <p className="mt-8 max-w-[700px] text-body-sm text-text-2">
-          ¿Varias sedes o volumen alto?{" "}
+          {t.landingPricingNoteLead}{" "}
           <a
-            href="mailto:hello@tquot.io"
+            href={`mailto:${t.landingFooterEmail}`}
             className="text-ink underline transition-colors hover:text-umber"
           >
-            Contacta para un plan Enterprise.
+            {t.landingPricingNoteLink}
           </a>
         </p>
       </div>
@@ -87,7 +96,7 @@ export function Pricing() {
   );
 }
 
-function PlanCard({ plan }: { plan: Plan }) {
+function PlanCard({ plan, period }: { plan: Plan; period: string }) {
   return (
     <article
       className={cn(
@@ -115,7 +124,7 @@ function PlanCard({ plan }: { plan: Plan }) {
             {plan.price}
           </span>
           <span className="text-h3 text-ink">€</span>
-          <span className="ml-1 text-body-sm text-text-2">/ mes</span>
+          <span className="ml-1 text-body-sm text-text-2">{period}</span>
         </div>
       </header>
       <ul className="flex-1 space-y-2 text-body-sm">

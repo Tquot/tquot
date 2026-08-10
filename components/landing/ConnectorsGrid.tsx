@@ -1,3 +1,6 @@
+"use client";
+
+import { useSiteLanguage } from "@/app/language-provider";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { cn } from "@/lib/utils";
 
@@ -6,42 +9,57 @@ interface Connector {
   status: "connected" | "available";
 }
 
-const CONNECTORS: Connector[] = [
-  { name: "Hotelbeds", status: "connected" },
-  { name: "Booking.com", status: "connected" },
-  { name: "Duffel", status: "connected" },
-  { name: "RateHawk", status: "available" },
-  { name: "Viator", status: "available" },
-  { name: "Civitatis", status: "available" },
-  { name: "Battleface", status: "available" },
-  { name: "Smytravel", status: "available" },
-];
-
 export function ConnectorsGrid() {
+  const { t } = useSiteLanguage();
+
+  const CONNECTORS: Connector[] = [
+    { name: t.landingConnectorHotelbeds, status: "connected" },
+    { name: t.landingConnectorBooking, status: "connected" },
+    { name: t.landingConnectorDuffel, status: "connected" },
+    { name: t.landingConnectorRateHawk, status: "available" },
+    { name: t.landingConnectorViator, status: "available" },
+    { name: t.landingConnectorCivitatis, status: "available" },
+    { name: t.landingConnectorBattleface, status: "available" },
+    { name: t.landingConnectorSmytravel, status: "available" },
+  ];
+
   return (
     <section id="connectors" className="border-y border-border-1 bg-paper-2 py-14 sm:py-20">
       <div className="mx-auto max-w-[1200px] px-5">
-        <Eyebrow className="mb-3 block">Integraciones</Eyebrow>
+        <Eyebrow className="mb-3 block">{t.landingConnectorsEyebrow}</Eyebrow>
         <h2 className="mb-3 max-w-[680px] font-serif text-h1 text-ink" style={{ fontWeight: 500 }}>
-          Conectado a los proveedores que ya usas.
+          {t.landingConnectorsTitleUi}
         </h2>
         <p className="mb-10 max-w-[640px] text-[17px] text-text-2">
-          Activa solo los conectores que necesitas. Más partners en roadmap.
+          {t.landingConnectorsSubtitle}
         </p>
         <div className="grid max-w-[920px] grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
           {CONNECTORS.map((connector) => (
-            <ConnectorCard key={connector.name} connector={connector} />
+            <ConnectorCard
+              key={connector.name}
+              connector={connector}
+              statusConnected={t.landingConnectorStatusConnected}
+              statusAvailable={t.landingConnectorStatusAvailable}
+            />
           ))}
         </div>
         <p className="mt-6 font-mono text-mono-sm text-text-3">
-          Disponibilidad según plan, mercado y credenciales de tu agencia
+          {t.landingConnectorsDisclaimer}
         </p>
       </div>
     </section>
   );
 }
 
-function ConnectorCard({ connector }: { connector: Connector }) {
+function ConnectorCard({
+  connector,
+  statusConnected,
+  statusAvailable,
+}: {
+  connector: Connector;
+  statusConnected: string;
+  statusAvailable: string;
+}) {
   const isConnected = connector.status === "connected";
 
   return (
@@ -63,7 +81,7 @@ function ConnectorCard({ connector }: { connector: Connector }) {
           isConnected ? "text-success" : "text-text-3",
         )}
       >
-        {isConnected ? "Conectado" : "Disponible"}
+        {isConnected ? statusConnected : statusAvailable}
       </span>
     </div>
   );

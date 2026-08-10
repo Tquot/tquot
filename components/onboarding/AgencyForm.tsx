@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Eyebrow } from "@/components/ui/Eyebrow";
+import { useSiteLanguage } from "@/app/language-provider";
 import { BrandColorPicker } from "./BrandColorPicker";
 
 interface Props {
@@ -24,6 +25,7 @@ export function AgencyForm({
   initialAccessibilityDefault = false,
   onSubmit,
 }: Props) {
+  const { t } = useSiteLanguage();
   const [name, setName] = useState(initialName);
   const [primary, setPrimary] = useState(initialPrimary);
   const [accent, setAccent] = useState(initialAccent);
@@ -36,7 +38,7 @@ export function AgencyForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) {
-      setError("El nombre de la agencia es obligatorio.");
+      setError(t.onboardingAgencyNameRequired);
       return;
     }
     setPending(true);
@@ -49,7 +51,14 @@ export function AgencyForm({
         accessibilityDefault,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al guardar");
+      const message = err instanceof Error ? err.message : "";
+      if (message === "not_authenticated") {
+        setError(t.onboardingNotAuthenticated);
+      } else if (message === "agency_name_required") {
+        setError(t.onboardingAgencyNameRequired);
+      } else {
+        setError(message || t.onboardingSaveError);
+      }
       setPending(false);
     }
   }
@@ -57,34 +66,33 @@ export function AgencyForm({
   return (
     <form onSubmit={handleSubmit} className="mx-auto max-w-xl space-y-8">
       <div>
-        <Eyebrow className="mb-4 block">Paso 02 · Identidad</Eyebrow>
+        <Eyebrow className="mb-4 block">{t.onboardingIdentityEyebrow}</Eyebrow>
         <h1
           className="font-serif text-h1 text-ink"
           style={{ fontWeight: 500 }}
         >
-          Cómo se ve tu agencia en el PDF.
+          {t.onboardingIdentityTitle}
         </h1>
         <p className="mt-3 text-body text-text-2">
-          El color por defecto es ink — el PDF debe verse como tuyo, no como
-          TQuot.
+          {t.onboardingIdentitySubtitle}
         </p>
       </div>
 
       <label className="block space-y-2">
         <span className="text-body-sm font-medium text-ink">
-          Nombre de la agencia
+          {t.onboardingAgencyNameLabel}
         </span>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="h-12 w-full rounded-md border border-border-1 bg-paper px-4 text-body text-ink outline-none focus:border-border-3"
-          placeholder="Viajes Horizonte"
+          placeholder={t.onboardingAgencyNamePlaceholder}
           required
         />
       </label>
 
       <div>
-        <Eyebrow className="mb-3 block">Color de marca</Eyebrow>
+        <Eyebrow className="mb-3 block">{t.onboardingBrandColor}</Eyebrow>
         <BrandColorPicker
           primary={primary}
           onChange={(p, a) => {
@@ -96,10 +104,10 @@ export function AgencyForm({
 
       <details className="rounded-lg border border-border-1 bg-paper-2 p-4">
         <summary className="cursor-pointer text-body-sm font-medium text-ink">
-          Opciones adicionales
+          {t.onboardingAdditionalOptions}
         </summary>
         <div className="mt-4">
-          <Eyebrow className="mb-3 block">Accesibilidad · opcional</Eyebrow>
+          <Eyebrow className="mb-3 block">{t.onboardingAccessibilityEyebrow}</Eyebrow>
           <label className="flex cursor-pointer items-start gap-3">
             <input
               type="checkbox"
@@ -108,9 +116,7 @@ export function AgencyForm({
               className="mt-1"
             />
             <span className="text-body-sm leading-relaxed text-text">
-              Mostrar por defecto información de accesibilidad verificada en
-              cada cotización. Recomendado si tu agencia trabaja con clientes
-              con necesidades de accesibilidad.
+              {t.onboardingAccessibilityLabel}
             </span>
           </label>
         </div>
@@ -123,7 +129,7 @@ export function AgencyForm({
         disabled={pending}
         className="inline-flex h-12 items-center justify-center rounded-md bg-ink px-6 text-body font-medium text-paper transition-colors hover:bg-ink-2 disabled:opacity-50"
       >
-        {pending ? "Guardando…" : "Continuar"}
+        {pending ? t.onboardingSaving : t.onboardingContinue}
       </button>
     </form>
   );

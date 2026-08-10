@@ -8,14 +8,14 @@ export default async function CompletePage() {
 
   const agencyId = await getCurrentAgencyId();
   const supabase = await createServerSupabaseClient();
-  let name = "Tu agencia";
+  let name = "";
   if (agencyId) {
     const { data } = await supabase
       .from("agencies")
       .select("name")
       .eq("id", agencyId)
       .maybeSingle();
-    name = data?.name ?? name;
+    name = data?.name ?? "";
   }
 
   return <CompletionScreen agencyName={name} />;

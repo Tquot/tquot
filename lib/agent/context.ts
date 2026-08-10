@@ -1,3 +1,4 @@
+import type { Locale } from "@/app/dashboard/translations";
 import type { ParsedTripInputV2 } from "@/lib/quote-engine/schemas-v2";
 import type { Quote as EngineQuote } from "@/lib/quote-engine/types";
 import type { Quote } from "@/lib/quotes/build-quote";
@@ -6,6 +7,7 @@ import type { ComparatorEntry } from "@/lib/comparator/types";
 
 export function emptySuggestionCtx(
   parsed: ParsedTripInputV2,
+  opts?: { locale?: Locale },
 ): SuggestionContext {
   return {
     quote: {
@@ -36,6 +38,7 @@ export function emptySuggestionCtx(
     },
     agency: { accessibilityDefault: false, defaultMarginPct: 12 },
     dismissed: [],
+    locale: opts?.locale ?? "es",
   };
 }
 
@@ -45,6 +48,7 @@ export function suggestionCtxFromQuote(
   opts?: {
     comparator?: ComparatorEntry[];
     dismissed?: string[];
+    locale?: Locale;
   },
 ): SuggestionContext {
   return {
@@ -59,5 +63,6 @@ export function suggestionCtxFromQuote(
     comparator: opts?.comparator,
     agency: { accessibilityDefault: false, defaultMarginPct: 12 },
     dismissed: opts?.dismissed ?? [],
+    locale: opts?.locale ?? "es",
   };
 }

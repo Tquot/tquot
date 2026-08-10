@@ -1,3 +1,4 @@
+import { translations, type Locale } from "@/app/dashboard/translations";
 import type { BlockingField } from "@/lib/parser/defaults";
 import type { AgentAction, AgentMessage } from "./types";
 import { mkMessage } from "./message";
@@ -35,27 +36,29 @@ export function buildProbe(blocking: BlockingField[]): AgentMessage | null {
  */
 export function buildProbeIfNeeded(
   parsed: ParsedTripInputV2,
+  locale: Locale = "es",
 ): AgentMessage | null {
+  const t = translations[locale];
   const gaps = parsed.parsingGaps ?? [];
   const blocking: BlockingField[] = [];
 
   if (gaps.includes("ambiguous_destination")) {
     blocking.push({
       field: "destination",
-      question: "¿A qué destino?",
+      question: t.probeDestination,
     });
   }
   if (gaps.includes("missing_pax_count")) {
     blocking.push({
       field: "travelers",
-      question: "¿Cuántos viajan?",
+      question: t.probeTravelers,
       options: [
-        { label: "2 adultos", value: { adults: 2, children: [] } },
+        { label: t.probeOpt2Adults, value: { adults: 2, children: [] } },
         {
-          label: "2 adultos + 2 niños",
+          label: t.probeOpt2Adults2Children,
           value: { adults: 2, children: [{ age: 8 }, { age: 11 }] },
         },
-        { label: "4 adultos", value: { adults: 4, children: [] } },
+        { label: t.probeOpt4Adults, value: { adults: 4, children: [] } },
       ],
     });
   }
@@ -65,7 +68,7 @@ export function buildProbeIfNeeded(
     return buildProbe([
       {
         field: "destination",
-        question: "¿A qué destino y cuántos viajan?",
+        question: t.probeDestinationAndTravelers,
         options: blocking[1].options,
       },
     ]);

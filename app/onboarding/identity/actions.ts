@@ -12,7 +12,11 @@ export async function saveIdentityAction(data: {
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const auth = await getAuthenticatedUserAndAgency();
   if ("response" in auth) {
-    return { ok: false, error: "No autenticado" };
+    return { ok: false, error: "not_authenticated" };
+  }
+
+  if (!data.name.trim()) {
+    return { ok: false, error: "agency_name_required" };
   }
 
   const supabase = await createServerSupabaseClient();
@@ -20,8 +24,8 @@ export async function saveIdentityAction(data: {
   const { error: agencyError } = await supabase
     .from("agencies")
     .update({
-      name: data.name,
-      legal_name: data.name,
+      name: data.name.trim(),
+      legal_name: data.name.trim(),
       accessibility_default: data.accessibilityDefault,
       updated_at: new Date().toISOString(),
     })

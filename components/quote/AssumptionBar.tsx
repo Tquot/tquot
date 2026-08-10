@@ -2,19 +2,21 @@
 
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { useDashboardLanguage } from "@/app/dashboard/dashboard-language-provider";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { cn } from "@/lib/utils";
 import type { Assumption } from "@/lib/parser/defaults";
 import { useQuoteConversationStore } from "@/lib/quote-conversation/store";
 
 export function AssumptionBar({ assumptions }: { assumptions: Assumption[] }) {
+  const { t } = useDashboardLanguage();
   if (assumptions.length === 0) return null;
 
   return (
     <div className="rounded-lg border border-border-1 bg-paper-2 px-4 py-3">
       <div className="mb-2 flex items-center gap-2">
-        <Eyebrow>He asumido</Eyebrow>
-        <span className="text-[11px] text-text-3">toca para cambiar</span>
+        <Eyebrow>{t.assumptionBarTitle}</Eyebrow>
+        <span className="text-[11px] text-text-3">{t.assumptionBarHint}</span>
       </div>
       <div className="flex flex-wrap gap-2">
         {assumptions.map((a) => (

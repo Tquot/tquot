@@ -1,30 +1,35 @@
+"use client";
+
+import { useSiteLanguage } from "@/app/language-provider";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 
-const STEPS = [
-  {
-    n: "01",
-    title: "Pega la petición tal cual te llegó.",
-    body: "Email, WhatsApp o notas sueltas. Sin formularios ni plantillas rígidas. TQuot la entiende incluso si está mal escrita.",
-  },
-  {
-    n: "02",
-    title: "TQuot busca en todos tus proveedores.",
-    body: "Inventario propio primero, luego APIs conectadas y comparador pre-reserva. Compara precios netos automáticamente.",
-  },
-  {
-    n: "03",
-    title: "Cotización lista para enviar.",
-    body: "PDF agente y cliente, márgenes aplicados y refinamiento por chat si hace falta.",
-  },
-];
-
 export function HowItWorks() {
+  const { t } = useSiteLanguage();
+
+  const STEPS = [
+    {
+      n: "01",
+      title: t.landingStep1TitleUi,
+      body: t.landingStep1DescUi,
+    },
+    {
+      n: "02",
+      title: t.landingStep2TitleUi,
+      body: t.landingStep2DescUi,
+    },
+    {
+      n: "03",
+      title: t.landingStep3TitleUi,
+      body: t.landingStep3Desc,
+    },
+  ];
+
   return (
     <section id="flujo" className="border-y border-border-1 bg-paper-2 py-14 sm:py-20">
       <div className="mx-auto max-w-[1200px] px-5">
-        <Eyebrow className="mb-3 block">Cómo funciona</Eyebrow>
+        <Eyebrow className="mb-3 block">{t.landingHowEyebrowAlt}</Eyebrow>
         <h2 className="mb-12 max-w-[640px] font-serif text-h1 text-ink sm:mb-16" style={{ fontWeight: 500 }}>
-          Pegas la petición. TQuot busca. Tú revisas.
+          {t.landingHowLead}
         </h2>
         <div className="grid grid-cols-1 gap-10 md:grid-cols-3 md:gap-8">
           {STEPS.map((step) => (

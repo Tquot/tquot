@@ -1,14 +1,17 @@
 "use client";
 
 import { useTransition } from "react";
+import { useDashboardLanguage } from "@/app/dashboard/dashboard-language-provider";
 import { useQuoteConversationStore } from "@/lib/quote-conversation/store";
 import type { Suggestion } from "@/lib/agent/suggestions/types";
 import type { QuotePatch } from "@/lib/agent/types";
 import { cn } from "@/lib/utils";
 
 export function SuggestionMessage({ suggestion }: { suggestion: Suggestion }) {
+  const { locale, t } = useDashboardLanguage();
   const applyAgentPatch = useQuoteConversationStore((s) => s.applyAgentPatch);
   const [pending, startTransition] = useTransition();
+  const numberLocale = locale === "en" ? "en-US" : "es-ES";
 
   return (
     <div className="space-y-2 animate-slide-up-fade">
@@ -16,7 +19,7 @@ export function SuggestionMessage({ suggestion }: { suggestion: Suggestion }) {
         <span className="font-mono text-eyebrow text-umber">TQUOT</span>
         {suggestion.priority === 1 && (
           <span className="font-mono text-[10px] uppercase tracking-wider text-warning">
-            Revisa
+            {t.suggestionReviewBadge}
           </span>
         )}
       </div>
@@ -71,7 +74,7 @@ export function SuggestionMessage({ suggestion }: { suggestion: Suggestion }) {
             )}
           >
             {suggestion.delta > 0 ? "+" : ""}
-            {Math.round(suggestion.delta).toLocaleString("es-ES")} €
+            {Math.round(suggestion.delta).toLocaleString(numberLocale)} €
           </span>
         )}
       </div>

@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils";
 import type { OnboardingStep } from "@/lib/onboarding/steps";
 import { ONBOARDING_STEPS } from "@/lib/onboarding/steps";
+import { useSiteLanguage } from "@/app/language-provider";
 
 const LABELS: Record<OnboardingStep, string> = {
   welcome: "01",
@@ -18,10 +19,11 @@ interface Props {
 }
 
 export function ProgressBar({ current }: Props) {
+  const { t } = useSiteLanguage();
   const currentIndex = ONBOARDING_STEPS.indexOf(current);
 
   return (
-    <nav aria-label="Progreso del onboarding" className="mb-10">
+    <nav aria-label={t.onboardingProgressAria} className="mb-10">
       <ol className="flex items-center gap-2">
         {ONBOARDING_STEPS.map((step, index) => {
           const done = index < currentIndex;

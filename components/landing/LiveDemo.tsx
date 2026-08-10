@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSiteLanguage } from "@/app/language-provider";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 
 type ProgressStatus = "searching" | "pending" | "done";
@@ -34,113 +35,114 @@ type DemoStep =
   | { kind: "flight"; data: FlightData; delay: number }
   | { kind: "hotel"; data: HotelData; delay: number };
 
-const DEMO_SCRIPT: DemoStep[] = [
-  {
-    kind: "user",
-    content:
-      "Vuelo Madrid a Lanzarote del 6 al 18 de agosto, 2 adultos, hotel cerca de Playa Blanca 4 estrellas, alquiler de coche y alguna actividad en la isla.",
-    delay: 400,
-  },
-  {
-    kind: "agent",
-    content:
-      "Analizando petición. Destino ACE, 12 noches, hotel 4★ en Playa Blanca, coche y actividades.",
-    delay: 1400,
-  },
-  {
-    kind: "progress",
-    data: [
-      { key: "flights", label: "Vuelos · MAD → ACE", status: "searching" },
-      {
-        key: "hotels",
-        label: "Hoteles · Playa Blanca · 4★",
-        status: "pending",
-      },
-      { key: "activities", label: "Actividades · Lanzarote", status: "pending" },
-    ],
-    delay: 900,
-  },
-  {
-    kind: "progress",
-    data: [
-      { key: "flights", label: "Vuelos · MAD → ACE", status: "done", count: 10 },
-      {
-        key: "hotels",
-        label: "Hoteles · Playa Blanca · 4★",
-        status: "searching",
-      },
-      { key: "activities", label: "Actividades · Lanzarote", status: "pending" },
-    ],
-    delay: 800,
-  },
-  {
-    kind: "flight",
-    data: { carrier: "VY", depTime: "08:15", arrTime: "10:30", price: 187 },
-    delay: 600,
-  },
-  {
-    kind: "progress",
-    data: [
-      { key: "flights", label: "Vuelos · MAD → ACE", status: "done", count: 10 },
-      {
-        key: "hotels",
-        label: "Hoteles · Playa Blanca · 4★",
-        status: "done",
-        count: 8,
-      },
-      {
-        key: "activities",
-        label: "Actividades · Lanzarote",
-        status: "searching",
-      },
-    ],
-    delay: 900,
-  },
-  {
-    kind: "hotel",
-    data: {
-      name: "Barceló Teguise Beach",
-      stars: 4,
-      price: 120,
-      source: "Tu inventario",
-      image:
-        "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=1200&h=800&fit=crop",
-    },
-    delay: 700,
-  },
-  {
-    kind: "progress",
-    data: [
-      { key: "flights", label: "Vuelos · MAD → ACE", status: "done", count: 10 },
-      {
-        key: "hotels",
-        label: "Hoteles · Playa Blanca · 4★",
-        status: "done",
-        count: 8,
-      },
-      {
-        key: "activities",
-        label: "Actividades · Lanzarote",
-        status: "done",
-        count: 3,
-      },
-    ],
-    delay: 800,
-  },
-  {
-    kind: "agent",
-    content:
-      "Listo. Vuelo VY 187 €, Barceló Teguise Beach 4★ a 120 €/noche desde tu inventario, coche 12 días y 2 actividades. Total: 2 847 €. ¿Añado seguro?",
-    delay: 1400,
-  },
-];
-
 const LOOP_DELAY = 5000;
 
 export function LiveDemo() {
+  const { t } = useSiteLanguage();
   const [step, setStep] = useState(0);
   const [running, setRunning] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
+
+  const DEMO_SCRIPT: DemoStep[] = useMemo(
+    () => [
+      {
+        kind: "user",
+        content: t.landingFlowMsgUserDemo,
+        delay: 400,
+      },
+      {
+        kind: "agent",
+        content: t.landingFlowMsgAnalyzeDemo,
+        delay: 1400,
+      },
+      {
+        kind: "progress",
+        data: [
+          { key: "flights", label: t.landingFlowProgressFlights, status: "searching" },
+          {
+            key: "hotels",
+            label: t.landingFlowProgressHotels,
+            status: "pending",
+          },
+          { key: "activities", label: t.landingFlowProgressActivities, status: "pending" },
+        ],
+        delay: 900,
+      },
+      {
+        kind: "progress",
+        data: [
+          { key: "flights", label: t.landingFlowProgressFlights, status: "done", count: 10 },
+          {
+            key: "hotels",
+            label: t.landingFlowProgressHotels,
+            status: "searching",
+          },
+          { key: "activities", label: t.landingFlowProgressActivities, status: "pending" },
+        ],
+        delay: 800,
+      },
+      {
+        kind: "flight",
+        data: { carrier: "VY", depTime: "08:15", arrTime: "10:30", price: 187 },
+        delay: 600,
+      },
+      {
+        kind: "progress",
+        data: [
+          { key: "flights", label: t.landingFlowProgressFlights, status: "done", count: 10 },
+          {
+            key: "hotels",
+            label: t.landingFlowProgressHotels,
+            status: "done",
+            count: 8,
+          },
+          {
+            key: "activities",
+            label: t.landingFlowProgressActivities,
+            status: "searching",
+          },
+        ],
+        delay: 900,
+      },
+      {
+        kind: "hotel",
+        data: {
+          name: t.landingHotel1Name,
+          stars: 4,
+          price: 120,
+          source: t.landingHotelSourceOwnShort,
+          image:
+            "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=1200&h=800&fit=crop",
+        },
+        delay: 700,
+      },
+      {
+        kind: "progress",
+        data: [
+          { key: "flights", label: t.landingFlowProgressFlights, status: "done", count: 10 },
+          {
+            key: "hotels",
+            label: t.landingFlowProgressHotels,
+            status: "done",
+            count: 8,
+          },
+          {
+            key: "activities",
+            label: t.landingFlowProgressActivities,
+            status: "done",
+            count: 3,
+          },
+        ],
+        delay: 800,
+      },
+      {
+        kind: "agent",
+        content: t.landingFlowMsgReadyChat,
+        delay: 1400,
+      },
+    ],
+    [t],
+  );
 
   useEffect(() => {
     if (!ref.current) return;
@@ -158,7 +160,7 @@ export function LiveDemo() {
       setStep(DEMO_SCRIPT.length);
       setRunning(false);
     }
-  }, []);
+  }, [DEMO_SCRIPT.length]);
 
   useEffect(() => {
     if (!running) return;
@@ -171,7 +173,7 @@ export function LiveDemo() {
       DEMO_SCRIPT[step]?.delay ?? 600,
     );
     return () => clearTimeout(timeout);
-  }, [running, step]);
+  }, [running, step, DEMO_SCRIPT]);
 
   const visible = DEMO_SCRIPT.slice(0, step);
   const lastProgress = [...visible].reverse().find((item) => item.kind === "progress");
@@ -183,12 +185,12 @@ export function LiveDemo() {
       className="border-y border-border-1 bg-paper-2 py-14 sm:py-20"
     >
       <div className="mx-auto max-w-[1200px] px-5">
-        <Eyebrow className="mb-3 block">TQuot Agent</Eyebrow>
+        <Eyebrow className="mb-3 block">{t.landingFlowEyebrow}</Eyebrow>
         <h2
           className="mb-8 max-w-[640px] font-serif text-h1 text-ink sm:mb-12"
           style={{ fontWeight: 500 }}
         >
-          El agente habla. TQuot trabaja.
+          {t.landingFlowTitle}
         </h2>
         <div className="grid max-w-[920px] grid-cols-1 gap-4 lg:grid-cols-[380px_1fr]">
           <div className="min-h-[460px] space-y-3 rounded-lg border border-border-1 bg-paper p-4 shadow-soft">
@@ -203,7 +205,11 @@ export function LiveDemo() {
           </div>
           <div className="min-h-[460px] space-y-3 rounded-lg border border-border-1 bg-paper p-4 shadow-soft">
             {lastProgress?.kind === "progress" ? (
-              <DemoProgress data={lastProgress.data} />
+              <DemoProgress
+                data={lastProgress.data}
+                optsAbbrev={t.landingFlowOptsAbbrev}
+                searchingLabel={t.landingFlowSearching}
+              />
             ) : null}
             {visible
               .filter(
@@ -219,7 +225,11 @@ export function LiveDemo() {
                   item.kind === "hotel",
               )
               .map((item, index) => (
-                <DemoHotel key={index} data={item.data} />
+                <DemoHotel
+                  key={index}
+                  data={item.data}
+                  perNight={t.landingCompPerNight}
+                />
               ))}
           </div>
         </div>
@@ -251,7 +261,15 @@ function DemoMsg({
   );
 }
 
-function DemoProgress({ data }: { data: ProgressItem[] }) {
+function DemoProgress({
+  data,
+  optsAbbrev,
+  searchingLabel,
+}: {
+  data: ProgressItem[];
+  optsAbbrev: string;
+  searchingLabel: string;
+}) {
   return (
     <div className="mb-2 space-y-1.5 animate-slide-up-fade">
       {data.map((item) => (
@@ -273,11 +291,11 @@ function DemoProgress({ data }: { data: ProgressItem[] }) {
           </span>
           {item.count != null ? (
             <span className="font-mono text-mono-sm text-text-2 tabular-nums">
-              {item.count} opc.
+              {item.count} {optsAbbrev}
             </span>
           ) : item.status === "searching" ? (
             <span className="animate-pulse-soft font-mono text-mono-sm text-text-3">
-              buscando
+              {searchingLabel}
             </span>
           ) : (
             <span />
@@ -309,7 +327,13 @@ function DemoFlight({ data }: { data: FlightData }) {
   );
 }
 
-function DemoHotel({ data }: { data: HotelData }) {
+function DemoHotel({
+  data,
+  perNight,
+}: {
+  data: HotelData;
+  perNight: string;
+}) {
   return (
     <div className="overflow-hidden rounded-md border border-border-1 animate-slide-up-fade">
       <div className="relative aspect-[16/8] overflow-hidden bg-paper-3">
@@ -340,7 +364,7 @@ function DemoHotel({ data }: { data: HotelData }) {
             {data.price} €
           </div>
           <div className="text-[10px] uppercase tracking-wider text-text-3">
-            /noche
+            {perNight}
           </div>
         </div>
       </div>

@@ -11,6 +11,8 @@ import {
 } from "recharts";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import { cn } from "@/lib/utils";
+import { useDashboardLanguage } from "@/app/dashboard/dashboard-language-provider";
+import { formatMessage } from "@/app/dashboard/format-message";
 
 interface Props {
   daily: Array<{ day: string; quotes: number; volume: number }>;
@@ -19,11 +21,13 @@ interface Props {
 type Mode = "quotes" | "volume";
 
 export function ActivityChart({ daily }: Props) {
+  const { locale, t } = useDashboardLanguage();
+  const localeTag = locale === "es" ? "es-ES" : "en-US";
   const [mode, setMode] = useState<Mode>("quotes");
 
   const data = daily.map((d) => ({
     ...d,
-    label: new Date(d.day).toLocaleDateString("es-ES", {
+    label: new Date(d.day).toLocaleDateString(localeTag, {
       day: "numeric",
       month: "short",
     }),
@@ -32,24 +36,29 @@ export function ActivityChart({ daily }: Props) {
   const peak = data.reduce((max, d) => (d[mode] > max[mode] ? d : max), data[0]);
   const total = data.reduce((s, d) => s + d[mode], 0);
 
+  const totalValue =
+    mode === "volume"
+      ? `${Math.round(total).toLocaleString(localeTag)} €`
+      : String(total);
+  const peakValue =
+    peak &&
+    (mode === "volume"
+      ? `${Math.round(peak.volume).toLocaleString(localeTag)} €`
+      : String(peak.quotes));
+
   return (
     <section>
       <div className="flex items-end justify-between gap-4 mb-5 flex-wrap">
         <div>
-          <Eyebrow className="block mb-1">Actividad</Eyebrow>
+          <Eyebrow className="block mb-1">{t.analyticsActivity}</Eyebrow>
           <p className="font-mono text-mono-sm text-text-2 tabular-nums">
-            total{" "}
-            {mode === "volume"
-              ? `${Math.round(total).toLocaleString("es-ES")} €`
-              : total}
-            {peak &&
-              ` · pico ${
-                mode === "volume"
-                  ? `${Math.round(peak.volume).toLocaleString("es-ES")} €`
-                  : peak.quotes
-              } el ${
-                peak ? peak.label : ""
-              }`}
+            {formatMessage(t.analyticsActivityTotal, { value: totalValue })}
+            {peak && peakValue
+              ? formatMessage(t.analyticsActivityPeak, {
+                  value: peakValue,
+                  day: peak.label,
+                })
+              : null}
           </p>
         </div>
         <div className="flex gap-1.5">
@@ -65,7 +74,7 @@ export function ActivityChart({ daily }: Props) {
                   : "bg-paper-2 text-text-2 hover:bg-paper-3",
               )}
             >
-              {m === "quotes" ? "Cotizaciones" : "Volumen"}
+              {m === "quotes" ? t.analyticsModeQuotes : t.analyticsModeVolume}
             </button>
           ))}
         </div>
@@ -128,6 +137,8 @@ type TooltipProps = {
 };
 
 function ChartTooltip({ active, payload, label, mode }: TooltipProps) {
+  const { locale, t } = useDashboardLanguage();
+  const localeTag = locale === "es" ? "es-ES" : "en-US";
   if (!active || !payload?.length) return null;
   const value = payload[0].value;
 
@@ -138,10 +149,11 @@ function ChartTooltip({ active, payload, label, mode }: TooltipProps) {
       </p>
       <p className="font-mono text-mono-md text-ink tabular-nums mt-0.5">
         {mode === "volume"
-          ? `${Math.round(value).toLocaleString("es-ES")} €`
-          : `${value} ${value === 1 ? "cotización" : "cotizaciones"}`}
+          ? `${Math.round(value).toLocaleString(localeTag)} €`
+          : `${value} ${
+              value === 1 ? t.analyticsQuoteSingular : t.analyticsQuotePlural
+            }`}
       </p>
     </div>
   );
 }
-

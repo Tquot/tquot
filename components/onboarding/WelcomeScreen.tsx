@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Eyebrow } from "@/components/ui/Eyebrow";
+import { useSiteLanguage } from "@/app/language-provider";
 
 interface Props {
   onStartLive: () => void;
@@ -9,20 +10,29 @@ interface Props {
 }
 
 export function WelcomeScreen({ onStartLive, onStartDemo }: Props) {
+  const { t } = useSiteLanguage();
+  const body = t.onboardingWelcomeBody;
+  const accent = t.onboardingWelcomeBodyAccent;
+  const accentIdx = body.indexOf(accent);
+  const before = accentIdx >= 0 ? body.slice(0, accentIdx) : body;
+  const after = accentIdx >= 0 ? body.slice(accentIdx + accent.length) : "";
+
   return (
     <div className="mx-auto max-w-xl space-y-8">
       <div>
-        <Eyebrow className="mb-4 block">Bienvenida</Eyebrow>
+        <Eyebrow className="mb-4 block">{t.onboardingWelcomeEyebrow}</Eyebrow>
         <h1
           className="font-serif text-display-2 text-ink"
           style={{ fontWeight: 500 }}
         >
-          Tu agencia, lista para cotizar en minutos.
+          {t.onboardingWelcomeTitle}
         </h1>
         <p className="mt-4 text-[17px] leading-relaxed text-text-2">
-          Vamos a configurar identidad, un proveedor y tu primera cotización.
-          Puedes probar primero con datos demo —{" "}
-          <span className="text-accent">cero llamadas a proveedores</span>.
+          {before}
+          {accentIdx >= 0 ? (
+            <span className="text-accent">{accent}</span>
+          ) : null}
+          {after}
         </p>
       </div>
 
@@ -32,21 +42,21 @@ export function WelcomeScreen({ onStartLive, onStartDemo }: Props) {
           onClick={onStartLive}
           className="inline-flex h-12 items-center justify-center rounded-md bg-ink px-6 text-body font-medium text-paper transition-colors hover:bg-ink-2"
         >
-          Empezar configuración
+          {t.onboardingStartSetup}
         </button>
         <button
           type="button"
           onClick={onStartDemo}
           className="inline-flex h-12 items-center justify-center rounded-md border border-border-2 px-6 text-body font-medium text-ink transition-colors hover:border-border-3"
         >
-          Probar en modo demo
+          {t.onboardingTryDemo}
         </button>
       </div>
 
       <p className="text-body-sm text-text-3">
-        ¿Ya tienes cuenta configurada?{" "}
+        {t.onboardingAlreadyConfigured}{" "}
         <Link href="/dashboard" className="text-accent underline-offset-2 hover:underline">
-          Ir al dashboard
+          {t.onboardingGoDashboard}
         </Link>
       </p>
     </div>

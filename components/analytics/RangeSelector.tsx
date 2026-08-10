@@ -3,19 +3,21 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import type { RangePreset } from "@/lib/analytics/types";
-
-const OPTIONS: Array<{ value: RangePreset; label: string }> = [
-  { value: "7d", label: "7 días" },
-  { value: "30d", label: "30 días" },
-  { value: "90d", label: "90 días" },
-  { value: "month", label: "Este mes" },
-  { value: "prev_month", label: "Mes pasado" },
-  { value: "ytd", label: "Año" },
-];
+import { useDashboardLanguage } from "@/app/dashboard/dashboard-language-provider";
 
 export function RangeSelector({ current }: { current: RangePreset }) {
   const router = useRouter();
   const params = useSearchParams();
+  const { t } = useDashboardLanguage();
+
+  const OPTIONS: Array<{ value: RangePreset; label: string }> = [
+    { value: "7d", label: t.analyticsRange7d },
+    { value: "30d", label: t.analyticsRange30d },
+    { value: "90d", label: t.analyticsRange90d },
+    { value: "month", label: t.analyticsRangeMonth },
+    { value: "prev_month", label: t.analyticsRangePrevMonth },
+    { value: "ytd", label: t.analyticsRangeYtd },
+  ];
 
   function pick(value: RangePreset) {
     const next = new URLSearchParams(params.toString());
@@ -43,4 +45,3 @@ export function RangeSelector({ current }: { current: RangePreset }) {
     </div>
   );
 }
-

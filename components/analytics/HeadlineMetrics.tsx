@@ -1,9 +1,16 @@
+"use client";
+
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import type { AgencyAnalytics } from "@/lib/analytics/types";
 import { cn } from "@/lib/utils";
+import { useDashboardLanguage } from "@/app/dashboard/dashboard-language-provider";
+import { formatMessage } from "@/app/dashboard/format-message";
 
 export function HeadlineMetrics({ data }: { data: AgencyAnalytics }) {
+  const { locale, t } = useDashboardLanguage();
+  const localeTag = locale === "es" ? "es-ES" : "en-US";
+
   return (
     <section className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-x-12 gap-y-8 items-start">
       <div>
@@ -11,44 +18,54 @@ export function HeadlineMetrics({ data }: { data: AgencyAnalytics }) {
           className="font-serif text-[56px] md:text-[88px] leading-none tracking-[-0.04em] text-ink tabular-nums"
           style={{ fontWeight: 500 }}
         >
-          {data.quotes.count.toLocaleString("es-ES")}
+          {data.quotes.count.toLocaleString(localeTag)}
         </div>
         <div className="mt-2 flex items-center gap-3">
-          <span className="text-h3 text-text">Cotizaciones</span>
+          <span className="text-h3 text-text">{t.analyticsQuotes}</span>
           {data.quotes.delta_pct != null && data.quotes.delta_pct !== 0 && (
             <Delta value={data.quotes.delta_pct} />
           )}
         </div>
         <p className="mt-1 text-[12px] text-text-3">
-          {data.quotes.prev_count} en los {data.range.days} días anteriores
+          {formatMessage(t.analyticsQuotesPrev, {
+            count: data.quotes.prev_count,
+            days: data.range.days,
+          })}
         </p>
       </div>
 
       <dl className="space-y-5">
         <Metric
-          label="Volumen cotizado"
-          value={fmtMoney(data.volume.quoted)}
+          label={t.analyticsVolumeQuoted}
+          value={fmtMoney(data.volume.quoted, localeTag)}
           hint={
             data.volume.delta_pct != null
-              ? `${signed(data.volume.delta_pct)} % vs periodo anterior`
+              ? formatMessage(t.analyticsVsPrevPeriod, {
+                  signed: signed(data.volume.delta_pct),
+                })
               : undefined
           }
         />
         <Metric
-          label="Volumen reservado"
-          value={fmtMoney(data.volume.won)}
-          hint={`${data.conversion.won} cotizaciones cerradas`}
+          label={t.analyticsVolumeWon}
+          value={fmtMoney(data.volume.won, localeTag)}
+          hint={formatMessage(t.analyticsClosedQuotes, {
+            count: data.conversion.won,
+          })}
         />
         <Metric
-          label="Margen sobre reservado"
-          value={fmtMoney(data.volume.margin_won)}
-          hint="Diferencia entre PVP y neto de lo reservado"
+          label={t.analyticsMarginWon}
+          value={fmtMoney(data.volume.margin_won, localeTag)}
+          hint={t.analyticsMarginHint}
         />
-        <Metric label="Ticket medio" value={fmtMoney(data.volume.avg_ticket)} />
         <Metric
-          label="Clientes activos"
+          label={t.analyticsAvgTicket}
+          value={fmtMoney(data.volume.avg_ticket, localeTag)}
+        />
+        <Metric
+          label={t.analyticsActiveClients}
           value={String(data.active_clients)}
-          hint="Con al menos una cotización en el periodo"
+          hint={t.analyticsActiveClientsHint}
         />
       </dl>
     </section>
@@ -91,11 +108,10 @@ function Delta({ value }: { value: number }) {
   );
 }
 
-function fmtMoney(n: number): string {
-  return `${Math.round(n).toLocaleString("es-ES")} €`;
+function fmtMoney(n: number, localeTag: string): string {
+  return `${Math.round(n).toLocaleString(localeTag)} €`;
 }
 
 function signed(n: number): string {
   return `${n > 0 ? "+" : ""}${n}`;
 }
-

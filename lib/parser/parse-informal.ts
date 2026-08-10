@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Locale } from "@/app/dashboard/translations";
 import { client, CLAUDE_MODEL } from "./anthropic-client";
 import { sanitize } from "./sanitize";
 import { preExtract, type Hints } from "./pre-extract";
@@ -73,7 +74,11 @@ export interface ParseInformalResult {
 
 export async function parseInformal(
   raw: string,
-  ctx: { agencyDefaultOrigin: string; agencyId?: string },
+  ctx: {
+    agencyDefaultOrigin: string;
+    agencyId?: string;
+    locale?: Locale;
+  },
 ): Promise<ParseInformalResult> {
   const sourceMessage = raw;
   const { clean, channel, turns } = sanitize(raw);
@@ -90,6 +95,7 @@ export async function parseInformal(
   const { parsed, assumptions, blocking } = applyDefaults(merged, {
     defaultOrigin: ctx.agencyDefaultOrigin,
     flags: hints.flags,
+    locale: ctx.locale ?? "es",
   });
 
   return {

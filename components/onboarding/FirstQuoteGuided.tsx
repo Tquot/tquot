@@ -7,6 +7,8 @@ import { QuoteConversation } from "@/app/dashboard/new-quote/QuoteConversation";
 import { useQuoteConversationStore } from "@/lib/quote-conversation/store";
 import { DEMO_SUGGESTION } from "@/lib/onboarding/constants";
 import type { AgencyBookingConfig } from "@/lib/booking-handoff/types";
+import { useSiteLanguage } from "@/app/language-provider";
+import { formatMessage } from "@/app/dashboard/format-message";
 
 interface Props {
   demo: boolean;
@@ -26,21 +28,25 @@ function PrimingScreen({
   suggestion: string;
   onLaunch: () => void;
 }) {
+  const { t } = useSiteLanguage();
+
   return (
     <div className="mx-auto max-w-xl space-y-6">
-      <Eyebrow className="block">Paso 04 · Primera cotización</Eyebrow>
+      <Eyebrow className="block">{t.onboardingFirstQuoteEyebrow}</Eyebrow>
       <h1
         className="font-serif text-h1 text-ink"
         style={{ fontWeight: 500 }}
       >
-        {demo ? "Cotización demo: Roma en 4 noches." : "Tu primera cotización."}
+        {demo ? t.onboardingFirstQuoteDemoTitle : t.onboardingFirstQuoteTitle}
       </h1>
       <p className="text-body text-text-2">
         {demo
-          ? "Sin Claude ni proveedores reales. Verás el canvas real con datos pre-cocinados."
+          ? t.onboardingFirstQuoteDemoBody
           : connectedProviders.length > 0
-            ? `Usaremos ${connectedProviders.join(", ")} para buscar.`
-            : "Escribe una petición como se la pediría un cliente."}
+            ? formatMessage(t.onboardingFirstQuoteWithProviders, {
+                providers: connectedProviders.join(", "),
+              })
+            : t.onboardingFirstQuoteBody}
       </p>
       <blockquote className="border-l-2 border-accent pl-4 text-body text-text">
         {suggestion}
@@ -50,7 +56,7 @@ function PrimingScreen({
         onClick={onLaunch}
         className="inline-flex h-12 items-center rounded-md bg-ink px-6 text-body font-medium text-paper hover:bg-ink-2"
       >
-        {demo ? "Lanzar demo" : "Empezar"}
+        {demo ? t.onboardingLaunchDemo : t.onboardingStart}
       </button>
     </div>
   );
@@ -63,6 +69,7 @@ export function FirstQuoteGuided({
   agencyConfig,
 }: Props) {
   const router = useRouter();
+  const { t } = useSiteLanguage();
   const [launched, setLaunched] = useState(false);
   const [pending, startTransition] = useTransition();
 
@@ -103,7 +110,7 @@ export function FirstQuoteGuided({
 
   return (
     <div className="space-y-6">
-      <Eyebrow className="block">Paso 04 · Primera cotización</Eyebrow>
+      <Eyebrow className="block">{t.onboardingFirstQuoteEyebrow}</Eyebrow>
 
       <div className="overflow-hidden rounded-lg border border-border-1 bg-paper">
         <QuoteConversation
@@ -123,10 +130,10 @@ export function FirstQuoteGuided({
             disabled={pending}
             className="inline-flex h-12 items-center justify-center rounded-md bg-ink px-6 text-body font-medium text-paper transition-colors hover:bg-ink-2 disabled:opacity-50"
           >
-            {pending ? "Guardando…" : "Continuar"}
+            {pending ? t.onboardingSaving : t.onboardingContinue}
           </button>
           <span className="text-body-sm text-text-3">
-            El siguiente paso es opcional.
+            {t.onboardingNextOptional}
           </span>
         </div>
       ) : null}

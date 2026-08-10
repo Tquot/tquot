@@ -1,3 +1,4 @@
+import type { Locale } from "@/app/dashboard/translations";
 import type { ComparatorEntry } from "@/lib/comparator/types";
 import type { ParsedTripInputV2 } from "@/lib/quote-engine/schemas-v2";
 import type {
@@ -76,6 +77,8 @@ export interface SuggestionContext {
   };
   /** Sugerencias ya descartadas en esta cotización, por id */
   dismissed: string[];
+  /** UI / agent copy locale. Defaults to `"es"` when omitted. */
+  locale?: Locale;
 }
 
 export type Detector = (ctx: SuggestionContext) => Suggestion | null;

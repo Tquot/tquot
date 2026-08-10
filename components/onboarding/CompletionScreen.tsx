@@ -2,27 +2,31 @@
 
 import Link from "next/link";
 import { Eyebrow } from "@/components/ui/Eyebrow";
+import { useSiteLanguage } from "@/app/language-provider";
+import { formatMessage } from "@/app/dashboard/format-message";
 
 interface Props {
   agencyName: string;
 }
 
 export function CompletionScreen({ agencyName }: Props) {
+  const { t } = useSiteLanguage();
+  const name = agencyName || t.onboardingYourAgency;
+
   return (
     <div className="mx-auto max-w-xl space-y-8">
       <div>
         <Eyebrow className="mb-4 block" tone="accent">
-          Listo
+          {t.onboardingCompleteEyebrow}
         </Eyebrow>
         <h1
           className="font-serif text-display-2 text-ink"
           style={{ fontWeight: 500 }}
         >
-          {agencyName || "Tu agencia"} ya puede cotizar.
+          {formatMessage(t.onboardingCompleteTitle, { name })}
         </h1>
         <p className="mt-4 text-[17px] leading-relaxed text-text-2">
-          Has completado la configuración. El siguiente paso natural es una
-          cotización real desde el dashboard.
+          {t.onboardingCompleteBody}
         </p>
       </div>
 
@@ -33,13 +37,13 @@ export function CompletionScreen({ agencyName }: Props) {
           href="/dashboard/new-quote"
           className="inline-flex h-12 items-center rounded-md bg-ink px-6 text-body font-medium text-paper hover:bg-ink-2"
         >
-          Nueva cotización
+          {t.onboardingNewQuote}
         </Link>
         <Link
           href="/dashboard"
           className="inline-flex h-12 items-center rounded-md border border-border-1 px-6 text-body text-ink"
         >
-          Ir al dashboard
+          {t.onboardingGoDashboard}
         </Link>
       </div>
     </div>

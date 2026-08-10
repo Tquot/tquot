@@ -1,30 +1,35 @@
+"use client";
+
+import { useSiteLanguage } from "@/app/language-provider";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 
-const ROI = [
-  {
-    value: "45×",
-    label: "Reducción de tiempo",
-    hint: "45 min → 60 seg por cotización",
-  },
-  {
-    value: "+456 €",
-    label: "Ahorro medio",
-    hint: "por reserva con el comparador",
-  },
-  {
-    value: "3×",
-    label: "Más cotizaciones",
-    hint: "con el mismo equipo",
-  },
-];
-
 export function ROIBlock() {
+  const { t } = useSiteLanguage();
+
+  const ROI = [
+    {
+      value: t.landingRoi1Value,
+      label: t.landingRoi1Label,
+      hint: t.landingRoi1Hint,
+    },
+    {
+      value: t.landingRoi2Value,
+      label: t.landingRoi2LabelShort,
+      hint: t.landingRoi2Hint,
+    },
+    {
+      value: t.landingRoi3Value,
+      label: t.landingRoi3LabelShort,
+      hint: t.landingRoi3Hint,
+    },
+  ];
+
   return (
     <section className="bg-ink py-14 text-paper sm:py-20">
       <div className="mx-auto max-w-[1200px] px-5">
-        <Eyebrow className="mb-3 block text-paper/60">Retorno</Eyebrow>
+        <Eyebrow className="mb-3 block text-paper/60">{t.landingRoiEyebrowShort}</Eyebrow>
         <h2 className="mb-12 max-w-[640px] font-serif text-h1 text-paper" style={{ fontWeight: 500 }}>
-          TQuot se paga solo en la primera semana.
+          {t.landingRoiTitle}
         </h2>
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-3 sm:gap-12">
           {ROI.map((item, index) => (

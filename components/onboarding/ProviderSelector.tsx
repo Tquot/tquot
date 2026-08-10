@@ -7,6 +7,36 @@ import {
   ONBOARDING_PROVIDERS,
   type ProviderKey,
 } from "@/lib/onboarding/constants";
+import { useSiteLanguage } from "@/app/language-provider";
+import { formatMessage } from "@/app/dashboard/format-message";
+import type { DashboardTranslation } from "@/app/dashboard/translations";
+
+function providerCopy(key: ProviderKey, t: DashboardTranslation) {
+  switch (key) {
+    case "hotelbeds":
+      return {
+        category: t.onboardingProviderHotelbedsCategory,
+        description: t.onboardingProviderHotelbedsDesc,
+        unlocks: [
+          t.onboardingProviderHotelbedsUnlock1,
+          t.onboardingProviderHotelbedsUnlock2,
+          t.onboardingProviderHotelbedsUnlock3,
+        ],
+      };
+    case "duffel":
+      return {
+        category: t.onboardingProviderDuffelCategory,
+        description: t.onboardingProviderDuffelDesc,
+        unlocks: [t.onboardingProviderDuffelUnlock1],
+      };
+    case "booking":
+      return {
+        category: t.onboardingProviderBookingCategory,
+        description: t.onboardingProviderBookingDesc,
+        unlocks: [t.onboardingProviderBookingUnlock1],
+      };
+  }
+}
 
 interface Props {
   initialConnected?: ProviderKey[];
@@ -14,6 +44,7 @@ interface Props {
 
 export function ProviderSelector({ initialConnected = [] }: Props) {
   const router = useRouter();
+  const { t } = useSiteLanguage();
   const [connected, setConnected] = useState<ProviderKey[]>(initialConnected);
   const [selected, setSelected] = useState<ProviderKey | null>(null);
   const [creds, setCreds] = useState<Record<string, string>>({});
@@ -22,6 +53,7 @@ export function ProviderSelector({ initialConnected = [] }: Props) {
   const [ok, setOk] = useState<boolean | null>(null);
 
   const provider = ONBOARDING_PROVIDERS.find((p) => p.key === selected);
+  const selectedCopy = selected ? providerCopy(selected, t) : null;
 
   async function testAndSave() {
     if (!selected) return;
@@ -50,7 +82,7 @@ export function ProviderSelector({ initialConnected = [] }: Props) {
       }
     } catch {
       setOk(false);
-      setMessage("No se pudo contactar al servidor.");
+      setMessage(t.onboardingServerUnreachable);
     } finally {
       setPending(false);
     }
@@ -69,17 +101,21 @@ export function ProviderSelector({ initialConnected = [] }: Props) {
     router.push("/onboarding/first-quote");
   }
 
-  if (selected && provider) {
+  if (selected && provider && selectedCopy) {
     return (
       <div className="mx-auto max-w-xl space-y-6">
-        <Eyebrow className="block">Paso 03 · {provider.name}</Eyebrow>
+        <Eyebrow className="block">
+          {formatMessage(t.onboardingProvidersStepEyebrow, {
+            name: provider.name,
+          })}
+        </Eyebrow>
         <h1
           className="font-serif text-h1 text-ink"
           style={{ fontWeight: 500 }}
         >
-          Conectar {provider.name}
+          {formatMessage(t.onboardingConnectProvider, { name: provider.name })}
         </h1>
-        <p className="text-body text-text-2">{provider.description}</p>
+        <p className="text-body text-text-2">{selectedCopy.description}</p>
 
         <div className="space-y-3">
           {provider.fields.map((field) => (
@@ -117,7 +153,7 @@ export function ProviderSelector({ initialConnected = [] }: Props) {
             disabled={pending}
             className="inline-flex h-11 items-center rounded-md bg-ink px-5 text-body-sm font-medium text-paper hover:bg-ink-2 disabled:opacity-50"
           >
-            {pending ? "Probando…" : "Probar y guardar"}
+            {pending ? t.onboardingTesting : t.onboardingTestAndSave}
           </button>
           <button
             type="button"
@@ -128,7 +164,7 @@ export function ProviderSelector({ initialConnected = [] }: Props) {
             }}
             className="inline-flex h-11 items-center rounded-md border border-border-1 px-5 text-body-sm text-ink"
           >
-            Cancelar
+            {t.onboardingCancel}
           </button>
         </div>
       </div>
@@ -138,22 +174,22 @@ export function ProviderSelector({ initialConnected = [] }: Props) {
   return (
     <div className="mx-auto max-w-2xl space-y-8">
       <div>
-        <Eyebrow className="mb-4 block">Paso 03 · Proveedores</Eyebrow>
+        <Eyebrow className="mb-4 block">{t.onboardingProvidersEyebrow}</Eyebrow>
         <h1
           className="font-serif text-h1 text-ink"
           style={{ fontWeight: 500 }}
         >
-          Conecta al menos un proveedor.
+          {t.onboardingProvidersTitle}
         </h1>
         <p className="mt-3 text-body text-text-2">
-          El comparador aporta valor con dos o más fuentes de hoteles. Puedes
-          conectar varios antes de continuar.
+          {t.onboardingProvidersSubtitle}
         </p>
       </div>
 
       <ul className="space-y-3">
         {ONBOARDING_PROVIDERS.map((p) => {
           const isConnected = connected.includes(p.key);
+          const copy = providerCopy(p.key, t);
           return (
             <li
               key={p.key}
@@ -170,20 +206,20 @@ export function ProviderSelector({ initialConnected = [] }: Props) {
                     </h2>
                     {p.recommended ? (
                       <span className="font-mono text-[10px] uppercase tracking-wider text-accent">
-                        Recomendado
+                        {t.onboardingRecommended}
                       </span>
                     ) : null}
                     {isConnected ? (
                       <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-success">
                         <span className="h-1.5 w-1.5 rounded-full bg-success" />
-                        Conectado
+                        {t.onboardingConnected}
                       </span>
                     ) : null}
                   </div>
-                  <p className="mt-1 text-body-sm text-text-3">{p.category}</p>
-                  <p className="mt-2 text-body-sm text-text-2">{p.description}</p>
+                  <p className="mt-1 text-body-sm text-text-3">{copy.category}</p>
+                  <p className="mt-2 text-body-sm text-text-2">{copy.description}</p>
                   <ul className="mt-3 space-y-1">
-                    {p.unlocks.map((u) => (
+                    {copy.unlocks.map((u) => (
                       <li
                         key={u}
                         className="flex items-start gap-2 text-[12px] text-text-2"
@@ -200,7 +236,7 @@ export function ProviderSelector({ initialConnected = [] }: Props) {
                     onClick={() => setSelected(p.key)}
                     className="shrink-0 rounded-md border border-border-2 px-3 py-2 text-body-sm text-ink hover:border-border-3"
                   >
-                    Conectar
+                    {t.onboardingConnect}
                   </button>
                 ) : null}
               </div>
@@ -216,8 +252,12 @@ export function ProviderSelector({ initialConnected = [] }: Props) {
           disabled={pending || connected.length === 0}
           className="inline-flex h-12 items-center rounded-md bg-ink px-6 text-body font-medium text-paper hover:bg-ink-2 disabled:opacity-50"
         >
-          Continuar con {connected.length}{" "}
-          {connected.length === 1 ? "proveedor" : "proveedores"}
+          {formatMessage(
+            connected.length === 1
+              ? t.onboardingContinueWithProviderOne
+              : t.onboardingContinueWithProviderMany,
+            { count: connected.length },
+          )}
         </button>
         {connected.length > 0 ? (
           <button
@@ -225,7 +265,7 @@ export function ProviderSelector({ initialConnected = [] }: Props) {
             onClick={() => setSelected(null)}
             className="inline-flex h-12 items-center rounded-md border border-border-1 px-6 text-body text-ink"
           >
-            Conectar otro
+            {t.onboardingConnectAnother}
           </button>
         ) : null}
         <button
@@ -245,7 +285,7 @@ export function ProviderSelector({ initialConnected = [] }: Props) {
           }}
           className="inline-flex h-12 items-center rounded-md px-4 text-body-sm text-text-3 underline-offset-2 hover:underline"
         >
-          Continuar en demo sin conectar
+          {t.onboardingContinueDemoNoConnect}
         </button>
       </div>
     </div>

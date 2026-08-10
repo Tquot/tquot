@@ -1,31 +1,24 @@
+"use client";
+
+import { useSiteLanguage } from "@/app/language-provider";
 import { Eyebrow } from "@/components/ui/Eyebrow";
 
-const QUESTIONS = [
-  {
-    q: "¿TQuot hace reservas?",
-    a: "No. TQuot cotiza y compara precios. La reserva la realizas tú directamente en el extranet del proveedor. Mantienes el control total y cumples con la normativa de agencias de viajes.",
-  },
-  {
-    q: "¿Necesito contratos con los proveedores?",
-    a: "Sí. TQuot usa tus credenciales de Hotelbeds, Duffel y demás. Los precios que ves son los tuyos, no revendemos tarifas. Si no tienes alguna integración, te ayudamos a darte de alta.",
-  },
-  {
-    q: "¿Cómo funciona el inventario propio?",
-    a: "Subes tus hoteles negociados, paquetes y experiencias propias. TQuot los muestra primero en cada cotización. Si no hay suficientes opciones, completa con APIs conectadas automáticamente.",
-  },
-  {
-    q: "¿Es seguro guardar las credenciales de mis proveedores?",
-    a: "Las credenciales se cifran en reposo y solo se descifran en el momento de consultar al proveedor. Cumplimos RGPD. Puedes revocar el acceso en cualquier momento desde tu panel.",
-  },
-];
-
 export function FAQ() {
+  const { t } = useSiteLanguage();
+
+  const QUESTIONS = [
+    { q: t.landingFaq1Q, a: t.landingFaq1A },
+    { q: t.landingFaq2Q, a: t.landingFaq2A },
+    { q: t.landingFaq3Q, a: t.landingFaq3A },
+    { q: t.landingFaq4Q, a: t.landingFaq4A },
+  ];
+
   return (
     <section className="border-y border-border-1 bg-paper-2 py-14 sm:py-20">
       <div className="mx-auto max-w-[820px] px-5">
-        <Eyebrow className="mb-3 block">Preguntas frecuentes</Eyebrow>
+        <Eyebrow className="mb-3 block">{t.landingFaqTitle}</Eyebrow>
         <h2 className="mb-10 font-serif text-h1 text-ink" style={{ fontWeight: 500 }}>
-          Lo que suele preguntarse.
+          {t.landingFaqLead}
         </h2>
         <div className="border-t border-border-2">
           {QUESTIONS.map((item, index) => (

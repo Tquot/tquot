@@ -25,16 +25,6 @@ export default async function DashboardPage() {
   const checklistItems = ONBOARDING_STEPS.filter((s) => s !== "complete").map(
     (step) => ({
       key: step,
-      label:
-        step === "welcome"
-          ? "Bienvenida"
-          : step === "identity"
-            ? "Identidad de agencia"
-            : step === "providers"
-              ? "Conectar proveedor"
-              : step === "first-quote"
-                ? "Primera cotización"
-                : "Inventario propio",
       href: stepPath(step),
       done: completed.has(step),
     }),

@@ -1,11 +1,14 @@
+"use client";
+
 import { Eyebrow } from "@/components/ui/Eyebrow";
 import type { AgencyAnalytics } from "@/lib/analytics/types";
+import { useDashboardLanguage } from "@/app/dashboard/dashboard-language-provider";
+import { formatMessage } from "@/app/dashboard/format-message";
 
-const PROVIDER_ES: Record<string, string> = {
+const PROVIDER_NAMES: Record<string, string> = {
   hotelbeds: "Hotelbeds",
   booking: "Booking.com",
   duffel: "Duffel",
-  own: "Inventario propio",
   ratehawk: "RateHawk",
   viator: "Viator",
   civitatis: "Civitatis",
@@ -17,25 +20,33 @@ export function ProvidersTable({
 }: {
   providers: AgencyAnalytics["providers"];
 }) {
+  const { locale, t } = useDashboardLanguage();
   if (providers.length === 0) return null;
+
+  function providerLabel(name: string) {
+    if (name === "own") return t.analyticsProviderOwn;
+    return PROVIDER_NAMES[name] ?? name;
+  }
 
   const lowPerformers = providers.filter(
     (p) => p.appearances >= 10 && p.win_rate_pct < 10,
   );
 
+  const joiner = locale === "es" ? " y " : " and ";
+
   return (
     <section>
-      <Eyebrow className="block mb-1">Proveedores</Eyebrow>
+      <Eyebrow className="block mb-1">{t.analyticsProvidersTitle}</Eyebrow>
       <p className="text-[12px] text-text-3 mb-5">
-        Cuántas veces apareció cada uno y cuántas lo elegiste.
+        {t.analyticsProvidersSubtitle}
       </p>
 
       <div className="border-t border-border-2">
         <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 py-2.5 border-b border-border-2">
-          <span className="eyebrow">Proveedor</span>
-          <span className="eyebrow text-right w-24">Apariciones</span>
-          <span className="eyebrow text-right w-20">Elegido</span>
-          <span className="eyebrow text-right w-20">Ratio</span>
+          <span className="eyebrow">{t.analyticsColProvider}</span>
+          <span className="eyebrow text-right w-24">{t.analyticsColAppearances}</span>
+          <span className="eyebrow text-right w-20">{t.analyticsColChosen}</span>
+          <span className="eyebrow text-right w-20">{t.analyticsColRatio}</span>
         </div>
 
         {providers.map((p) => (
@@ -47,7 +58,7 @@ export function ProvidersTable({
               className="font-serif text-[17px] text-ink"
               style={{ fontWeight: 500 }}
             >
-              {PROVIDER_ES[p.name] ?? p.name}
+              {providerLabel(p.name)}
             </span>
             <span className="font-mono text-mono-md text-text-2 tabular-nums text-right w-24">
               {p.appearances}
@@ -64,14 +75,15 @@ export function ProvidersTable({
 
       {lowPerformers.length > 0 && (
         <p className="mt-4 text-body-sm text-text-2 leading-relaxed border-l-2 border-border-2 pl-3">
-          {lowPerformers.map((p) => PROVIDER_ES[p.name] ?? p.name).join(" y ")}
-          {lowPerformers.length === 1 ? " aparece" : " aparecen"} a menudo pero
-          casi nunca
-          {lowPerformers.length === 1 ? " se elige" : " se eligen"}. Revisa
-          si merece la pena mantener la conexión.
+          {lowPerformers.length === 1
+            ? formatMessage(t.analyticsProvidersLowSingle, {
+                name: providerLabel(lowPerformers[0].name),
+              })
+            : formatMessage(t.analyticsProvidersLowPlural, {
+                names: lowPerformers.map((p) => providerLabel(p.name)).join(joiner),
+              })}
         </p>
       )}
     </section>
   );
 }
-
