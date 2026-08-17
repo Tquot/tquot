@@ -107,15 +107,10 @@ export function useQuoteBuilder() {
           }
         }
         if (event.type === "external_providers.done") {
-          const currentQuote = selectCurrentQuote(
-            useQuoteConversationStore.getState(),
-          ) as EngineQuote | null;
-          if (currentQuote) {
-            useQuoteConversationStore.getState().updateQuote({
-              ...currentQuote,
-              externalProviders: event.blocks,
-            } as StoreQuote);
-          }
+          dispatch({
+            type: "EXTERNAL_PROVIDERS_DONE",
+            blocks: event.blocks,
+          });
         }
         if (event.type === "build.error") {
           dispatch({

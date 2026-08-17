@@ -413,6 +413,7 @@ export type ConversationAction =
   | { type: "BUILD_EVENT"; event: BuildEvent }
   | { type: "BUILD_COMPLETE"; quote: Quote }
   | { type: "BUILD_ERROR"; error: ConversationError }
+  | { type: "EXTERNAL_PROVIDERS_DONE"; blocks: ProviderBlock[] }
   | { type: "REFINE_COMPLETE"; quote: Quote; operationId: string; parsed?: ParsedTripInput }
   | { type: "REFINE_ERROR"; error: ConversationError; operationId: string }
   | { type: "RETRY" }

@@ -5,6 +5,7 @@ import type {
   BuildEvent,
   ConversationAction,
   ConversationStreamEvent,
+  ExternalProvidersEvent,
   ParseEvent,
 } from "@/lib/quote-conversation/types";
 import { useQuoteConversationStore } from "@/lib/quote-conversation/store";
@@ -159,6 +160,18 @@ function isBuildEvent(value: unknown): value is BuildEvent {
     typeof (value as BuildEvent).type === "string" &&
     ((value as BuildEvent).type.startsWith("build.") ||
       (value as BuildEvent).type.startsWith("section."))
+  );
+}
+
+function isExternalProvidersEvent(
+  value: unknown,
+): value is ExternalProvidersEvent {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "type" in value &&
+    typeof (value as ExternalProvidersEvent).type === "string" &&
+    (value as ExternalProvidersEvent).type.startsWith("external_providers.")
   );
 }
 
@@ -322,6 +335,24 @@ export function dispatchBuildEvent(event: BuildEvent): SseTerminalResult {
   }
 }
 
+export function dispatchExternalProvidersEvent(
+  event: ExternalProvidersEvent,
+): SseTerminalResult {
+  const { dispatch } = useQuoteConversationStore.getState();
+
+  switch (event.type) {
+    case "external_providers.started":
+      return "complete";
+
+    case "external_providers.done":
+      dispatch({ type: "EXTERNAL_PROVIDERS_DONE", blocks: event.blocks });
+      return "complete";
+
+    case "external_providers.error":
+      return "complete";
+  }
+}
+
 export async function streamParseEvents(
   body: {
     text: string;
@@ -376,6 +407,9 @@ export async function streamBuildEvents(
           if (result === "error") {
             terminal = "error";
           }
+        }
+        if (autoDispatch && isExternalProvidersEvent(event)) {
+          dispatchExternalProvidersEvent(event);
         }
       },
     },
