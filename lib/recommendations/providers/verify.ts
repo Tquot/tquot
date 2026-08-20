@@ -1,7 +1,4 @@
-import {
-  parsePhoneNumberFromString,
-  type CountryCode,
-} from "libphonenumber-js";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
 import type {
   RawProvider,
   ExternalProvider,
@@ -124,7 +121,7 @@ export function verifyProvider(
     if (sourceOk && !looksFake) {
       const parsedPhone = parsePhoneNumberFromString(
         rawValue,
-        toCountryCode(opts.countryCode),
+        (opts.countryCode as any) ?? "ES",
       );
       if (parsedPhone?.isValid()) {
         phone = {
@@ -227,11 +224,4 @@ function registrableDomain(hostname: string): string {
   const lastTwo = parts.slice(-2).join(".");
   if (twoLevelTlds.includes(lastTwo)) return parts.slice(-3).join(".");
   return parts.slice(-2).join(".");
-}
-
-function toCountryCode(code: string | null): CountryCode {
-  if (!code) return "ES";
-  const upper = code.trim().toUpperCase();
-  if (/^[A-Z]{2}$/.test(upper)) return upper as CountryCode;
-  return "ES";
 }
