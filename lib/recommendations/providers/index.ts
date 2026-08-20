@@ -1,4 +1,5 @@
 import "server-only";
+import type { CountryCode } from "libphonenumber-js";
 import { createServiceClient } from "@/lib/supabase/service";
 import type { ParsedTripInputV2 } from "@/lib/quote-engine/schemas-v2";
 import { isNeverCoveredByConnector } from "../selector";
@@ -68,7 +69,7 @@ export async function resolveExternalProviders(
 async function resolveOne(o: {
   category: ProviderCategory;
   destination: string;
-  countryCode: string | null;
+  countryCode: CountryCode | null;
   travelers: { adults: number; children: number };
   dates: { from: string; to: string } | null;
   rawRequest: string | null;

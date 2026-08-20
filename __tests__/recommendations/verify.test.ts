@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import type { CountryCode } from "libphonenumber-js";
 import { verifyAll, verifyProvider } from "@/lib/recommendations/providers/verify";
 import type { RawProvider } from "@/lib/recommendations/providers/types";
 
@@ -25,7 +26,7 @@ const base: RawProvider = {
   ],
 };
 
-const opts = { destination: "Roma", countryCode: "IT" };
+const opts = { destination: "Roma", countryCode: "IT" as CountryCode };
 
 describe("verifyProvider · casos válidos", () => {
   it("acepta un proveedor con email y teléfono en su propio dominio", () => {

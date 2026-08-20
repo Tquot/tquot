@@ -1,4 +1,4 @@
-import { parsePhoneNumberFromString } from "libphonenumber-js";
+import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js";
 import type {
   RawProvider,
   ExternalProvider,
@@ -61,7 +61,7 @@ const FAKE_PHONE = [
 export interface VerifyOpts {
   destination: string;
   /** ISO-2 del país del destino, para validar el teléfono. */
-  countryCode: string | null;
+  countryCode: CountryCode | null;
 }
 
 export function verifyProvider(
@@ -121,7 +121,7 @@ export function verifyProvider(
     if (sourceOk && !looksFake) {
       const parsedPhone = parsePhoneNumberFromString(
         rawValue,
-        (opts.countryCode as any) ?? "ES",
+        opts.countryCode ?? "ES",
       );
       if (parsedPhone?.isValid()) {
         phone = {
