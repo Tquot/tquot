@@ -146,33 +146,6 @@ export function conversationReducer(
       return { status: "error", error: action.error, previousState: state };
     }
 
-    case "EXTERNAL_PROVIDERS_DONE": {
-      if (
-        state.status === "complete" ||
-        state.status === "planning_refinement" ||
-        state.status === "awaiting_confirmation" ||
-        state.status === "refining"
-      ) {
-        return {
-          ...state,
-          quote: {
-            ...state.quote,
-            externalProviders: action.blocks,
-          },
-        };
-      }
-      if (state.status === "building") {
-        return {
-          ...state,
-          partialQuote: {
-            ...state.partialQuote,
-            externalProviders: action.blocks,
-          },
-        };
-      }
-      return state;
-    }
-
     case "USER_REFINE_INPUT": {
       if (state.status === "complete") {
         return {

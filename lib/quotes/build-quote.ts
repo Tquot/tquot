@@ -24,7 +24,6 @@ import {
 import type { InventoryQuoteRow } from "@/lib/inventory/search-for-quote";
 import type { EnrichedTripRequest } from "@/lib/parser/airport-resolution";
 import { providerSlug } from "@/lib/connectors/provider-logo";
-import type { ProviderBlock } from "@/lib/recommendations/providers/types";
 
 // ─────────────────────────────────────────────────────────────
 // Input
@@ -250,7 +249,6 @@ export interface Quote {
   experiences: QuoteItem[];
   pricing: QuotePricing;
   _meta: QuoteMeta;
-  externalProviders?: ProviderBlock[];
 }
 
 // ─────────────────────────────────────────────────────────────
